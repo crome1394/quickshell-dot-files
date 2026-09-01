@@ -110,7 +110,7 @@ The bar **Config** strip has an **Audio** toolbar button that opens a sound-mana
 | **Echo cancel** | Sticky On/Off at bottom (Options only shows/hides the section) |
 
 - Shared view: `components/AudioMonitorView.qml` (also Inspector **Audio** tab)
-- Tools: Refresh, `pw-top`, Restart audio
+- Tools: Refresh at top; `pw-top` and Restart audio at the bottom
 - Active streams list hides internal peak-detect monitors (`Quickshell Peak Detect`)
 - **No sampling when closed**: peak monitors, soft-poll, and profile processes tear down with `active: false`
 - Pill stays the glance + wheel volume control; this panel is multi-device management
