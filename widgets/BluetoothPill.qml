@@ -915,115 +915,6 @@ Rectangle {
                             onClicked: root.detailAddress = ""
                         }
                     }
-
-                    // Power toggle — width fits longest label
-                    Rectangle {
-                        width: Math.max(powerOnMetrics.width, powerOffMetrics.width) + 16
-                        height: 26
-                        radius: bar.buttonRadius
-                        color: powerMa.containsMouse
-                               ? (bt.powered ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
-                               : (bt.powered ? bar.surface : Qt.rgba(0.12, 0.35, 0.22, 0.55))
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-                        Text {
-                            id: powerOnMetrics
-                            visible: false
-                            text: "Power on"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            id: powerOffMetrics
-                            visible: false
-                            text: "Power off"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: bt.powered ? "Power off" : "Power on"
-                            color: powerMa.containsMouse && !bt.powered ? bar.bg : bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: powerMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: bt.togglePower()
-                        }
-                    }
-
-                    // Blueman monitor applet — left-click session toggle; right-click sticky disable/enable
-                    Rectangle {
-                        width: Math.max(appletOnMetrics.width, appletOffMetrics.width) + 16
-                        height: 26
-                        radius: bar.buttonRadius
-                        color: appletMa.containsMouse
-                               ? (root.bluemanRunning ? Qt.rgba(0.55, 0.14, 0.14, 0.45) : bar.popupButtonHoverBg)
-                               : (root.bluemanRunning ? Qt.rgba(0.12, 0.35, 0.22, 0.45) : bar.surface)
-                        border.width: bar.controlBorderWidth
-                        border.color: !root.bluemanAutostartEnabled
-                                      ? "#F59E0B"
-                                      : (root.bluemanRunning ? bar.accent : bar.dividerStrong)
-                        Text {
-                            id: appletOnMetrics
-                            visible: false
-                            text: "Applet on"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            id: appletOffMetrics
-                            visible: false
-                            text: "Applet off"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.bluemanRunning ? "Applet on" : "Applet off"
-                            color: bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: appletMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
-                            ToolTip.text: {
-                                var sticky = root.bluemanAutostartEnabled
-                                    ? "autostart on (login)"
-                                    : "autostart off (stays off after reboot)"
-                                var sess = root.bluemanRunning ? "running" : "stopped"
-                                return "Blueman tray · " + sess + " · " + sticky
-                                    + "\nLeft: session start/stop · Right: permanent disable/enable"
-                            }
-                            ToolTip.visible: containsMouse
-                            ToolTip.delay: bar.tooltipDelay || 400
-                            onClicked: (mouse) => {
-                                if (mouse.button === Qt.RightButton) {
-                                    // Sticky: flip login autostart (and stop/start now)
-                                    if (root.bluemanAutostartEnabled)
-                                        bt.disableBluemanAutostart()
-                                    else
-                                        bt.enableBluemanAutostart()
-                                } else {
-                                    bt.toggleBlueman()
-                                }
-                            }
-                        }
-                    }
                 }
 
                 Text {
@@ -1993,6 +1884,52 @@ Rectangle {
                         font.pixelSize: 10
                         font.family: bar.fontFamily
                         wrapMode: Text.WordWrap
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 26
+                        radius: bar.buttonRadius
+                        color: powerMa.containsMouse
+                               ? (bt.powered ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
+                               : (bt.powered ? bar.surface : Qt.rgba(0.12, 0.35, 0.22, 0.55))
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+                        Text {
+                            id: powerOnMetrics
+                            visible: false
+                            text: "Power on"
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        Text {
+                            id: powerOffMetrics
+                            visible: false
+                            text: "Power off"
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        Text {
+                            anchors.centerIn: parent
+                            text: bt.powered ? "Power off" : "Power on"
+                            color: powerMa.containsMouse && !bt.powered ? bar.bg : bar.text
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: powerMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: bt.togglePower()
+                        }
                     }
                 }
             }

@@ -2,7 +2,7 @@
 
 # Bar control strip (`BarControlBar.qml`)
 
-Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar on the **bottom**; content expands above and resizes to fit. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling.
+Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar on the **bottom**; content expands above and resizes to fit. Close a panel with the **✕** (top-right) or Esc. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling. Refresh / reset / reload actions sit at the **bottom** of each panel.
 
 | Panel | What it does |
 |-------|----------------|
@@ -237,7 +237,7 @@ Layout (top → bottom):
 
 | Area | Controls |
 |------|----------|
-| **Tools** | **Refresh**, **pw-top** (kitty), **Restart audio** (`audio-control.sh restart-audio`) |
+| **Tools** | **Refresh** at top; **pw-top** (kitty) and **Restart audio** at the bottom (`audio-control.sh restart-audio`) |
 | **Filter** | Text field filters devices and stream names |
 | **Overview** (one pill) | **Audio Summary** → **Active streams** → **Levels** (no inter-card dead space) |
 | **Devices** | Dual columns: sinks / sources — volume, mute, **Set Default**, **ports**; **Profile** under each column |

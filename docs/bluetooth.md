@@ -21,7 +21,8 @@ Glassmorphic bar pill for day-to-day Bluetooth management via **Quickshell.Bluet
 | **Rename** | Set the BlueZ alias (`device.name`) for paired devices — **Rename** chip + Save / Enter |
 | **Trust / block** | Writable BlueZ flags per device |
 | **Remove** | `device.forget()` with a confirm step |
-| **Blueman applet** | Header **Applet on/off**: left-click = session start/stop; right-click = permanent disable/enable (XDG autostart). IPC: `disableApplet` / `enableApplet` / `setAppletAutostart` |
+| **Adapter power** | Footer **Power off / Power on** |
+| **Blueman applet** | Not in the popup. Sticky login autostart is **Options → Bluetooth**. IPC: `disableApplet` / `enableApplet` / `setAppletAutostart` |
 | **Audio profile** | For connected audio devices: PipeWire `bluez_card.*` profiles (A2DP / HFP / codecs) via `scripts/audio-control.sh` |
 | **Device info** | Name, address, paired/bonded/trusted/blocked, battery, adapter, D-Bus path; optional launch of `blueman-manager` |
 

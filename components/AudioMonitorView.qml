@@ -964,57 +964,6 @@ Item {
                 }
             }
 
-            Rectangle {
-                Layout.preferredHeight: 22
-                Layout.preferredWidth: Math.max(52, pwTopLbl.implicitWidth + 14)
-                radius: 4
-                color: pwTopMa.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.10)
-                Text {
-                    id: pwTopLbl
-                    anchors.centerIn: parent
-                    text: "pw-top"
-                    color: root.accentColor
-                    font.pixelSize: 10
-                    font.family: "monospace"
-                }
-                MouseArea {
-                    id: pwTopMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.openPwTop()
-                }
-            }
-
-            Rectangle {
-                Layout.preferredHeight: 22
-                Layout.preferredWidth: Math.max(72, restartLbl.implicitWidth + 14)
-                radius: 4
-                color: restartMa.containsMouse ? Qt.rgba(0.91, 0.36, 0.43, 0.18) : Qt.rgba(1, 1, 1, 0.04)
-                border.width: 1
-                border.color: root.audioRestartBusy
-                    ? Qt.rgba(0.91, 0.36, 0.43, 0.45)
-                    : Qt.rgba(1, 1, 1, 0.10)
-                opacity: root.audioRestartBusy ? 0.55 : 1
-                Text {
-                    id: restartLbl
-                    anchors.centerIn: parent
-                    text: root.audioRestartBusy ? "…" : "Restart audio"
-                    color: root.errorColor
-                    font.pixelSize: 10
-                    font.family: "monospace"
-                }
-                MouseArea {
-                    id: restartMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: !root.audioRestartBusy
-                    onClicked: root.restartSoundSystem()
-                }
-            }
         }
 
 
@@ -2364,6 +2313,63 @@ Item {
                             onClicked: root.setEchoCancel(!root.echoCancelEnabled)
                         }
                     }
+                }
+            }
+        }
+
+        RowLayout {
+            visible: root.showTools
+            Layout.fillWidth: true
+            spacing: 6
+            Item { Layout.fillWidth: true }
+            Rectangle {
+                Layout.preferredHeight: 22
+                Layout.preferredWidth: Math.max(52, pwTopLbl.implicitWidth + 14)
+                radius: 4
+                color: pwTopMa.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.04)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.10)
+                Text {
+                    id: pwTopLbl
+                    anchors.centerIn: parent
+                    text: "pw-top"
+                    color: root.accentColor
+                    font.pixelSize: 10
+                    font.family: "monospace"
+                }
+                MouseArea {
+                    id: pwTopMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.openPwTop()
+                }
+            }
+            Rectangle {
+                Layout.preferredHeight: 22
+                Layout.preferredWidth: Math.max(72, restartLbl.implicitWidth + 14)
+                radius: 4
+                color: restartMa.containsMouse ? Qt.rgba(0.91, 0.36, 0.43, 0.18) : Qt.rgba(1, 1, 1, 0.04)
+                border.width: 1
+                border.color: root.audioRestartBusy
+                    ? Qt.rgba(0.91, 0.36, 0.43, 0.45)
+                    : Qt.rgba(1, 1, 1, 0.10)
+                opacity: root.audioRestartBusy ? 0.55 : 1
+                Text {
+                    id: restartLbl
+                    anchors.centerIn: parent
+                    text: root.audioRestartBusy ? "…" : "Restart audio"
+                    color: root.errorColor
+                    font.pixelSize: 10
+                    font.family: "monospace"
+                }
+                MouseArea {
+                    id: restartMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.audioRestartBusy
+                    onClicked: root.restartSoundSystem()
                 }
             }
         }

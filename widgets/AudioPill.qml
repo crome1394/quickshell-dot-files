@@ -1993,7 +1993,6 @@ Rectangle {
 
                     Item { Layout.fillWidth: true }
 
-                    // Optional status from restart / tools
                     Text {
                         visible: root.audioToolsStatus.length > 0
                         text: root.audioToolsStatus
@@ -2001,63 +2000,7 @@ Rectangle {
                         font.pixelSize: 11
                         font.family: bar.fontFamily
                         elide: Text.ElideRight
-                        Layout.maximumWidth: 140
-                    }
-
-                    // Open pw-top in a terminal (live PipeWire graph)
-                    Rectangle {
-                        width: pwTopLabel.implicitWidth + 16
-                        height: 24
-                        radius: bar.smallButtonRadius
-                        color: pwTopMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: pwTopLabel
-                            anchors.centerIn: parent
-                            text: "pw-top"
-                            color: bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: pwTopMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.openPwTop()
-                        }
-                    }
-
-                    // Full PipeWire / WirePlumber restart (re-applies sticky echo cancel)
-                    Rectangle {
-                        width: restartLabel.implicitWidth + 16
-                        height: 24
-                        radius: bar.smallButtonRadius
-                        opacity: root.audioRestartBusy ? 0.6 : 1.0
-                        color: restartMa.containsMouse ? bar.accent : bar.surface
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: restartLabel
-                            anchors.centerIn: parent
-                            text: root.audioRestartBusy ? "Restarting…" : "Restart audio"
-                            color: restartMa.containsMouse ? bar.bg : bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: restartMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            enabled: !root.audioRestartBusy
-                            cursorShape: root.audioRestartBusy ? Qt.BusyCursor : Qt.PointingHandCursor
-                            onClicked: root.restartSoundSystem()
-                        }
+                        Layout.maximumWidth: 180
                     }
                 }
 
@@ -3158,6 +3101,61 @@ Rectangle {
                                 font.family: bar.fontFamily
                                 wrapMode: Text.WordWrap
                             }
+                        }
+                    }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        width: pwTopLabel.implicitWidth + 16
+                        height: 24
+                        radius: bar.smallButtonRadius
+                        color: pwTopMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+                        Text {
+                            id: pwTopLabel
+                            anchors.centerIn: parent
+                            text: "pw-top"
+                            color: bar.text
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: pwTopMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.openPwTop()
+                        }
+                    }
+                    Rectangle {
+                        width: restartLabel.implicitWidth + 16
+                        height: 24
+                        radius: bar.smallButtonRadius
+                        opacity: root.audioRestartBusy ? 0.6 : 1.0
+                        color: restartMa.containsMouse ? bar.accent : bar.surface
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+                        Text {
+                            id: restartLabel
+                            anchors.centerIn: parent
+                            text: root.audioRestartBusy ? "Restarting…" : "Restart audio"
+                            color: restartMa.containsMouse ? bar.bg : bar.text
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: restartMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            enabled: !root.audioRestartBusy
+                            cursorShape: root.audioRestartBusy ? Qt.BusyCursor : Qt.PointingHandCursor
+                            onClicked: root.restartSoundSystem()
                         }
                     }
                 }

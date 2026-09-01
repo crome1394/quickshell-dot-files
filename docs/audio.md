@@ -17,7 +17,8 @@ Pill volume bars are display + wheel only (no click-drag). Volume % and mute sta
 
 | Area | Controls |
 |------|----------|
-| **Header** | Active app streams summary, **pw-top**, **Restart audio** |
+| **Header** | Active app streams summary |
+| **Footer** | **pw-top**, **Restart audio** |
 | **Playback** | Device picker (transport icon + optional BT battery), card **Profile**, master **Volume** + mute, collapsible **L/R**, **Level** VU meter |
 | **Recording** | Same pattern; headset **Profile** when the input device exposes card profiles; collapsible **Echo cancel** |
 

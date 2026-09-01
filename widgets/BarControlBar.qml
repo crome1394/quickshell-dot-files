@@ -1397,8 +1397,8 @@ Item {
     }
 
     // HyprlandFocusGrab is dismissed by any outside press — including the start
-    // of a file-manager drag. Wallpaper keeps the popup up; re-arm after drop
-    // or when leaving the wallpaper tab so other panels still close on outside click.
+    // of a file-manager drag. Close is the panel ✕ / Esc / tab; keep the grab
+    // armed so TextFields (search) receive keys. Skip re-arm during a wallpaper drop.
     function armControlFocusGrab() {
         if (!controlPopup.visible)
             return
@@ -1414,7 +1414,7 @@ Item {
             return
         if (root.activeMenu === "wallpaper")
             return
-        root.hide()
+        Qt.callLater(root.armControlFocusGrab)
     }
 
     function fileUrlToPath(url) {
@@ -2680,7 +2680,7 @@ Item {
     // -------------------------------------------------------------------------
     HyprlandFocusGrab {
         id: controlFocusGrab
-        windows: [controlPopup]
+        windows: [controlPopup, bar]
         onCleared: root.onControlGrabCleared()
     }
 
@@ -2834,6 +2834,7 @@ Item {
                             id: panelFlick
                             anchors.fill: parent
                             anchors.margins: 8
+                            anchors.rightMargin: 38
                         contentWidth: width
                         // Only the visible section — never the sum of hidden menus
                         contentHeight: {
@@ -3031,71 +3032,6 @@ Item {
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        // Nerd Font md-nvidia (U+F135D) — same icon font as the rest of the bar
-                                        Layout.preferredHeight: 26
-                                        Layout.preferredWidth: Math.max(72, nvidiaPanelRow.implicitWidth + 14)
-                                        radius: root.chipR
-                                        color: nvidiaPanelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: nvidiaPanelMa.containsMouse
-                                                      ? "#76b900"   // NVIDIA green accent on hover
-                                                      : bar.pillBorder
-                                        Row {
-                                            id: nvidiaPanelRow
-                                            anchors.centerIn: parent
-                                            spacing: 5
-                                            Text {
-                                                // nf-md-nvidia
-                                                text: "\uF135D"
-                                                color: nvidiaPanelMa.containsMouse ? "#76b900" : bar.subtext
-                                                font.pixelSize: 14
-                                                font.family: bar.fontFamily
-                                                verticalAlignment: Text.AlignVCenter
-                                            }
-                                            Text {
-                                                text: "NVIDIA"
-                                                color: nvidiaPanelMa.containsMouse ? "#76b900" : bar.subtext
-                                                font.pixelSize: 11
-                                                font.bold: true
-                                                font.family: bar.fontFamily
-                                                verticalAlignment: Text.AlignVCenter
-                                            }
-                                        }
-                                        MouseArea {
-                                            id: nvidiaPanelMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.openNvidiaPanel()
-                                        }
-                                        ToolTip.visible: nvidiaPanelMa.containsMouse
-                                        ToolTip.delay: bar.tooltipDelay !== undefined ? bar.tooltipDelay : 400
-                                        ToolTip.text: "Open NVIDIA Settings"
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 26
-                                        Layout.preferredWidth: Math.max(56, refreshDispTxt.implicitWidth + 16)
-                                        radius: root.chipR
-                                        color: refreshDispMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: refreshDispTxt
-                                            anchors.centerIn: parent
-                                            text: root.displayLoading ? "…" : "Refresh"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: refreshDispMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshDisplay()
-                                        }
                                     }
                                 }
 
@@ -3631,6 +3567,75 @@ Item {
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
                                 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: Math.max(72, nvidiaPanelRow.implicitWidth + 14)
+                                        radius: root.chipR
+                                        color: nvidiaPanelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: nvidiaPanelMa.containsMouse
+                                                      ? "#76b900"
+                                                      : bar.pillBorder
+                                        Row {
+                                            id: nvidiaPanelRow
+                                            anchors.centerIn: parent
+                                            spacing: 5
+                                            Text {
+                                                text: "\uF135D"
+                                                color: nvidiaPanelMa.containsMouse ? "#76b900" : bar.subtext
+                                                font.pixelSize: 14
+                                                font.family: bar.fontFamily
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                            Text {
+                                                text: "NVIDIA"
+                                                color: nvidiaPanelMa.containsMouse ? "#76b900" : bar.subtext
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                        }
+                                        MouseArea {
+                                            id: nvidiaPanelMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.openNvidiaPanel()
+                                        }
+                                        ToolTip.visible: nvidiaPanelMa.containsMouse
+                                        ToolTip.delay: bar.tooltipDelay !== undefined ? bar.tooltipDelay : 400
+                                        ToolTip.text: "Open NVIDIA Settings"
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: Math.max(56, refreshDispTxt.implicitWidth + 16)
+                                        radius: root.chipR
+                                        color: refreshDispMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: refreshDispTxt
+                                            anchors.centerIn: parent
+                                            text: root.displayLoading ? "…" : "Refresh"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: refreshDispMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.refreshDisplay()
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
 
                             // ===== WALLPAPER =====
@@ -3655,29 +3660,6 @@ Item {
                                             font.pixelSize: bar.popupTitleSize
                                             font.bold: true
                                             font.family: bar.fontFamily
-                                        }
-                                        Rectangle {
-                                            Layout.preferredHeight: 26
-                                            Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
-                                            radius: root.chipR
-                                            color: refreshWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                            border.width: 1
-                                            border.color: bar.pillBorder
-                                            Text {
-                                                id: refreshWpLbl
-                                                anchors.centerIn: parent
-                                                text: root.wallpaperLoading ? "…" : "Refresh"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: refreshWpMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.refreshWallpapers()
-                                            }
                                         }
                                     }
 
@@ -4020,6 +4002,35 @@ Item {
                                         font.pixelSize: 11
                                         font.family: bar.fontFamily
                                     }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Rectangle {
+                                            Layout.preferredHeight: 26
+                                            Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
+                                            radius: root.chipR
+                                            color: refreshWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                id: refreshWpLbl
+                                                anchors.centerIn: parent
+                                                text: root.wallpaperLoading ? "…" : "Refresh"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: refreshWpMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.refreshWallpapers()
+                                            }
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                    }
                                 }
                             }
 
@@ -4038,62 +4049,6 @@ Item {
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: resetLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: resetMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: bar.controlBorderWidth
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: resetLbl
-                                            anchors.centerIn: parent
-                                            text: "Reset layout"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: resetMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.resetWidgetLayout === "function")
-                                                    bar.resetWidgetLayout()
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: resetSizesLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: resetSizesMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: resetSizesLbl
-                                            anchors.centerIn: parent
-                                            text: "Reset sizes"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: resetSizesMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.resetWidgetScales === "function")
-                                                    bar.resetWidgetScales()
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
                                     }
                                 }
                                 Text {
@@ -4428,6 +4383,68 @@ Item {
                                         }
                                     }
                                 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: resetLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: resetMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: bar.controlBorderWidth
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: resetLbl
+                                            anchors.centerIn: parent
+                                            text: "Reset layout"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: resetMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.resetWidgetLayout === "function")
+                                                    bar.resetWidgetLayout()
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: resetSizesLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: resetSizesMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: resetSizesLbl
+                                            anchors.centerIn: parent
+                                            text: "Reset sizes"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: resetSizesMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.resetWidgetScales === "function")
+                                                    bar.resetWidgetScales()
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
 
                             // ===== QUICK LAUNCH =====
@@ -4445,34 +4462,6 @@ Item {
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: resetLaunchLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: resetLaunchMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: bar.controlBorderWidth
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: resetLaunchLbl
-                                            anchors.centerIn: parent
-                                            text: "Reset"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: resetLaunchMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.resetQuickLaunchApps === "function")
-                                                    bar.resetQuickLaunchApps()
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
                                     }
                                 }
                                 Text {
@@ -4648,6 +4637,8 @@ Item {
                                             border.width: 1
                                             border.color: appSearchField.activeFocus ? bar.accent : bar.pillBorder
                                         }
+                                        onPressed: root.armControlFocusGrab()
+                                        onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                         onTextChanged: {
                                             root.desktopAppsQuery = text
                                             desktopSearchDebounce.restart()
@@ -4823,6 +4814,40 @@ Item {
                                         onClicked: root.addCustomApp()
                                     }
                                 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: resetLaunchLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: resetLaunchMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: bar.controlBorderWidth
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: resetLaunchLbl
+                                            anchors.centerIn: parent
+                                            text: "Reset"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: resetLaunchMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.resetQuickLaunchApps === "function")
+                                                    bar.resetQuickLaunchApps()
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
 
                             // ===== AUTOSTART (XDG) =====
@@ -4840,29 +4865,6 @@ Item {
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: refreshAsLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: refreshAsMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: refreshAsLbl
-                                            anchors.centerIn: parent
-                                            text: root.autostartLoading ? "…" : "Refresh"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: refreshAsMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshAutostart()
-                                        }
                                     }
                                 }
                                 Text {
@@ -5104,6 +5106,7 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     TextField {
+                                        id: asSearchField
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "Search apps…"
@@ -5117,6 +5120,8 @@ Item {
                                             border.width: 1
                                             border.color: parent.activeFocus ? bar.accent : bar.pillBorder
                                         }
+                                        onPressed: root.armControlFocusGrab()
+                                        onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                         onTextChanged: {
                                             root.desktopAppsQuery = text
                                             root.autostartSearch = ""
@@ -5222,6 +5227,35 @@ Item {
                                         }
                                     }
                                 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: refreshAsLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: refreshAsMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: refreshAsLbl
+                                            anchors.centerIn: parent
+                                            text: root.autostartLoading ? "…" : "Refresh"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: refreshAsMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.refreshAutostart()
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
 
                             // ===== OPTIONS (behavior prefs — not layout) =====
@@ -5239,29 +5273,6 @@ Item {
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: refreshOptLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: refreshOptMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: refreshOptLbl
-                                            anchors.centerIn: parent
-                                            text: "Refresh"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: refreshOptMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshOptions()
-                                        }
                                     }
                                 }
                                 Text {
@@ -7206,6 +7217,35 @@ Item {
                                         }
                                     }
                                 }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: refreshOptLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: refreshOptMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: refreshOptLbl
+                                            anchors.centerIn: parent
+                                            text: "Refresh"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: refreshOptMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.refreshOptions()
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             }
 
                             // ===== MIME (preferred applications / file-type defaults) =====
@@ -7238,6 +7278,8 @@ Item {
                                     Layout.minimumHeight: 200
                                     // Stretch to panel bottom (preferredHeight 0 + fillHeight)
                                     Layout.preferredHeight: 0
+                                    showReloadButton: false
+                                    keyboardGrab: function() { root.armControlFocusGrab() }
                                     active: mimePanel.visible && controlPopup.visible
                                     textColor: bar.text
                                     subtextColor: bar.subtext
@@ -7253,6 +7295,40 @@ Item {
                                     pillBorder: bar.pillBorder
                                     fontFamily: root.menuBodyFont()
                                     fontMono: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 26
+                                        Layout.preferredWidth: mimeReloadLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: mimeReloadMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        enabled: controlMime && !controlMime.loading && !controlMime.acting
+                                        opacity: enabled ? 1 : 0.5
+                                        Text {
+                                            id: mimeReloadLbl
+                                            anchors.centerIn: parent
+                                            text: "Reload"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: mimeReloadMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (controlMime && typeof controlMime.refresh === "function")
+                                                    controlMime.refresh()
+                                            }
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -7318,6 +7394,8 @@ Item {
                                         border.width: 1
                                         border.color: servicesFilterField.activeFocus ? bar.accent : bar.pillBorder
                                     }
+                                    onPressed: root.armControlFocusGrab()
+                                    onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                     onTextChanged: root.servicesFilter = text
                                 }
                                 ServicesView {
@@ -7402,6 +7480,8 @@ Item {
                                         border.width: 1
                                         border.color: audioFilterField.activeFocus ? bar.accent : bar.pillBorder
                                     }
+                                    onPressed: root.armControlFocusGrab()
+                                    onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                     onTextChanged: root.audioFilter = text
                                 }
                                 AudioMonitorView {
@@ -7468,6 +7548,8 @@ Item {
                                         border.width: 1
                                         border.color: keybindsFilterField.activeFocus ? bar.accent : bar.pillBorder
                                     }
+                                    onPressed: root.armControlFocusGrab()
+                                    onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                     onTextChanged: root.keybindsFilter = text
                                 }
                                 KeybindsView {
@@ -7544,35 +7626,7 @@ Item {
                                             onClicked: root.undoThemeEdit()
                                         }
                                     }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: resetThemeLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: resetThemeMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: resetThemeLbl
-                                            anchors.centerIn: parent
-                                            text: "Reset"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: resetThemeMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                root.pushThemeUndo()
-                                                if (bar && typeof bar.resetThemeColors === "function")
-                                                    bar.resetThemeColors()
-                                                root.colorsPickerKey = ""
-                                                root.colorsTick++
-                                            }
-                                        }
-                                    }
+                                    Item { Layout.fillWidth: true }
                                 }
                                 Text {
                                     Layout.fillWidth: true
@@ -9887,6 +9941,41 @@ Item {
                                 }
                                 } // themesBodyCol
                                 } // themesBodyFlick
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: resetThemeLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: resetThemeMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: resetThemeLbl
+                                            anchors.centerIn: parent
+                                            text: "Reset"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: resetThemeMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                root.pushThemeUndo()
+                                                if (bar && typeof bar.resetThemeColors === "function")
+                                                    bar.resetThemeColors()
+                                                root.colorsPickerKey = ""
+                                                root.colorsTick++
+                                            }
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
                             } // themesPanel
 
                             // ===== CLOCK =====
@@ -10287,17 +10376,37 @@ Item {
                             }
                         }
                     }
-                }
 
-                Text {
-                    visible: root.activeMenu.length > 0
-                    Layout.alignment: Qt.AlignRight
-                    text: root.activeMenu === "wallpaper"
-                          ? "drop images to add · click Wallpaper again to close"
-                          : "click outside to close"
-                    color: bar.subtext
-                    font.pixelSize: bar.popupHintSize
-                    font.family: bar.fontFamily
+                    Rectangle {
+                        z: 90
+                        visible: root.activeMenu.length > 0
+                        anchors.top: parent.top
+                        anchors.right: parent.right
+                        anchors.margins: 8
+                        width: 26
+                        height: 26
+                        radius: root.chipR
+                        color: panelCloseMa.containsMouse
+                               ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                        border.width: 1
+                        border.color: panelCloseMa.containsMouse ? root.offRed : bar.pillBorder
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: panelCloseMa.containsMouse ? root.offRed : bar.subtext
+                            font.pixelSize: 12
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: panelCloseMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.hide()
+                        }
+                    }
                 }
 
                 // ── Toolbar along the bottom (panel expands above) ──

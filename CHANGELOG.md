@@ -2,6 +2,14 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar focus, close ✕, footer actions
+
+- **Keyboard search** works again in Autostart / MIME / Keybinds / Launch / Audio / Services (Hyprland focus grab stays armed; close with ✕ or Esc).
+- Control-bar panels: **✕** top-right; “click outside to close” hint removed.
+- Header actions moved to the **bottom** of each panel: Display (NVIDIA + Refresh), Wallpaper, Widgets, Options, Themes (Reset), Launch, Autostart, MIME (Reload).
+- Bluetooth popup: **Power off** at the bottom; applet toggle removed (sticky autostart stays in Options).
+- Audio Controls: **pw-top** and **Restart audio** at the bottom (same in the control-bar Audio tools).
+
 ## 2026-09 — Control bar scroll + Network popup
 
 - **Scroll:** Widgets, Options, Themes, Launch, Audio, and Keybinds wheel-scroll again. A wallpaper DropArea had `enabled: false` on other tabs, which disabled the whole panel tree (Wallpaper was unaffected because that DropArea was on).

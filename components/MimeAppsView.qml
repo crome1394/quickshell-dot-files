@@ -10,6 +10,8 @@ Item {
     id: root
 
     property bool active: false
+    property bool showReloadButton: true
+    property var keyboardGrab: null
 
     property color textColor: "#f0f4fc"
     property color subtextColor: "#a8b4c8"
@@ -904,6 +906,7 @@ Item {
             }
 
             Rectangle {
+                visible: root.showReloadButton
                 Layout.preferredHeight: root.chipH
                 Layout.preferredWidth: reloadLbl.implicitWidth + 14
                 radius: 6
@@ -1013,6 +1016,8 @@ Item {
                 border.width: 1
                 border.color: parent.activeFocus ? root.accentColor : root.pillBorder
             }
+            onPressed: if (typeof root.keyboardGrab === "function") root.keyboardGrab()
+            onActiveFocusChanged: if (activeFocus && typeof root.keyboardGrab === "function") root.keyboardGrab()
             onTextChanged: root.searchText = text
             Keys.onDownPressed: leftList.forceActiveFocus()
             Keys.onReturnPressed: leftList.forceActiveFocus()
