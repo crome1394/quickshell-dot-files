@@ -18,7 +18,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
 - **Network** — per-adapter on/off + Enable after disconnect; Options for full IP on the bar
 - **Themes** — colors, opacity, fonts (UI / mono / Main / Secondary / Bar roles), thresholds, liquid + solid presets
-- Net · BT · Audio (combined pill), workspaces, sys stats, tray, notifications (history + copy), power, FreshRSS
+- Net · BT · Audio (combined pill), workspaces, sys stats, tray, notifications (history, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
 
 ## Requirements

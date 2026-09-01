@@ -61,12 +61,14 @@ Search for **SYS STATS PILL** for the compact bar widget (CPU | Memory | GPU), a
 
 Search for **NOTIFICATION BELL** in `Config.qml`. Defaults are SwayNC (`swaync-client`). To use another daemon, replace the command lists. `NotificationBell.qml` reads these lists, builds proper argv arrays, and polls internally (same pattern as `SysStatsPill.qml`).
 
+Left-click the bell opens the **history panel** (every notification, expand / copy / per-item ✕, DND, Clear list). Right-click toggles DND. History is persisted by `scripts/notification-history.py` to `~/.local/state/quickshell/notification-history.json` (survives reboot). SwayNC’s control center is not used in the UI.
+
 | Property | SwayNC default | Purpose |
 |----------|----------------|---------|
 | `notificationSubscribe` | `["swaync-client", "-s", "-sw"]` | Optional live stream for badge / DND updates |
-| `notificationTogglePanel` | `["swaync-client", "-t", "-sw"]` | Left-click on bell |
-| `notificationToggleDnd` | `["swaync-client", "-d", "-sw"]` | Right-click menu |
-| `notificationClearAll` | `["swaync-client", "-C", "-sw"]` | Right-click menu |
+| `notificationTogglePanel` | `["swaync-client", "-t", "-sw"]` | Unused in UI (SwayNC control center) |
+| `notificationToggleDnd` | `["swaync-client", "-d", "-sw"]` | History-panel DND button + right-click the bell |
+| `notificationClearAll` | `["swaync-client", "-C", "-sw"]` | Also run from history **Clear list** (closes live SwayNC notifications) |
 | `notificationSync` | `["…/scripts/notification-sync.sh"]` | Timer poller; prints `{"count":N,"dnd":true\|false}` |
 | `notificationSyncIntervalMs` | `2500` | How often the sync script runs |
 | `notificationDndAccent` | `#e85d5d` | Pill border, bell, and badge tint when DND is on |

@@ -2002,18 +2002,22 @@ QtObject {
     // To use a different daemon, replace these lists with that client's commands
     // (same argv-list style as Quick Launch). Leave [] to disable an action.
     //
+    // History (every Notify, survives reboot) is scripts/notification-history.py →
+    // ~/.local/state/quickshell/notification-history.json. Left-click the bell opens
+    // that panel. Right-click toggles DND. SwayNC's control center is not used in the UI.
+    //
     //   notificationSubscribe    — live badge/DND updates (SwayNC: swaync-client -s)
-    //   notificationTogglePanel  — left-click on the bell (SwayNC: -t)
-    //   notificationToggleDnd    — Do Not Disturb toggle in the right-click menu
-    //   notificationClearAll     — clear all in the right-click menu
+    //   notificationTogglePanel  — unused in UI (SwayNC control center); kept for IPC/scripts
+    //   notificationToggleDnd    — DND on the history panel + right-click the bell
+    //   notificationClearAll     — also run from the history panel "Clear list"
     //   notificationSync         — backup poll script; prints one JSON line per run:
     //                              {"count":N,"dnd":true|false}
     //   notificationDndAccent    — border/bell color when Do Not Disturb is on
 
     readonly property var notificationSubscribe:    ["swaync-client", "-s", "-sw"]  // Live JSON stream (optional)
-    readonly property var notificationTogglePanel: ["swaync-client", "-t", "-sw"]   // Left-click bell
-    readonly property var notificationToggleDnd:   ["swaync-client", "-d", "-sw"]   // Right-click menu
-    readonly property var notificationClearAll:    ["swaync-client", "-C", "-sw"]   // Right-click menu
+    readonly property var notificationTogglePanel: ["swaync-client", "-t", "-sw"]   // Unused in UI
+    readonly property var notificationToggleDnd:   ["swaync-client", "-d", "-sw"]   // History panel + right-click
+    readonly property var notificationClearAll:    ["swaync-client", "-C", "-sw"]   // History "Clear list"
     // Timer poller — reliable badge/DND backup; script must print {"count":N,"dnd":true|false}
     readonly property var notificationSync: [
         "/home/crome/.config/quickshell/scripts/notification-sync.sh"

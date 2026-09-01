@@ -6,8 +6,10 @@ import Quickshell
 import Quickshell.Io as Io
 
 // NotificationBell — SwayNC badge + history panel.
-// Left-click: history (expand/copy). Right-click: DND / clear / control center.
-// Daemon commands: Config.qml → NOTIFICATION BELL. History: scripts/notification-history.py.
+// Left-click: history (expand / copy / dismiss). Right-click: toggle DND.
+// Daemon commands: Config.qml → NOTIFICATION BELL.
+// History (survives reboot): scripts/notification-history.py
+//   → ~/.local/state/quickshell/notification-history.json
 
 Rectangle {
     id: root
@@ -144,8 +146,13 @@ Rectangle {
         else if (j.type === "add" && j.item) {
             const list = root.historyItems.slice()
             const it = j.item
+            const newId = String(it.id || ("n" + Date.now()))
+            for (let i = 0; i < list.length; i++) {
+                if (String(list[i].id || "") === newId)
+                    return
+            }
             list.unshift({
-                id: it.id || ("n" + Date.now()),
+                id: newId,
                 ts: Number(it.ts) || Math.floor(Date.now() / 1000),
                 app: String(it.app || "Notification"),
                 summary: String(it.summary || ""),
@@ -158,6 +165,8 @@ Rectangle {
                 list.pop()
             root.historyItems = list
             root.syncAllExpandedFlag()
+        } else if ((j.type === "remove" || j.type === "dismiss") && j.id) {
+            root.removeHistoryItemLocal(j.id)
         }
     }
 
@@ -246,6 +255,33 @@ Rectangle {
             Quickshell.execDetached(["python3", script, "clear"])
         root.historyItems = []
         root.allExpanded = false
+        // Also close SwayNC's live notifications so the badge matches the empty list.
+        if (bar.notificationSupportsClearAll())
+            root.clearAllNotifications()
+    }
+
+    function removeHistoryItemLocal(id) {
+        const want = String(id || "")
+        if (!want.length)
+            return
+        const src = root.historyItems || []
+        const list = []
+        for (let i = 0; i < src.length; i++) {
+            if (String(src[i].id || "") !== want)
+                list.push(src[i])
+        }
+        root.historyItems = list
+        root.syncAllExpandedFlag()
+    }
+
+    function dismissHistoryItem(id) {
+        const want = String(id || "")
+        if (!want.length)
+            return
+        const script = root.historyScriptPath()
+        if (script.length)
+            Quickshell.execDetached(["python3", script, "dismiss", want])
+        root.removeHistoryItemLocal(want)
     }
 
     function formatTime(ts) {
@@ -392,31 +428,8 @@ Rectangle {
         Qt.callLater(function() { root.refreshState() })
     }
 
-    function hideNotifMenu() {
-        notifMenuPopup.visible = false
-    }
-
     function hideHistoryPanel() {
         historyPopup.visible = false
-    }
-
-    function showNotifMenu() {
-        if (notifMenuPopup.visible) {
-            hideNotifMenu()
-            return
-        }
-        hideHistoryPanel()
-
-        var pos = root.mapToItem(barBg, root.width / 2, 0)
-        var popupW = notifMenuPopup.implicitWidth
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var targetX = bar.sideMargin + pos.x - (popupW / 2)
-        var minX = 12
-        var maxX = screenW - popupW - 12
-
-        notifMenuPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        notifMenuPopup.anchor.rect.y = bar.popupAnchorY(notifMenuPopup.implicitHeight, 2)
-        notifMenuPopup.visible = true
     }
 
     function showHistoryPanel() {
@@ -424,7 +437,6 @@ Rectangle {
             hideHistoryPanel()
             return
         }
-        hideNotifMenu()
         root.loadHistoryOnce()
 
         var pos = root.mapToItem(barBg, root.width / 2, 0)
@@ -448,207 +460,25 @@ Rectangle {
 
         BarToolTip {
             bar: root.bar
-            visible: bellMouse.containsMouse && !notifMenuPopup.visible && !historyPopup.visible
+            visible: bellMouse.containsMouse && !historyPopup.visible
             anchorItem: bellMouse
             text: {
-                if (root.dnd) return root.count + " notifications (DND on) · Left: history · Right: menu"
-                if (root.count > 0) return root.count + " notifications · Left: history · Right: menu"
-                return "Notifications · Left: history · Right: menu"
+                if (root.dnd) return root.count + " notifications (DND on) · Left: history · Right: DND"
+                if (root.count > 0) return root.count + " notifications · Left: history · Right: DND"
+                return "Notifications · Left: history · Right: DND"
             }
         }
 
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                showNotifMenu()
+                root.toggleDoNotDisturb()
             } else {
-                // Left: QS history panel (expand / copy). SwayNC panel via right-click menu.
                 showHistoryPanel()
             }
         }
     }
 
-    // ── Right-click compact menu ──────────────────────────────────────────
-    PopupWindow {
-        id: notifMenuPopup
-        anchor.window: bar
-        implicitWidth: bar.popupContextMenuWidth
-        implicitHeight: notifMenuColumn.implicitHeight + bar.popupSpacingTight * 2
-        visible: false
-        grabFocus: true
-        color: "transparent"
-        Rectangle {
-            anchors.fill: parent
-            radius: bar.popupRadius
-            color: bar.glassPopupBg
-            border.width: bar.controlBorderWidth
-            border.color: bar.glassPopupBorder
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
-                color: bar.glassPopupHighlight
-                radius: parent.radius
-            }
-
-            ColumnLayout {
-                id: notifMenuColumn
-                anchors.fill: parent
-                anchors.margins: bar.popupSpacingTight
-                spacing: 4
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Notifications"
-                    color: bar.text
-                    font.pixelSize: bar.popupTitleSize
-                    font.bold: true
-                    font.family: bar.fontFamily
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: bar.popupContextMenuRowHeight
-                    radius: bar.buttonRadius
-                    color: histRowMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(bar.glassPopupBg.r, bar.glassPopupBg.g, bar.glassPopupBg.b, Math.min(1, bar.glassPopupBg.a * 0.75))
-                    border.width: bar.controlBorderWidth
-                    border.color: bar.dividerStrong
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        text: "Open history panel"
-                        color: bar.text
-                        font.pixelSize: 12
-                        font.family: bar.fontFamily
-                    }
-
-                    MouseArea {
-                        id: histRowMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            hideNotifMenu()
-                            showHistoryPanel()
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: bar.notificationSupportsPanel()
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: bar.popupContextMenuRowHeight
-                    radius: bar.buttonRadius
-                    color: panelRowMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(bar.glassPopupBg.r, bar.glassPopupBg.g, bar.glassPopupBg.b, Math.min(1, bar.glassPopupBg.a * 0.75))
-                    border.width: bar.controlBorderWidth
-                    border.color: bar.dividerStrong
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        text: "Open control center"
-                        color: bar.text
-                        font.pixelSize: 12
-                        font.family: bar.fontFamily
-                    }
-
-                    MouseArea {
-                        id: panelRowMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            bar.execNotificationCommand("togglePanel")
-                            hideNotifMenu()
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: bar.notificationSupportsDnd()
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: bar.popupContextMenuRowHeight
-                    radius: bar.buttonRadius
-                    color: dndRowMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(bar.glassPopupBg.r, bar.glassPopupBg.g, bar.glassPopupBg.b, Math.min(1, bar.glassPopupBg.a * 0.75))
-                    border.width: bar.controlBorderWidth
-                    border.color: bar.dividerStrong
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        text: dnd ? "Turn off Do Not Disturb" : "Turn on Do Not Disturb"
-                        color: dnd ? bar.notificationDndAccent : bar.text
-                        font.pixelSize: 12
-                        font.family: bar.fontFamily
-                    }
-
-                    MouseArea {
-                        id: dndRowMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            toggleDoNotDisturb()
-                            hideNotifMenu()
-                        }
-                    }
-                }
-
-                Rectangle {
-                    visible: bar.notificationSupportsClearAll()
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: bar.popupContextMenuRowHeight
-                    radius: bar.buttonRadius
-                    color: clearRowMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(bar.glassPopupBg.r, bar.glassPopupBg.g, bar.glassPopupBg.b, Math.min(1, bar.glassPopupBg.a * 0.75))
-                    border.width: bar.controlBorderWidth
-                    border.color: bar.dividerStrong
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        text: "Clear all notifications"
-                        color: bar.text
-                        font.pixelSize: 12
-                        font.family: bar.fontFamily
-                    }
-
-                    MouseArea {
-                        id: clearRowMa
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            clearAllNotifications()
-                            hideNotifMenu()
-                        }
-                    }
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignRight
-                    text: "click outside to close"
-                    color: bar.subtext
-                    font.pixelSize: bar.popupHintSize
-                    font.family: bar.fontFamily
-                }
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onClicked: hideNotifMenu()
-        }
-    }
-
-    // ── History panel (expand / copy) ─────────────────────────────────────
+    // ── History panel (expand / copy / dismiss) ───────────────────────────
     PopupWindow {
         id: historyPopup
         anchor.window: bar
@@ -675,6 +505,36 @@ Rectangle {
                 radius: parent.radius
             }
 
+            Rectangle {
+                z: 20
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 8
+                width: 26
+                height: 26
+                radius: bar.smallButtonRadius !== undefined ? bar.smallButtonRadius : bar.buttonRadius
+                color: histCloseMa.containsMouse
+                       ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                       : bar.surface
+                border.width: 1
+                border.color: histCloseMa.containsMouse ? "#FF3D8A" : bar.dividerStrong
+                Text {
+                    anchors.centerIn: parent
+                    text: "✕"
+                    color: histCloseMa.containsMouse ? "#FF3D8A" : bar.subtext
+                    font.pixelSize: 12
+                    font.bold: true
+                    font.family: bar.fontFamily
+                }
+                MouseArea {
+                    id: histCloseMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.hideHistoryPanel()
+                }
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 12
@@ -696,6 +556,10 @@ Rectangle {
                         color: bar.subtext
                         font.pixelSize: 11
                         font.family: bar.fontFamily
+                    }
+                    Item {
+                        Layout.preferredWidth: 26
+                        Layout.preferredHeight: 26
                     }
                 }
 
@@ -812,6 +676,38 @@ Rectangle {
                                         }
                                     }
                                 }
+                                Rectangle {
+                                    Layout.preferredWidth: 26
+                                    Layout.preferredHeight: 22
+                                    radius: 4
+                                    color: dismissMa.containsMouse
+                                           ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                                           : "transparent"
+                                    border.width: 1
+                                    border.color: dismissMa.containsMouse ? "#FF3D8A" : bar.dividerStrong
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "✕"
+                                        color: dismissMa.containsMouse ? "#FF3D8A" : bar.subtext
+                                        font.pixelSize: 11
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    MouseArea {
+                                        id: dismissMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: root.dismissHistoryItem(modelData.id)
+                                        BarToolTip {
+                                            bar: root.bar
+                                            preferSide: "above"
+                                            visible: dismissMa.containsMouse
+                                            text: "Remove from history"
+                                            anchorItem: dismissMa
+                                        }
+                                    }
+                                }
                             }
 
                             Text {
@@ -842,7 +738,7 @@ Rectangle {
                     }
                 }
 
-                // Bottom actions: Expand all + clear history
+                // Bottom actions: Expand all + DND + clear history
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 8
@@ -875,6 +771,44 @@ Rectangle {
                     }
 
                     Rectangle {
+                        visible: bar.notificationSupportsDnd()
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 32
+                        radius: bar.buttonRadius
+                        color: {
+                            if (root.dnd)
+                                return dndHistMa.containsMouse
+                                       ? Qt.rgba(0.55, 0.14, 0.14, 0.55)
+                                       : Qt.rgba(0.40, 0.10, 0.10, 0.40)
+                            return dndHistMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
+                        }
+                        border.width: 1
+                        border.color: root.dnd ? bar.notificationDndAccent : bar.dividerStrong
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: root.dnd ? "DND on" : "DND"
+                            color: root.dnd ? bar.notificationDndAccent : bar.text
+                            font.pixelSize: 12
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: dndHistMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.toggleDoNotDisturb()
+                            BarToolTip {
+                                bar: root.bar
+                                preferSide: "above"
+                                visible: dndHistMa.containsMouse
+                                text: root.dnd ? "Turn off Do Not Disturb" : "Turn on Do Not Disturb"
+                                anchorItem: dndHistMa
+                            }
+                        }
+                    }
+
+                    Rectangle {
                         Layout.preferredWidth: 110
                         Layout.preferredHeight: 32
                         radius: bar.buttonRadius
@@ -900,15 +834,6 @@ Rectangle {
                             onClicked: root.clearHistoryLocal()
                         }
                     }
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignRight
-                    text: "click outside to close"
-                    color: bar.subtext
-                    font.pixelSize: bar.popupHintSize
-                    font.family: bar.fontFamily
                 }
             }
         }

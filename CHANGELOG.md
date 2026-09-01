@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Notification history panel
+
+- **History is the panel:** left-click the bell for history (every notification is captured via D-Bus `Notify` and kept in `~/.local/state/quickshell/notification-history.json`). SwayNC’s control center is no longer in the UI.
+- History footer: **Expand all / Collapse all**, **DND**, **Clear list**. Top-right **✕** closes the panel. Right-click the bell still toggles DND.
+- Per-item **✕** removes one saved notification (history is persisted across reboot). Expand and copy are unchanged.
+
 ## 2026-09 — Sticky control-bar headers + widget close ✕
 
 - Wallpaper / Widgets / Options / Launch / Autostart / Display pin title + controls (like Themes and Audio); only the body scrolls.
@@ -41,7 +47,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
   - Persist: `state/theme-colors.json`; named presets under `themes/`.
 - **Display**: Apply writes `~/.config/hypr/config/monitors.lua` so resolution/refresh/bit-depth survive reboot.
 - **Sys Stats / Network Options**: independent toggles for bar util graphs vs menu graphs; network traffic sparkline optional.
-- **Notifications**: left-click history panel (expand all, per-item copy); right-click DND / clear / SwayNC control center. History via `scripts/notification-history.py`.
+- **Notifications**: left-click history panel (expand all, per-item copy / dismiss, DND, Clear list); right-click DND. History via `scripts/notification-history.py`.
 - **Hover**: content-chip accent rim (not whole multi-item pills); Net/BT/Audio sections when embedded.
 - **MIME / control panels**: secondary body greys track Themes → Secondary text.
 - **Stability**: fixed QML type-coercion warnings (`NetworkMonitorView` bools/ints, `ClockPill` grid spacing, `ServicesView` row selection).

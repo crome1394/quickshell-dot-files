@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""notification-history.py — session notification history for Quickshell.
+"""notification-history.py — persisted notification history for Quickshell.
 
 Watches dbus-monitor for org.freedesktop.Notifications.Notify calls so the
-bar can show recent notifications with expand / copy (SwayNC owns the daemon).
+bar can show every notification with expand / copy / dismiss (SwayNC owns
+the on-screen daemon; this file is the history panel source of truth).
+
+Persisted at ~/.local/state/quickshell/notification-history.json (survives reboot).
 
 Commands:
-  watch   Stream JSON lines as notifications arrive (default).
-  list    Print the history array once as JSON and exit.
-  clear   Wipe history and print [].
+  watch           Stream JSON lines as notifications arrive (default).
+  list            Print the history array once as JSON and exit.
+  clear           Wipe history and print [].
+  dismiss <id>    Remove one item by id, print the remaining array, exit.
 """
 
 from __future__ import annotations
@@ -71,6 +75,16 @@ def cmd_list() -> int:
 def cmd_clear() -> int:
     save_history([])
     emit([])
+    return 0
+
+
+def cmd_dismiss(item_id: str) -> int:
+    want = str(item_id or "").strip()
+    history = load_history()
+    if want:
+        history = [x for x in history if str(x.get("id", "")) != want]
+        save_history(history)
+    emit(history)
     return 0
 
 
@@ -160,6 +174,8 @@ def cmd_watch() -> int:
         # Skip empty noise
         if not (entry.get("summary") or entry.get("body") or entry.get("app")):
             return
+        # Reload so dismiss/clear from the panel is not overwritten by this process.
+        history = load_history()
         history.append(entry)
         if len(history) > MAX_ITEMS:
             history = history[-MAX_ITEMS:]
@@ -211,9 +227,14 @@ def main(argv: list[str]) -> int:
         return cmd_list()
     if cmd in ("clear", "--clear"):
         return cmd_clear()
+    if cmd in ("dismiss", "--dismiss", "remove", "--remove"):
+        if len(argv) < 3:
+            print(f"usage: {argv[0]} dismiss <id>", file=sys.stderr)
+            return 2
+        return cmd_dismiss(argv[2])
     if cmd in ("watch", "--watch", "-w", "listen"):
         return cmd_watch()
-    print(f"usage: {argv[0]} [watch|list|clear]", file=sys.stderr)
+    print(f"usage: {argv[0]} [watch|list|clear|dismiss <id>]", file=sys.stderr)
     return 2
 
 
