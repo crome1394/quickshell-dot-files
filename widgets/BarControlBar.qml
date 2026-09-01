@@ -656,6 +656,10 @@ Item {
             if (typeof bar.setShowNetTrafficGraph === "function")
                 bar.setShowNetTrafficGraph(on)
             break
+        case "setShowNetworkFullIp":
+            if (typeof bar.setShowNetworkFullIp === "function")
+                bar.setShowNetworkFullIp(on)
+            break
         case "setShowEchoCancelInMenu":
             if (typeof bar.setShowEchoCancelInMenu === "function")
                 bar.setShowEchoCancelInMenu(on)
@@ -2807,15 +2811,18 @@ Item {
                     DropArea {
                         id: wpDropArea
                         anchors.fill: parent
-                        enabled: root.activeMenu === "wallpaper"
+                        // Never bind Item.enabled here — that disables this whole
+                        // tree (Flickable + every panel), which killed wheel-scroll
+                        // on Widgets / Options / Themes / Launch / Audio / Keybinds.
+                        // Wallpaper drops are filtered in onEntered / onDropped.
 
                         onEntered: (drag) => {
-                            if (wpDropArea.enabled)
+                            if (root.activeMenu === "wallpaper")
                                 drag.accept(Qt.CopyAction)
                         }
                         onExited: root.armControlFocusGrab()
                         onDropped: (drop) => {
-                            if (!wpDropArea.enabled)
+                            if (root.activeMenu !== "wallpaper")
                                 return
                             if (drop.hasUrls)
                                 root.addDroppedWallpapers(drop.urls)
@@ -6372,6 +6379,68 @@ Item {
                                         }
                                     }
                                 }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Full IP on bar"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Show complete address instead of last octet"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.fillHeight: true
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showNetworkFullIp === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showNetworkFullIp === true) ? "✓" : "✕"
+                                                    color: (bar.showNetworkFullIp === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.setOptToggle("setShowNetworkFullIp", !(bar.showNetworkFullIp === true))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 Text {
                                     text: "Bluetooth"
                                     color: bar.text
@@ -9892,7 +9961,7 @@ Item {
 
                             Rectangle {
                                 anchors.fill: parent
-                                visible: wpDropArea.containsDrag && wpDropArea.enabled
+                                visible: wpDropArea.containsDrag && root.activeMenu === "wallpaper"
                                 z: 20
                                 radius: panelBox.radius
                                 color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.16)

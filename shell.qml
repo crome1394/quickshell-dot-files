@@ -149,6 +149,8 @@ ShellRoot {
     property bool showStatMenuGraphs: true
     // Network details traffic sparkline (adapters / connections stay)
     property bool showNetTrafficGraph: true
+    // Network pill face: last IPv4 octet (false) vs full address (true)
+    property bool showNetworkFullIp: false
     // Hide Echo cancel block in Audio popup / control-bar Audio panel when false (Options)
     property bool showEchoCancelInMenu: true
     // Control-bar Audio panel section visibility (Options + bar-layout.json)
@@ -467,6 +469,8 @@ ShellRoot {
                     root.showStatGauges = barLayoutAdapter.showStatGauges
                     root.showStatMenuGraphs = barLayoutAdapter.showStatMenuGraphs
                     root.showNetTrafficGraph = barLayoutAdapter.showNetTrafficGraph
+                    if (barLayoutAdapter.showNetworkFullIp !== undefined)
+                        root.showNetworkFullIp = barLayoutAdapter.showNetworkFullIp
                 }
                 if (barLayoutAdapter.hasAudioMenuPrefs) {
                     root.showEchoCancelInMenu = barLayoutAdapter.showEchoCancelInMenu
@@ -565,6 +569,7 @@ ShellRoot {
                 property bool showStatGauges: true
                 property bool showStatMenuGraphs: true
                 property bool showNetTrafficGraph: true
+                property bool showNetworkFullIp: false
                 // Audio popup / control-bar Audio panel sections
                 property bool hasAudioMenuPrefs: false
                 property bool showEchoCancelInMenu: true
@@ -993,6 +998,7 @@ ShellRoot {
             barLayoutAdapter.showStatGauges = root.showStatGauges
             barLayoutAdapter.showStatMenuGraphs = root.showStatMenuGraphs
             barLayoutAdapter.showNetTrafficGraph = root.showNetTrafficGraph
+            barLayoutAdapter.showNetworkFullIp = root.showNetworkFullIp
             barLayoutAdapter.hasAudioMenuPrefs = true
             barLayoutAdapter.showEchoCancelInMenu = root.showEchoCancelInMenu
             barLayoutAdapter.showAudioSummary = root.showAudioSummary
@@ -1042,6 +1048,10 @@ ShellRoot {
         }
         function setShowNetTrafficGraph(enabled) {
             root.showNetTrafficGraph = !!enabled
+            persistBarLayout()
+        }
+        function setShowNetworkFullIp(enabled) {
+            root.showNetworkFullIp = !!enabled
             persistBarLayout()
         }
         function setShowEchoCancelInMenu(enabled) {
@@ -2011,6 +2021,7 @@ ShellRoot {
         property alias showStatGauges: root.showStatGauges
         property alias showStatMenuGraphs: root.showStatMenuGraphs
         property alias showNetTrafficGraph: root.showNetTrafficGraph
+        property alias showNetworkFullIp: root.showNetworkFullIp
         property alias showEchoCancelInMenu: root.showEchoCancelInMenu
         property alias showAudioSummary: root.showAudioSummary
         property alias showAudioDefaults: root.showAudioDefaults
@@ -2538,6 +2549,12 @@ ShellRoot {
             }
             function disconnectDevice(iface: string): void {
                 if (networkPill && networkPill.disconnectDevice) networkPill.disconnectDevice(iface)
+            }
+            function enableDevice(iface: string): void {
+                if (networkPill && networkPill.enableDevice) networkPill.enableDevice(iface)
+            }
+            function disableAllAdapters(): void {
+                if (networkPill && networkPill.disableAllAdapters) networkPill.disableAllAdapters()
             }
             function forgetSsid(ssid: string): void {
                 if (networkPill && networkPill.forgetSsid) networkPill.forgetSsid(ssid)

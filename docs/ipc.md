@@ -54,7 +54,8 @@ Some bar widgets expose actions beyond show/hide. These work from scripts, Hyprl
 | `networkPill` | `setWifi` / `toggleWifi` / `enableWifi` / `disableWifi` | WiFi radio on/off |
 | `networkPill` | `setNetworking` / `toggleNetworking` | Global NetworkManager networking on/off |
 | `networkPill` | `startScan` / `stopScan` | WiFi network scan |
-| `networkPill` | `connectSsid` / `forgetSsid` / `disconnectDevice` | Connect (SSID), forget SSID, disconnect iface |
+| `networkPill` | `connectSsid` / `forgetSsid` / `disconnectDevice` / `enableDevice` | Connect (SSID), forget SSID, disconnect/enable iface |
+| `networkPill` | `disableAllAdapters` | Disconnect every adapter and turn WiFi radio off |
 | `networkPill` | `startApplet` / `stopApplet` / `toggleApplet` | nm-applet tray (session only) |
 | `networkPill` | `enableApplet` / `disableApplet` / `setAppletAutostart` | nm-applet autostart (survives reboot) |
 | `networkPill` | `openEditor` | Launch `nm-connection-editor` |
@@ -88,6 +89,8 @@ qs ipc call audioPill disableEchoCancel
 qs ipc call audioPill toggleEchoCancel
 qs ipc call networkPill togglePopup
 qs ipc call networkPill toggleWifi
+qs ipc call networkPill enableDevice enp10s0
+qs ipc call networkPill disableAllAdapters
 qs ipc call networkPill openEditor
 qs ipc call networkPill toggleApplet
 qs ipc call bluetoothPill togglePopup

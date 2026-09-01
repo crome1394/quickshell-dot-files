@@ -2,30 +2,37 @@
 
 # Network pill (`NetworkPill.qml`)
 
-Glassmorphic bar pill for day-to-day NetworkManager control via **Quickshell.Networking** plus `scripts/network-control.sh`. Intended as a replacement for the **nm-applet** menu while still allowing the tray applet to run when you want it (header **Applet on/off**).
+Glassmorphic bar pill for day-to-day NetworkManager control via **Quickshell.Networking** plus `scripts/network-control.sh`. Intended as a replacement for the **nm-applet** menu. The tray applet is optional (Options → **nm-applet login autostart**).
 
 | Input | Action |
 |-------|--------|
 | **Left-click** | Open / close the Network popup |
-| **Right-click** | Disabled (use header **WiFi on/off** or `qs ipc call networkPill toggleWifi`) |
+| **Right-click** | Disabled (use per-adapter **WiFi on/off** or `qs ipc call networkPill toggleWifi`) |
+
+Bar face shows the last IPv4 octet by default. Options → **Full IP on bar** (`showNetworkFullIp` in `bar-layout.json`) shows the complete address.
 
 ## Layout
 
 | Pane | Contents |
 |------|----------|
-| **Header** (full width) | WiFi / Net / Applet toggles, connectivity, ↻ IP / ↻ DNS, dual traffic graph |
-| **Left** | **Adapters** (per-device status + actions) and **Connections** dropdown + **Editor** |
+| **Header** | Title, connectivity, optional traffic graph |
+| **Left** | **Adapters** (per-device on/off + Enable/Disconnect) and **Connections** dropdown + **Editor** |
 | **Right** | **WiFi** networks (scan, connect / disconnect / forget, PSK prompt) |
 | **Details** | Single-column connection info (click any value to copy) |
+| **Footer** | ↻ IP · ↻ DNS · **All off** |
 
 ## Popup features
 
 | Feature | Details |
 |---------|---------|
-| **WiFi radio** | Header **WiFi on/off** — software rfkill for all wireless devices |
-| **Networking** | Header **Net on/off** — `nmcli networking` global switch (green when on) |
-| **nm-applet** | Footer **Applet on/off**: left-click = session start/stop; right-click = sticky disable/enable (survives reboot via XDG autostart mask + `systemctl --user disable`). Amber border when sticky-disabled. IPC: `disableApplet` / `enableApplet` / `setAppletAutostart` |
-| **Adapters** | Wired and WiFi devices with state, active connection name, IPv4, link speed; Disconnect / Connect / Details / Edit / Autoconnect |
+| **WiFi radio** | On each WiFi adapter card — software rfkill for wireless |
+| **Wired adapter** | **Wired on/off** on ethernet cards (`nmcli device connect` / `disconnect`) |
+| **Enable** | Undo a disconnect (`nmcli device connect <iface>`) without toggling Auto |
+| **Disconnect** | Drop the active connection on that adapter |
+| **All off** | Footer: disconnect every adapter and turn the WiFi radio off |
+| **↻ IP / ↻ DNS** | Footer: reapply addressing / flush resolver caches |
+| **nm-applet** | Not in the popup. Sticky login autostart is **Options → Network**. IPC: `disableApplet` / `enableApplet` / `setAppletAutostart` |
+| **Adapters** | Wired and WiFi devices with state, active connection name, IPv4, link speed; Enable / Disconnect / radio / Details / Edit / Autoconnect |
 | **Connections** | Dropdown of saved NM profiles (activate by selection); **Editor** opens `nm-connection-editor` for the selected profile |
 | **Connection info** | Details panel (nm-applet *Connection Information* style): interface, MAC, cable/link, IPv4/IPv6, gateway, DNS, routes; click row to copy |
 | **WiFi networks** | Right column: scan while popup is open; signal bars, security, saved flag; Connect (PSK prompt when needed), Disconnect, Forget |
@@ -62,6 +69,8 @@ Visibility (show/hide the pill itself) stays on the `shell` target. Actions belo
 | `startScan` / `stopScan` | — | WiFi scanner |
 | `connectSsid` | `ssid` | Connect (known/open; PSK via UI) |
 | `disconnectDevice` | `iface` | e.g. `enp10s0` |
+| `enableDevice` | `iface` | `nmcli device connect` (undo disconnect) |
+| `disableAllAdapters` | — | Disconnect every adapter and turn WiFi radio off |
 | `forgetSsid` | `ssid` | Forget saved WiFi |
 | `startApplet` / `stopApplet` / `toggleApplet` | — | nm-applet for this session only |
 | `enableApplet` | — | Enable unit + start (survives reboot) |

@@ -13,6 +13,7 @@ usage: network-control.sh status
        network-control.sh networking on|off|toggle
        network-control.sh wifi on|off|toggle
        network-control.sh device disconnect <iface>
+       network-control.sh device connect <iface>
        network-control.sh connection up <uuid|name>
        network-control.sh connection down <uuid|name>
        network-control.sh refresh-ip [iface]
@@ -556,6 +557,10 @@ case "$ACTION" in
             disconnect)
                 [[ -n "$ARG2" ]] || { err_json "iface required"; exit 2; }
                 nmcli device disconnect "$ARG2" && ok_json "disconnected $ARG2" || err_json "disconnect failed"
+                ;;
+            connect)
+                [[ -n "$ARG2" ]] || { err_json "iface required"; exit 2; }
+                nmcli device connect "$ARG2" && ok_json "connected $ARG2" || err_json "connect failed"
                 ;;
             *) usage; exit 2 ;;
         esac

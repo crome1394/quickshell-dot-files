@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar scroll + Network popup
+
+- **Scroll:** Widgets, Options, Themes, Launch, Audio, and Keybinds wheel-scroll again. A wallpaper DropArea had `enabled: false` on other tabs, which disabled the whole panel tree (Wallpaper was unaffected because that DropArea was on).
+- **Network pill:** Options → **Full IP on bar** shows the complete IPv4 address instead of the last octet (`showNetworkFullIp` in `bar-layout.json`).
+- **Network popup:** per-adapter **Enable** (undo `disconnect` without toggling Auto), **WiFi on/off** on WiFi cards, **Wired on/off** on ethernet cards. Header **WiFi / Net / Applet** toggles removed (nm-applet login autostart stays under Options). **↻ IP** / **↻ DNS** moved to the bottom next to **All off** (disconnect every adapter + WiFi radio off).
+
 ## 2026-09 — Wallpaper panel
 
 - **Wallpaper** (control strip → **Wallpaper**):

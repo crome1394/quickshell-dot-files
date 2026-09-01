@@ -2,7 +2,7 @@
 
 # Bar control strip (`BarControlBar.qml`)
 
-Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar on the **bottom**; content expands above and resizes to fit (scroll only for tall panels: Display, Wallpaper, Widgets, Options, Colors, Launch, Autostart). **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling.
+Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar on the **bottom**; content expands above and resizes to fit. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling.
 
 | Panel | What it does |
 |-------|----------------|
@@ -99,7 +99,7 @@ Related CLI (outside this repo, on PATH): `hypr-resolution` — rofi menu over t
 | **Bar / UI** | UI scale auto/manual · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
 | **Workspaces** | Magic pill · only-active · min pills · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
-| **Network** | nm-applet sticky login autostart · traffic graph on/off | XDG / `bar-layout.json` |
+| **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |

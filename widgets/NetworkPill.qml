@@ -503,6 +503,38 @@ Rectangle {
             root.runControl(["device", "disconnect", iface])
         }
 
+        function enableDevice(iface) {
+            var d = findDevice(iface)
+            if (d && isWifiDevice(d) && !wifiEnabled)
+                setWifiEnabled(true)
+            root.runControl(["device", "connect", iface])
+            deviceEpoch++
+            root.refreshStatusSoon()
+        }
+
+        function setAdapterEnabled(iface, on) {
+            var d = findDevice(iface)
+            if (d && isWifiDevice(d)) {
+                setWifiEnabled(!!on)
+                if (on)
+                    enableDevice(iface)
+                return
+            }
+            if (on)
+                enableDevice(iface)
+            else
+                disconnectDevice(iface)
+        }
+
+        function disableAllAdapters() {
+            var ifaces = deviceIfaces || []
+            for (var i = 0; i < ifaces.length; i++)
+                disconnectDevice(ifaces[i])
+            if (wifiEnabled)
+                setWifiEnabled(false)
+            root.flashStatus("All adapters off")
+        }
+
         function setAutoconnect(iface, on) {
             var d = findDevice(iface)
             if (!d) return
@@ -988,10 +1020,12 @@ Rectangle {
                     visible: net.anyConnected && net.primaryIp.length > 0
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
-                        // Compact: last octet of IPv4 or short label
+                        void (bar ? bar.showNetworkFullIp : false)
                         var ip = net.primaryIp
                         var slash = ip.indexOf("/")
                         if (slash > 0) ip = ip.substring(0, slash)
+                        if (bar && bar.showNetworkFullIp)
+                            return ip
                         var parts = ip.split(".")
                         if (parts.length === 4) return parts[3]
                         return ""
@@ -1131,7 +1165,7 @@ Rectangle {
                     }
                 }
 
-                // Connectivity + refresh IP / DNS
+                // Connectivity (IP / DNS live at the bottom)
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 6
@@ -1162,70 +1196,6 @@ Rectangle {
                             anchorItem: parent
                         }
                             onClicked: net.checkConnectivity()
-                        }
-                    }
-
-                    Rectangle {
-                        width: ripLbl.implicitWidth + 12
-                        height: 22
-                        radius: bar.buttonRadius
-                        color: ripMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
-                        border.width: 1
-                        border.color: bar.dividerStrong
-                        Text {
-                            id: ripLbl
-                            anchors.centerIn: parent
-                            text: "↻ IP"
-                            color: bar.text
-                            font.pixelSize: 10
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: ripMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            BarToolTip {
-                            bar: root.bar
-                            preferSide: "above"
-                            visible: parent.containsMouse
-                            text: "Reapply / renew IP (nmcli device reapply)"
-                            anchorItem: parent
-                        }
-                            onClicked: root.refreshIp(root.detailIface)
-                        }
-                    }
-
-                    Rectangle {
-                        width: rdnsLbl.implicitWidth + 12
-                        height: 22
-                        radius: bar.buttonRadius
-                        color: rdnsMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
-                        border.width: 1
-                        border.color: bar.dividerStrong
-                        Text {
-                            id: rdnsLbl
-                            anchors.centerIn: parent
-                            text: "↻ DNS"
-                            color: bar.text
-                            font.pixelSize: 10
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: rdnsMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            BarToolTip {
-                            bar: root.bar
-                            preferSide: "above"
-                            visible: parent.containsMouse
-                            text: "Flush DNS caches and reapply resolver config"
-                            anchorItem: parent
-                        }
-                            onClicked: root.refreshDns(root.detailIface)
                         }
                     }
                 }
@@ -1463,6 +1433,10 @@ Rectangle {
                             spacing: 6
 
                             Rectangle {
+                                visible: {
+                                    var d = net.findDevice(root.detailIface)
+                                    return !!(d && d.connected)
+                                }
                                 width: discLbl.implicitWidth + 14
                                 height: 28
                                 radius: bar.buttonRadius
@@ -1486,6 +1460,38 @@ Rectangle {
                                     onClicked: {
                                         net.disconnectDevice(root.detailIface)
                                         root.flashStatus("Disconnecting " + root.detailIface)
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: {
+                                    var d = net.findDevice(root.detailIface)
+                                    return !(d && d.connected)
+                                }
+                                width: enLbl.implicitWidth + 14
+                                height: 28
+                                radius: bar.buttonRadius
+                                color: enMa.containsMouse ? bar.accent : bar.surface
+                                border.width: bar.controlBorderWidth
+                                border.color: bar.dividerStrong
+                                Text {
+                                    id: enLbl
+                                    anchors.centerIn: parent
+                                    text: "Enable"
+                                    color: enMa.containsMouse ? bar.bg : bar.text
+                                    font.pixelSize: 11
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                MouseArea {
+                                    id: enMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        net.enableDevice(root.detailIface)
+                                        root.flashStatus("Enabling " + root.detailIface)
                                     }
                                 }
                             }
@@ -1750,7 +1756,7 @@ Rectangle {
                                         }
 
                                         Rectangle {
-                                            visible: !!(st && st.uuid && !(dev && dev.connected))
+                                            visible: !(dev && dev.connected)
                                             width: aBtn.implicitWidth + 12
                                             height: 22
                                             radius: bar.buttonRadius
@@ -1760,7 +1766,7 @@ Rectangle {
                                             Text {
                                                 id: aBtn
                                                 anchors.centerIn: parent
-                                                text: "Connect"
+                                                text: "Enable"
                                                 color: aBtnMa.containsMouse ? bar.bg : bar.text
                                                 font.pixelSize: 10
                                                 font.bold: true
@@ -1771,10 +1777,90 @@ Rectangle {
                                                 anchors.fill: parent
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (st && st.uuid)
-                                                        root.runControl(["connection", "up", st.uuid])
+                                                BarToolTip {
+                                                    bar: root.bar
+                                                    preferSide: "above"
+                                                    visible: aBtnMa.containsMouse
+                                                    text: "Bring this adapter up (undo disconnect)"
+                                                    anchorItem: aBtnMa
                                                 }
+                                                onClicked: net.enableDevice(iface)
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            visible: !!(dev && net.isWifiDevice(dev))
+                                            width: wifiAdpLbl.implicitWidth + 12
+                                            height: 22
+                                            radius: bar.buttonRadius
+                                            color: wifiAdpMa.containsMouse
+                                                   ? (net.wifiEnabled ? Qt.rgba(0.55, 0.14, 0.14, 0.5) : bar.accent)
+                                                   : bar.bg
+                                            border.width: 1
+                                            border.color: net.wifiEnabled ? bar.accent : bar.dividerStrong
+                                            opacity: net.wifiHardwareEnabled ? 1.0 : 0.45
+                                            Text {
+                                                id: wifiAdpLbl
+                                                anchors.centerIn: parent
+                                                text: net.wifiEnabled ? "WiFi on" : "WiFi off"
+                                                color: wifiAdpMa.containsMouse && !net.wifiEnabled ? bar.bg : bar.text
+                                                font.pixelSize: 10
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: wifiAdpMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                enabled: net.wifiHardwareEnabled
+                                                BarToolTip {
+                                                    bar: root.bar
+                                                    preferSide: "above"
+                                                    visible: wifiAdpMa.containsMouse
+                                                    text: net.wifiHardwareEnabled
+                                                          ? (net.wifiEnabled ? "Disable WiFi radio" : "Enable WiFi radio")
+                                                          : "WiFi hardware blocked (rfkill)"
+                                                    anchorItem: wifiAdpMa
+                                                }
+                                                onClicked: net.toggleWifi()
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            visible: !!(dev && net.isWiredDevice(dev))
+                                            width: wiredAdpLbl.implicitWidth + 12
+                                            height: 22
+                                            radius: bar.buttonRadius
+                                            color: wiredAdpMa.containsMouse
+                                                   ? ((dev && dev.connected) ? Qt.rgba(0.55, 0.14, 0.14, 0.5) : bar.accent)
+                                                   : bar.bg
+                                            border.width: 1
+                                            border.color: (dev && dev.connected) ? bar.accent : bar.dividerStrong
+                                            Text {
+                                                id: wiredAdpLbl
+                                                anchors.centerIn: parent
+                                                text: (dev && dev.connected) ? "Wired on" : "Wired off"
+                                                color: wiredAdpMa.containsMouse && !(dev && dev.connected) ? bar.bg : bar.text
+                                                font.pixelSize: 10
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: wiredAdpMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                BarToolTip {
+                                                    bar: root.bar
+                                                    preferSide: "above"
+                                                    visible: wiredAdpMa.containsMouse
+                                                    text: (dev && dev.connected)
+                                                          ? "Turn this wired adapter off"
+                                                          : "Turn this wired adapter on"
+                                                    anchorItem: wiredAdpMa
+                                                }
+                                                onClicked: net.setAdapterEnabled(iface, !(dev && dev.connected))
                                             }
                                         }
 
@@ -2388,135 +2474,103 @@ Rectangle {
                     } // wifiColumn
                 } // mainBody
 
-                // ---- Footer toggles: WiFi / Net / Applet ----
+                // ---- Footer: IP / DNS / all adapters off ----
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 6
 
-                    // WiFi radio
                     Rectangle {
                         Layout.fillWidth: true
                         height: 26
                         radius: bar.buttonRadius
-                        color: wifiMa.containsMouse
-                               ? (net.wifiEnabled ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
-                               : (net.wifiEnabled ? Qt.rgba(0.12, 0.35, 0.22, 0.55) : bar.surface)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-                        opacity: net.wifiHardwareEnabled ? 1.0 : 0.45
-                        Text {
-                            anchors.centerIn: parent
-                            text: net.wifiEnabled ? "WiFi on" : "WiFi off"
-                            color: wifiMa.containsMouse && !net.wifiEnabled ? bar.bg : bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: wifiMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            enabled: net.wifiHardwareEnabled
-                            BarToolTip {
-                                bar: root.bar
-                                preferSide: "above"
-                                visible: wifiMa.containsMouse
-                                anchorItem: wifiMa
-                                text: net.wifiHardwareEnabled
-                                      ? (net.wifiEnabled ? "Disable WiFi radio" : "Enable WiFi radio")
-                                      : "WiFi hardware blocked (rfkill)"
-                            }
-                            onClicked: net.toggleWifi()
-                        }
-                    }
-
-                    // Networking (green when on — matches WiFi / Applet)
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 26
-                        radius: bar.buttonRadius
-                        color: networkingMa.containsMouse
-                               ? (net.networkingEnabled ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
-                               : (net.networkingEnabled ? Qt.rgba(0.12, 0.35, 0.22, 0.55) : bar.surface)
+                        color: ripMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
                         border.width: bar.controlBorderWidth
                         border.color: bar.dividerStrong
                         Text {
+                            id: ripLbl
                             anchors.centerIn: parent
-                            text: net.networkingEnabled ? "Net on" : "Net off"
-                            color: networkingMa.containsMouse && !net.networkingEnabled ? bar.bg : bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: networkingMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            BarToolTip {
-                                bar: root.bar
-                                preferSide: "above"
-                                visible: networkingMa.containsMouse
-                                anchorItem: networkingMa
-                                text: net.networkingEnabled
-                                      ? "Disable all networking (nmcli networking off)"
-                                      : "Enable networking"
-                            }
-                            onClicked: net.toggleNetworking()
-                        }
-                    }
-
-                    // nm-applet — left-click session; right-click sticky disable/enable (reboot-safe)
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 26
-                        radius: bar.buttonRadius
-                        color: appletMa.containsMouse
-                               ? (root.appletRunning ? Qt.rgba(0.55, 0.14, 0.14, 0.45) : bar.popupButtonHoverBg)
-                               : (root.appletRunning ? Qt.rgba(0.12, 0.35, 0.22, 0.45) : bar.surface)
-                        border.width: bar.controlBorderWidth
-                        border.color: !root.appletAutostartEnabled
-                                      ? "#F59E0B"
-                                      : (root.appletRunning ? bar.accent : bar.dividerStrong)
-                        Text {
-                            anchors.centerIn: parent
-                            text: root.appletRunning ? "Applet on" : "Applet off"
+                            text: "↻ IP"
                             color: bar.text
                             font.pixelSize: 11
                             font.bold: true
                             font.family: bar.fontFamily
                         }
                         MouseArea {
-                            id: appletMa
+                            id: ripMa
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            acceptedButtons: Qt.LeftButton | Qt.RightButton
                             BarToolTip {
                                 bar: root.bar
                                 preferSide: "above"
-                                visible: appletMa.containsMouse
-                                anchorItem: appletMa
-                                text: {
-                                    var sticky = root.appletAutostartEnabled
-                                        ? "autostart on (login)"
-                                        : "autostart off (stays off after reboot)"
-                                    var sess = root.appletRunning ? "running" : "stopped"
-                                    return "nm-applet · " + sess + " · " + sticky
-                                        + "\nLeft: session start/stop · Right: permanent disable/enable"
-                                }
+                                visible: ripMa.containsMouse
+                                anchorItem: ripMa
+                                text: "Reapply / renew IP (nmcli device reapply)"
                             }
-                            onClicked: (mouse) => {
-                                if (mouse.button === Qt.RightButton) {
-                                    if (root.appletAutostartEnabled)
-                                        root.disableApplet()
-                                    else
-                                        root.enableApplet()
-                                } else {
-                                    root.toggleApplet()
-                                }
+                            onClicked: root.refreshIp(root.detailIface)
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 26
+                        radius: bar.buttonRadius
+                        color: rdnsMa.containsMouse ? bar.popupButtonHoverBg : bar.surface
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+                        Text {
+                            id: rdnsLbl
+                            anchors.centerIn: parent
+                            text: "↻ DNS"
+                            color: bar.text
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: rdnsMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            BarToolTip {
+                                bar: root.bar
+                                preferSide: "above"
+                                visible: rdnsMa.containsMouse
+                                anchorItem: rdnsMa
+                                text: "Flush DNS caches and reapply resolver config"
                             }
+                            onClicked: root.refreshDns(root.detailIface)
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 26
+                        radius: bar.buttonRadius
+                        color: allOffMa.containsMouse ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.surface
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+                        Text {
+                            anchors.centerIn: parent
+                            text: "All off"
+                            color: bar.text
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: allOffMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            BarToolTip {
+                                bar: root.bar
+                                preferSide: "above"
+                                visible: allOffMa.containsMouse
+                                anchorItem: allOffMa
+                                text: "Disconnect every adapter and turn WiFi radio off"
+                            }
+                            onClicked: net.disableAllAdapters()
                         }
                     }
                 }
@@ -2612,6 +2666,8 @@ Rectangle {
     }
 
     function disconnectDevice(iface) { net.disconnectDevice(iface) }
+    function enableDevice(iface) { net.enableDevice(iface) }
+    function disableAllAdapters() { net.disableAllAdapters() }
     function forgetSsid(ssid) { net.forgetNetwork(ssid) }
 
     function openConnectionEditor() { openEditor("") }
