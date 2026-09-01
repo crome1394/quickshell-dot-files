@@ -18,7 +18,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 | **Services** | systemd user/system units — filter, select, **Start / Stop / Restart** (reuses Inspector `ServicesView`) |
 | **Audio** | Sound manager: overview (summary / streams / levels), dual device columns + profiles, echo cancel; **pw-top** / **Restart audio** (reuses Inspector `AudioMonitorView`) |
 | **Keybinds** | Browse `keybindings.lua` by category; **edit key chord, category, description** (not the action) |
-| **Clock** | Clock format presets |
+| **Clock** | Region map (click a location or search a city, then **Apply region**) + format presets and a custom Qt format field |
 
 ## MIME panel (Preferred applications)
 
@@ -91,6 +91,20 @@ Pending changes do **not** take effect until **Apply**. Apply:
 2. **Rewrites** `~/.config/hypr/config/monitors.lua` so the mode survives reboot / reload (backup: `monitors.lua.bak-qs`).
 
 Related CLI (outside this repo, on PATH): `hypr-resolution` — rofi menu over the same EDID modes (default 10-bit, scale 1).
+
+## Clock panel
+
+Region (system timezone) and the bar clock format. UI: `components/TimezoneMapView.qml`. Script: `scripts/timezone-control.sh`. Map land: `assets/world-land.json` (Natural Earth 110m, public domain, simplified).
+
+| Control | Behavior |
+|---------|----------|
+| **Map** | Equirectangular world map. Click snaps to the nearest city in `/usr/share/zoneinfo/zone1970.tab` (same idea as a Linux installer region step). 15° meridians mark hour offsets. |
+| **Search** | Filter the city list by name, region, or timezone id. |
+| **Apply region** | Runs `timedatectl set-timezone` (pkexec if the session call is denied). Does not change the timezone until Apply. |
+| **Format presets** | Unchanged Full / Date / Time / Short / 12h / US chips. Saved in `state/bar-layout.json`. |
+| **Custom** | Any `Qt.formatDateTime` string. Preview updates as you type; **Set** or Enter saves it. |
+
+The bar clock itself still uses local time, so after a successful region apply it follows the new timezone automatically.
 
 ## Options panel
 

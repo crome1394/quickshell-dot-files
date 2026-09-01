@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Clock region map + custom format
+
+- **Clock** panel: clickable world map (installer-style) to pick a timezone from `zone1970.tab`, with city search and **Apply region** (`timedatectl`). Land outlines from Natural Earth 110m (public domain).
+- Clock **format** presets are unchanged; a **Custom** field accepts any `Qt.formatDateTime` string (preview live, **Set** / Enter to save). Still persisted in `bar-layout.json`.
+
 ## 2026-09 — Notification history panel
 
 - **History is the panel:** left-click the bell for history (every notification is captured via D-Bus `Notify` and kept in `~/.local/state/quickshell/notification-history.json`). SwayNC’s control center is no longer in the UI.

@@ -14,7 +14,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 ## Features
 
 - Liquid-glass bar (top/bottom) · left / center / right zones
-- **Control strip** (gear or right-click chrome): Position, Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, Clock
+- **Control strip** (gear or right-click chrome): Position, Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, **Clock** (region map + formats)
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
 - **Network** — per-adapter on/off + Enable after disconnect; Options for full IP on the bar
 - **Themes** — colors, opacity, fonts (UI / mono / Main / Secondary / Bar roles), thresholds, liquid + solid presets

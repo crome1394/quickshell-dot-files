@@ -1891,8 +1891,10 @@ QtObject {
     readonly property string autostartAddScript:  "/home/crome/.config/quickshell/scripts/autostart-add.sh"
     readonly property string autostartRunScript:  "/home/crome/.config/quickshell/scripts/autostart-run.sh"
 
-    // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json
+    // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
+    // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
     readonly property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
+    readonly property string timezoneControlScript: "/home/crome/.config/quickshell/scripts/timezone-control.sh"
     // Presets shown in the control-bar Clock menu: { label, format, tip }
     readonly property var clockFormatPresets: [
         { label: "Full",   format: "dddd, MM·dd·yyyy | HH:mm:ss", tip: "Weekday, date, 24h with seconds" },
