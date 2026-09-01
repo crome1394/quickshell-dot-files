@@ -11,6 +11,9 @@ Item {
 
     property bool active: false
     property var keyboardGrab: null
+    // Called just before timedatectl/pkexec so the control-bar popup can hide
+    // and not cover the password prompt.
+    property var beforeApply: null
 
     property color textColor: "#f0f4fc"
     property color subtextColor: "#a8b4c8"
@@ -45,9 +48,7 @@ Item {
     readonly property var currentZone: root.findZone(root.currentId)
     readonly property bool dirty: root.pendingId.length > 0 && root.pendingId !== root.currentId
 
-    implicitHeight: col.implicitHeight
     implicitWidth: 480
-    height: col.implicitHeight
 
     onOceanColorChanged: if (mapCanvas) mapCanvas.requestPaint()
     onLandColorChanged: if (mapCanvas) mapCanvas.requestPaint()
@@ -187,10 +188,33 @@ Item {
     function applyPending() {
         if (!root.dirty || root.applying)
             return
+        const tz = String(root.pendingId || "")
+        if (!tz.length)
+            return
         root.applying = true
         root.errorMsg = ""
-        root.statusMsg = "Setting " + root.pendingId + "…"
-        setProc.exec([root.scriptPath(), "set", root.pendingId])
+        root.statusMsg = "Setting " + tz + "…"
+        applyDelay.tz = tz
+        if (typeof root.beforeApply === "function")
+            root.beforeApply()
+        // Let the layer-shell popup unmap before pkexec so the prompt is visible.
+        applyDelay.restart()
+    }
+
+    Timer {
+        id: applyDelay
+        property string tz: ""
+        interval: 180
+        repeat: false
+        onTriggered: {
+            const tz = String(applyDelay.tz || "")
+            applyDelay.tz = ""
+            if (!tz.length) {
+                root.applying = false
+                return
+            }
+            setProc.exec([root.scriptPath(), "set", tz])
+        }
     }
 
     onActiveChanged: {
@@ -314,8 +338,7 @@ Item {
 
     ColumnLayout {
         id: col
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors.fill: parent
         spacing: 8
 
         RowLayout {
@@ -543,7 +566,9 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.fillHeight: true
             Layout.preferredHeight: 148
+            Layout.minimumHeight: 96
             radius: root.chipR
             color: Qt.rgba(0.08, 0.09, 0.12, 0.55)
             border.width: 1

@@ -4,8 +4,9 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Clock region map + custom format
 
-- **Clock** panel: clickable world map (installer-style) to pick a timezone from `zone1970.tab`, with city search and **Apply region** (`timedatectl`). Land outlines from Natural Earth 110m (public domain).
-- Clock **format** presets are unchanged; a **Custom** field accepts any `Qt.formatDateTime` string (preview live, **Set** / Enter to save). Still persisted in `bar-layout.json`.
+- Control-strip button is **Region & Clock**, with MIME-style **Region** / **Clock** tabs (Region is the default).
+- **Region:** clickable world map (installer-style) from `zone1970.tab`, city search, **Apply region**. Apply closes the panel first so a polkit password prompt is not covered.
+- **Clock:** format presets unchanged; a **Custom** field accepts any `Qt.formatDateTime` string (preview live, **Set** / Enter to save). Still persisted in `bar-layout.json`.
 
 ## 2026-09 — Notification history panel
 

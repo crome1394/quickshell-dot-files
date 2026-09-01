@@ -13,7 +13,7 @@
 // Services = systemd; Audio = devices/ports/AEC (AudioMonitorView);
 // Keybinds = chord/category/desc.
 // Display = monitor resolution / refresh / bit depth (Apply to switch).
-// Clock = timezone region map + format presets / custom Qt format.
+// Clock = Region & Clock tabs (timezone map + format presets / custom Qt format).
 // Window height follows content; tall menus scroll only when needed.
 //
 // =============================================================================
@@ -45,6 +45,8 @@ Item {
     property int menuTick: 0
     // Clock panel: draft Qt.formatDateTime string for the custom field
     property string clockFormatDraft: ""
+    // Clock panel sub-tab: "region" | "clock" (default Region, like MIME's File types)
+    property string clockTab: "region"
     // Options panel live reads (refreshed on open / toggle)
     property int optionsTick: 0
     // Themes panel state (activeMenu id remains "colors" for compatibility)
@@ -543,8 +545,10 @@ Item {
         root.armControlFocusGrab()
         if (root.activeMenu === "options")
             root.refreshOptions()
-        if (root.activeMenu === "clock")
+        if (root.activeMenu === "clock") {
+            root.clockTab = "region"
             root.clockFormatDraft = root.currentClockFormat()
+        }
         if (root.activeMenu === "colors") {
             root.colorsPickerKey = ""
             root.colorsShowImport = false
@@ -10201,7 +10205,7 @@ Item {
                                 }
                             } // themesPanel
 
-                            // ===== CLOCK =====
+                            // ===== CLOCK / REGION =====
                             ColumnLayout {
                                 id: clockPanel
                                 visible: root.activeMenu === "clock"
@@ -10209,32 +10213,92 @@ Item {
                                 Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 8
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 8
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Clock"
-                                        color: bar.text
-                                        font.pixelSize: bar.popupTitleSize
-                                        font.bold: true
-                                        font.family: bar.fontFamily
-                                    }
+                                Text {
+                                    text: "Region & Clock"
+                                    color: bar.text
+                                    font.pixelSize: bar.popupTitleSize
+                                    font.bold: true
+                                    font.family: bar.fontFamily
                                 }
 
-                                Text {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "Preview: " + Qt.formatDateTime(new Date(), String(root.clockFormatDraft || root.currentClockFormat()))
-                                    color: bar.accent
-                                    font.pixelSize: 12
-                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "region", label: "Region" },
+                                            { id: "clock", label: "Clock" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool on: root.clockTab === modelData.id
+                                            Layout.preferredHeight: root.chipH
+                                            Layout.preferredWidth: clockTabLbl.implicitWidth + 16
+                                            radius: 6
+                                            color: on ? Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.22)
+                                                      : (clockTabMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
+                                            border.width: 1
+                                            border.color: on ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: clockTabLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                color: on ? bar.accent : bar.subtext
+                                                font.pixelSize: 11
+                                                font.bold: on
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: clockTabMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    root.clockTab = modelData.id
+                                                    root.menuTick++
+                                                    Qt.callLater(root.reposition)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
+                                }
+
+                                TimezoneMapView {
+                                    id: clockTzMap
+                                    visible: root.clockTab === "region"
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: visible
+                                    Layout.minimumHeight: visible ? 200 : 0
+                                    active: visible && clockPanel.visible && controlPopup.visible
+                                    keyboardGrab: function() { root.armControlFocusGrab() }
+                                    beforeApply: function() { root.hide() }
+                                    textColor: bar.text
+                                    subtextColor: bar.subtext
+                                    accentColor: bar.accent
+                                    surfaceColor: bar.surface !== undefined ? bar.surface : Qt.rgba(0.10, 0.12, 0.18, 0.9)
+                                    oceanColor: Qt.rgba(0.035, 0.06, 0.10, 1)
+                                    landColor: Qt.rgba(
+                                        (bar.accent.r * 0.22) + 0.16,
+                                        (bar.accent.g * 0.20) + 0.22,
+                                        (bar.accent.b * 0.18) + 0.30,
+                                        1)
+                                    gridColor: Qt.rgba(1, 1, 1, 0.07)
+                                    fieldBg: root.optFieldBg
+                                    fieldBgFocus: root.optFieldBgFocus
+                                    pillBorder: bar.pillBorder
+                                    okColor: root.onGreen
+                                    errorColor: root.offRed
+                                    fontFamily: bar.fontFamily
+                                    fontMono: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                    chipR: root.chipR
                                 }
 
                                 Flickable {
                                     id: clockBodyFlick
+                                    visible: root.clockTab === "clock"
                                     Layout.fillWidth: true
-                                    Layout.fillHeight: true
+                                    Layout.fillHeight: visible
                                     clip: true
                                     boundsBehavior: Flickable.StopAtBounds
                                     flickableDirection: Flickable.VerticalFlick
@@ -10256,47 +10320,15 @@ Item {
                                     ColumnLayout {
                                         id: clockBodyCol
                                         width: clockBodyFlick.width
-                                        spacing: 12
-
-                                        TimezoneMapView {
-                                            id: clockTzMap
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: implicitHeight
-                                            active: clockPanel.visible && controlPopup.visible
-                                            keyboardGrab: function() { root.armControlFocusGrab() }
-                                            textColor: bar.text
-                                            subtextColor: bar.subtext
-                                            accentColor: bar.accent
-                                            surfaceColor: bar.surface !== undefined ? bar.surface : Qt.rgba(0.10, 0.12, 0.18, 0.9)
-                                            oceanColor: Qt.rgba(0.035, 0.06, 0.10, 1)
-                                            landColor: Qt.rgba(
-                                                (bar.accent.r * 0.22) + 0.16,
-                                                (bar.accent.g * 0.20) + 0.22,
-                                                (bar.accent.b * 0.18) + 0.30,
-                                                1)
-                                            gridColor: Qt.rgba(1, 1, 1, 0.07)
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            pillBorder: bar.pillBorder
-                                            okColor: root.onGreen
-                                            errorColor: root.offRed
-                                            fontFamily: bar.fontFamily
-                                            fontMono: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                            chipR: root.chipR
-                                        }
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 1
-                                            color: bar.dividerStrong
-                                        }
+                                        spacing: 8
 
                                         Text {
-                                            text: "Clock format"
-                                            color: bar.text
-                                            font.pixelSize: 13
-                                            font.bold: true
-                                            font.family: bar.fontFamily
+                                            Layout.fillWidth: true
+                                            wrapMode: Text.WordWrap
+                                            text: "Preview: " + Qt.formatDateTime(new Date(), String(root.clockFormatDraft || root.currentClockFormat()))
+                                            color: bar.accent
+                                            font.pixelSize: 12
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
                                         }
                                         Text {
                                             Layout.fillWidth: true
@@ -10822,7 +10854,7 @@ Item {
                             { id: "services",  label: "Services" },
                             { id: "audio",     label: "Audio" },
                             { id: "keybinds",  label: "Keybinds" },
-                            { id: "clock",     label: "Clock" }
+                            { id: "clock",     label: "Region & Clock" }
                         ]
                         delegate: Rectangle {
                             required property var modelData
