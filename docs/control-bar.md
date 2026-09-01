@@ -8,7 +8,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 |-------|----------------|
 | **Position** | Pin bar top/bottom → `state/bar-layout.json` |
 | **Display** | Monitor resolution / refresh / bit depth + adapter stats from `hyprctl` (see Display subsection) |
-| **Wallpaper** | hyprpaper thumbs, apply, pick folder, add images |
+| **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
 | **Widgets** | **A–Z list**; each row is three columns: **✓/✕ + full name** · **L C R** · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Reset layout** / **Reset sizes** |
 | **Options** | Behavior prefs (not layout) — table below |
 | **Themes** | Live colors/opacity, text roles, **Fonts** (UI·Mono·Main·Secondary·Bar + sizes), thresholds, liquid presets (see Themes subsection) |
@@ -40,6 +40,22 @@ Dual-pane layout fills the panel height; lists scroll inside each pane.
 | **Reload** | Re-read catalog after external changes. |
 
 Writes go only to `~/.config/mimeapps.list` (via `xdg-mime default` for set/associate; surgical edit for clear). No `update-mime-database` and no system package edits.
+
+## Wallpaper panel
+
+Thumbnail grid for the current wallpaper folder (`hyprpaper` apply). Tiles use a preferred width from **Tile size**, then stretch so each row fills the panel.
+
+| Control | Behavior |
+|---------|----------|
+| Click thumb | Apply via `scripts/wallpaper-apply.sh` |
+| Hover **✎** / right-click **Rename…** | Rename the file in-folder (keeps extension if omitted) |
+| Hover **✕** / right-click **Delete…** | Confirm, then delete only that image in the wallpaper folder |
+| **Tile size** | 100–260px preferred width; **Ctrl+wheel** on the grid also changes it (`wallpaperTileSize` in `bar-layout.json`) |
+| **Add wallpapers…** | zenity picker; copies into the folder |
+| Drag-and-drop | Image files, or a folder of images (top-level only), copied in (suffix if the name exists) |
+| **Change folder…** / **Open folder** | Pick or reveal the wallpaper directory |
+
+Scripts: `wallpaper-list-json.sh`, `wallpaper-apply.sh`, `wallpaper-add.sh`, `wallpaper-rename.sh`, `wallpaper-delete.sh`, `wallpaper-pick-dir.sh`.
 
 ## Display panel
 

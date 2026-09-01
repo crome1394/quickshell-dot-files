@@ -1877,9 +1877,12 @@ QtObject {
     readonly property string wallpaperDir: "/home/crome/Pictures/wallpapers"
     readonly property string wallpaperMonitor: "DP-1"
     readonly property string wallpaperFitMode: "cover"
+    readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
     readonly property string wallpaperListScript:  "/home/crome/.config/quickshell/scripts/wallpaper-list-json.sh"
     readonly property string wallpaperApplyScript: "/home/crome/.config/quickshell/scripts/wallpaper-apply.sh"
     readonly property string wallpaperAddScript:   "/home/crome/.config/quickshell/scripts/wallpaper-add.sh"
+    readonly property string wallpaperRenameScript: "/home/crome/.config/quickshell/scripts/wallpaper-rename.sh"
+    readonly property string wallpaperDeleteScript: "/home/crome/.config/quickshell/scripts/wallpaper-delete.sh"
     readonly property string wallpaperPickDirScript: "/home/crome/.config/quickshell/scripts/wallpaper-pick-dir.sh"
 
     // XDG Autostart (BarControlBar → Autostart panel; ~/.config/autostart)

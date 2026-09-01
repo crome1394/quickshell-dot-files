@@ -101,6 +101,21 @@ Item {
     property bool wallpaperLoading: false
     property string wallpaperBusyPath: ""
     property string wallpaperStatus: ""
+    property string wallpaperMenuPath: ""
+    property string wallpaperMenuName: ""
+    property real wallpaperMenuX: 0
+    property real wallpaperMenuY: 0
+    property string wallpaperDialog: ""      // "" | "rename" | "delete"
+    property string wallpaperDialogPath: ""
+    property string wallpaperDialogName: ""
+    property string wallpaperRenameDraft: ""
+    readonly property int wallpaperTilePref: {
+        void root.menuTick
+        const n = (bar && bar.wallpaperTileSize !== undefined) ? Number(bar.wallpaperTileSize) : 148
+        if (!(n > 0))
+            return 148
+        return Math.max(100, Math.min(260, Math.round(n)))
+    }
 
     // Display panel (monitor resolution / refresh / bit depth)
     property bool displayLoading: false
@@ -157,6 +172,7 @@ Item {
     function measurePanelContent() {
         void root.menuTick
         void root.activeMenu
+        void root.wallpaperTilePref
         if (typeof panelStack === "undefined" || !panelStack)
             return 0
         let h = 0
@@ -384,6 +400,7 @@ Item {
     readonly property bool panelNeedsScroll: {
         void root.menuTick
         void root.activeMenu
+        void root.wallpaperTilePref
         if (!root.panelScrollableMenu)
             return false
         const content = root.measurePanelContent()
@@ -391,6 +408,7 @@ Item {
     }
 
     function hide() {
+        root.closeWallpaperUi()
         root.activeMenu = ""
         if (!controlPopup.visible)
             return
@@ -481,6 +499,7 @@ Item {
         // Sizes was merged into Widgets
         if (name === "sizes")
             name = "widgets"
+        root.closeWallpaperUi()
         if (root.activeMenu === name)
             root.activeMenu = ""
         else
@@ -1353,6 +1372,123 @@ Item {
             return
         root.wallpaperStatus = "Choose images to add…"
         wallpaperAddProcess.exec([script, root.wallpaperDir()])
+    }
+
+    function closeWallpaperUi() {
+        root.wallpaperMenuPath = ""
+        root.wallpaperMenuName = ""
+        root.wallpaperDialog = ""
+        root.wallpaperDialogPath = ""
+        root.wallpaperDialogName = ""
+        root.wallpaperRenameDraft = ""
+    }
+
+    function fileUrlToPath(url) {
+        let s = String(url || "")
+        if (!s.length)
+            return ""
+        if (s.startsWith("file://")) {
+            s = s.slice(7)
+            if (s.startsWith("localhost/"))
+                s = s.slice(9)
+            else if (s.startsWith("//")) {
+                const slash = s.indexOf("/", 2)
+                s = slash >= 0 ? s.slice(slash) : s
+            }
+            try {
+                s = decodeURIComponent(s)
+            } catch (e) {}
+        }
+        return s
+    }
+
+    function addDroppedWallpapers(urls) {
+        const files = []
+        const list = urls || []
+        for (let i = 0; i < list.length; i++) {
+            const p = root.fileUrlToPath(list[i])
+            if (p.length)
+                files.push(p)
+        }
+        if (!files.length) {
+            root.wallpaperStatus = "No files in drop"
+            return
+        }
+        const script = bar.wallpaperAddScript || ""
+        if (!script.length || wallpaperAddProcess.running)
+            return
+        root.wallpaperStatus = "Adding " + files.length + " item(s)…"
+        wallpaperAddProcess.exec([script, root.wallpaperDir()].concat(files))
+    }
+
+    function openWallpaperItemMenu(path, name, x, y) {
+        root.wallpaperDialog = ""
+        root.wallpaperMenuPath = String(path || "")
+        root.wallpaperMenuName = String(name || "")
+        const mw = 156
+        const mh = 118
+        let px = Number(x) || 0
+        let py = Number(y) || 0
+        try {
+            if (typeof panelBox !== "undefined" && panelBox) {
+                px = Math.max(6, Math.min(px, panelBox.width - mw - 6))
+                py = Math.max(6, Math.min(py, panelBox.height - mh - 6))
+            }
+        } catch (e) {}
+        root.wallpaperMenuX = px
+        root.wallpaperMenuY = py
+    }
+
+    function beginRenameWallpaper(path, name) {
+        root.wallpaperMenuPath = ""
+        root.wallpaperMenuName = ""
+        root.wallpaperDialog = "rename"
+        root.wallpaperDialogPath = String(path || "")
+        root.wallpaperDialogName = String(name || "")
+        root.wallpaperRenameDraft = String(name || "")
+    }
+
+    function beginDeleteWallpaper(path, name) {
+        root.wallpaperMenuPath = ""
+        root.wallpaperMenuName = ""
+        root.wallpaperDialog = "delete"
+        root.wallpaperDialogPath = String(path || "")
+        root.wallpaperDialogName = String(name || "")
+    }
+
+    function confirmRenameWallpaper() {
+        const draft = String(root.wallpaperRenameDraft || "").trim()
+        if (!draft.length || !root.wallpaperDialogPath.length)
+            return
+        if (draft === root.wallpaperDialogName) {
+            root.closeWallpaperUi()
+            root.wallpaperStatus = "Name unchanged"
+            return
+        }
+        const script = bar.wallpaperRenameScript || ""
+        if (!script.length || wallpaperRenameProcess.running) {
+            root.wallpaperStatus = script.length ? "Busy…" : "rename script missing"
+            return
+        }
+        root.wallpaperStatus = "Renaming…"
+        wallpaperRenameProcess.exec([script, root.wallpaperDir(), root.wallpaperDialogName, draft])
+    }
+
+    function confirmDeleteWallpaper() {
+        if (!root.wallpaperDialogName.length)
+            return
+        const script = bar.wallpaperDeleteScript || ""
+        if (!script.length || wallpaperDeleteProcess.running) {
+            root.wallpaperStatus = script.length ? "Busy…" : "delete script missing"
+            return
+        }
+        root.wallpaperStatus = "Deleting…"
+        wallpaperDeleteProcess.exec([script, root.wallpaperDir(), root.wallpaperDialogName])
+    }
+
+    function setWallpaperTilePref(n) {
+        if (bar && typeof bar.setWallpaperTileSize === "function")
+            bar.setWallpaperTileSize(n)
     }
 
     // ── Display (monitor modes via scripts/monitor-mode.sh) ──────────────
@@ -2252,15 +2388,83 @@ Item {
             onStreamFinished: {
                 const text = (wallpaperAddStdout.text || "").trim()
                 let n = 0
+                let skipped = 0
                 try {
                     if (text.startsWith("{")) {
                         const j = JSON.parse(text)
                         n = j.count || 0
+                        skipped = j.skipped || 0
                     }
                 } catch (e) {}
-                root.wallpaperStatus = n > 0 ? ("Added " + n + " file(s)") : "No files added"
+                if (n > 0)
+                    root.wallpaperStatus = "Added " + n + " file(s)" + (skipped ? (" · skipped " + skipped) : "")
+                else
+                    root.wallpaperStatus = skipped ? "No images in drop" : "No files added"
                 root.refreshWallpapers()
             }
+        }
+    }
+
+    Io.Process {
+        id: wallpaperRenameProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: wallpaperRenameStdout
+            onStreamFinished: {
+                const fromPath = root.wallpaperDialogPath
+                const current = root.wallpaperCurrent()
+                const text = (wallpaperRenameStdout.text || "").trim()
+                root.closeWallpaperUi()
+                try {
+                    const j = JSON.parse(text)
+                    if (j.ok) {
+                        if (!j.unchanged && current && (current === j.from || current === fromPath))
+                            root.applyWallpaper(j.path)
+                        root.wallpaperStatus = j.unchanged ? "Name unchanged" : ("Renamed to " + j.name)
+                        root.refreshWallpapers()
+                    } else {
+                        root.wallpaperStatus = j.error || "Rename failed"
+                    }
+                } catch (e) {
+                    root.wallpaperStatus = "Rename failed"
+                }
+            }
+        }
+        onExited: (code) => {
+            if (code !== 0 && !(wallpaperRenameStdout.text || "").trim())
+                root.wallpaperStatus = "Rename failed"
+        }
+    }
+
+    Io.Process {
+        id: wallpaperDeleteProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: wallpaperDeleteStdout
+            onStreamFinished: {
+                const deletedPath = root.wallpaperDialogPath
+                const current = root.wallpaperCurrent()
+                const text = (wallpaperDeleteStdout.text || "").trim()
+                root.closeWallpaperUi()
+                try {
+                    const j = JSON.parse(text)
+                    if (j.ok) {
+                        if (current && (current === j.path || current === deletedPath)
+                                && typeof bar.setWallpaperCurrent === "function")
+                            bar.setWallpaperCurrent("")
+                        root.wallpaperStatus = "Deleted " + j.name
+                        root.refreshWallpapers()
+                    } else {
+                        root.wallpaperStatus = j.error || "Delete failed"
+                    }
+                } catch (e) {
+                    root.wallpaperStatus = "Delete failed"
+                }
+            }
+        }
+        onExited: (code) => {
+            if (code !== 0 && !(wallpaperDeleteStdout.text || "").trim())
+                root.wallpaperStatus = "Delete failed"
         }
     }
 
@@ -2516,11 +2720,13 @@ Item {
                     readonly property int contentH: {
                         void root.menuTick
                         void root.activeMenu
+                        void root.wallpaperTilePref
                         return root.measurePanelContent()
                     }
                     Layout.preferredHeight: {
                         void root.menuTick
                         void root.activeMenu
+                        void root.wallpaperTilePref
                         if (!visible)
                             return 0
                         // Fit content; screen-cap (and scroll) only for tall menus
@@ -2540,15 +2746,33 @@ Item {
                     border.color: bar.dividerStrong
                     clip: true
 
-                    Flickable {
-                        id: panelFlick
+                    DropArea {
+                        id: wpDropArea
                         anchors.fill: parent
-                        anchors.margins: 8
+                        enabled: root.activeMenu === "wallpaper"
+
+                        onEntered: (drag) => {
+                            if (wpDropArea.enabled)
+                                drag.accept(Qt.CopyAction)
+                        }
+                        onDropped: (drop) => {
+                            if (!wpDropArea.enabled)
+                                return
+                            if (drop.hasUrls)
+                                root.addDroppedWallpapers(drop.urls)
+                            drop.accept(Qt.CopyAction)
+                        }
+
+                        Flickable {
+                            id: panelFlick
+                            anchors.fill: parent
+                            anchors.margins: 8
                         contentWidth: width
                         // Only the visible section — never the sum of hidden menus
                         contentHeight: {
                             void root.menuTick
                             void root.activeMenu
+                            void root.wallpaperTilePref
                             return Math.max(root.measurePanelContent(), 1)
                         }
                         clip: true
@@ -3343,238 +3567,392 @@ Item {
                             }
 
                             // ===== WALLPAPER =====
-                            ColumnLayout {
+                            Item {
+                                id: wallpaperPanel
                                 visible: root.activeMenu === "wallpaper"
                                 Layout.fillWidth: true
-                                spacing: 8
+                                implicitHeight: wpCol.implicitHeight
+                                Layout.preferredHeight: implicitHeight
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Wallpaper"
-                                        color: bar.text
-                                        font.pixelSize: bar.popupTitleSize
-                                        font.bold: true
-                                        font.family: bar.fontFamily
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 26
-                                        Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: refreshWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: refreshWpLbl
-                                            anchors.centerIn: parent
-                                            text: root.wallpaperLoading ? "…" : "Refresh"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: refreshWpMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshWallpapers()
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WrapAnywhere
-                                    text: root.wallpaperDirDisplay || root.wallpaperDir()
-                                    color: bar.subtext
-                                    font.pixelSize: bar.popupHintSize
-                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    elide: Text.ElideRight
-                                    text: root.wallpaperStatus.length ? root.wallpaperStatus : "Click a thumbnail to apply"
-                                    color: bar.subtext
-                                    font.pixelSize: 11
-                                    font.family: bar.fontFamily
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-
-                                    Rectangle {
-                                        Layout.preferredHeight: 30
-                                        Layout.preferredWidth: changeDirLbl.implicitWidth + 14
-                                        radius: root.chipR
-                                        color: changeDirMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: changeDirMa.containsMouse ? bar.accent : bar.pillBorder
-                                        Text {
-                                            id: changeDirLbl
-                                            anchors.centerIn: parent
-                                            text: "Change folder…"
-                                            color: changeDirMa.containsMouse ? root.activeLabelColor() : bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: changeDirMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.pickWallpaperDir()
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 30
-                                        Layout.preferredWidth: addWpLbl.implicitWidth + 14
-                                        radius: root.chipR
-                                        color: addWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: addWpMa.containsMouse ? bar.accent : bar.pillBorder
-                                        Text {
-                                            id: addWpLbl
-                                            anchors.centerIn: parent
-                                            text: "Add wallpapers…"
-                                            color: addWpMa.containsMouse ? root.activeLabelColor() : bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: addWpMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.addWallpapers()
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 30
-                                        Layout.preferredWidth: openWpLbl.implicitWidth + 14
-                                        radius: root.chipR
-                                        color: openWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: openWpLbl
-                                            anchors.centerIn: parent
-                                            text: "Open folder"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: openWpMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.openWallpaperDir()
-                                        }
-                                    }
-                                }
-
-                                // Visual grid of wallpapers
-                                Flow {
-                                    Layout.fillWidth: true
+                                ColumnLayout {
+                                    id: wpCol
+                                    width: parent.width
                                     spacing: 8
 
-                                    Repeater {
-                                        model: root.wallpaperImages
-                                        delegate: Rectangle {
-                                            required property var modelData
-                                            readonly property bool isCurrent: root.wallpaperCurrent() === modelData.path
-                                            readonly property bool isBusy: root.wallpaperBusyPath === modelData.path
-                                            width: 148
-                                            height: 108
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: "Wallpaper"
+                                            color: bar.text
+                                            font.pixelSize: bar.popupTitleSize
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        Rectangle {
+                                            Layout.preferredHeight: 26
+                                            Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
                                             radius: root.chipR
-                                            color: Qt.rgba(0.05, 0.07, 0.12, 0.88)
-                                            border.width: isCurrent || thumbMa.containsMouse ? 2 : 1
-                                            border.color: isCurrent ? root.onGreen
-                                                          : (thumbMa.containsMouse ? bar.accent : bar.dividerStrong)
-                                            clip: true
-
-                                            Image {
-                                                id: thumb
-                                                anchors.fill: parent
-                                                anchors.margins: 2
-                                                anchors.bottomMargin: 22
-                                                source: modelData.url || ("file://" + modelData.path)
-                                                fillMode: Image.PreserveAspectCrop
-                                                asynchronous: true
-                                                cache: true
-                                                sourceSize.width: 296
-                                                sourceSize.height: 168
-                                                smooth: true
-                                                mipmap: true
+                                            color: refreshWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                id: refreshWpLbl
+                                                anchors.centerIn: parent
+                                                text: root.wallpaperLoading ? "…" : "Refresh"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
                                             }
-
-                                            // Dim while applying
-                                            Rectangle {
-                                                anchors.fill: thumb
-                                                visible: isBusy
-                                                color: Qt.rgba(0, 0, 0, 0.45)
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "…"
-                                                    color: bar.accent
-                                                    font.pixelSize: 18
-                                                }
-                                            }
-
-                                            // Footer: name + dimensions
-                                            Rectangle {
-                                                anchors.left: parent.left
-                                                anchors.right: parent.right
-                                                anchors.bottom: parent.bottom
-                                                height: 22
-                                                color: Qt.rgba(0, 0, 0, 0.72)
-                                                Text {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 6
-                                                    anchors.rightMargin: 6
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    elide: Text.ElideRight
-                                                    text: {
-                                                        const dims = (modelData.width > 0 && modelData.height > 0)
-                                                            ? (modelData.width + "×" + modelData.height)
-                                                            : "?"
-                                                        return modelData.name + "  ·  " + dims
-                                                    }
-                                                    color: isCurrent ? root.onGreen : bar.subtext
-                                                    font.pixelSize: 10
-                                                    font.family: bar.fontFamily
-                                                }
-                                            }
-
                                             MouseArea {
-                                                id: thumbMa
+                                                id: refreshWpMa
                                                 anchors.fill: parent
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.applyWallpaper(modelData.path)
-                                                ToolTip.visible: containsMouse
-                                                ToolTip.delay: bar.tooltipDelay
-                                                ToolTip.text: {
-                                                    const dims = (modelData.width > 0 && modelData.height > 0)
-                                                        ? (modelData.width + " × " + modelData.height)
-                                                        : "dimensions unknown"
-                                                    return modelData.name + "\n" + dims + "\nClick to apply"
-                                                }
+                                                onClicked: root.refreshWallpapers()
                                             }
                                         }
                                     }
-                                }
 
-                                Text {
-                                    visible: !root.wallpaperLoading && root.wallpaperImages.length === 0
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "No images in this folder. Use “Add wallpapers…” or “Change folder…”."
-                                    color: bar.subtext
-                                    font.pixelSize: 11
-                                    font.family: bar.fontFamily
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WrapAnywhere
+                                        text: root.wallpaperDirDisplay || root.wallpaperDir()
+                                        color: bar.subtext
+                                        font.pixelSize: bar.popupHintSize
+                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: root.wallpaperStatus.length
+                                              ? root.wallpaperStatus
+                                              : "Click to apply · Right-click to rename or delete · Drop images to add"
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+
+                                        Rectangle {
+                                            Layout.preferredHeight: 30
+                                            Layout.preferredWidth: changeDirLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: changeDirMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: changeDirMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: changeDirLbl
+                                                anchors.centerIn: parent
+                                                text: "Change folder…"
+                                                color: changeDirMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: changeDirMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.pickWallpaperDir()
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredHeight: 30
+                                            Layout.preferredWidth: addWpLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: addWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: addWpMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: addWpLbl
+                                                anchors.centerIn: parent
+                                                text: "Add wallpapers…"
+                                                color: addWpMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: addWpMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.addWallpapers()
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredHeight: 30
+                                            Layout.preferredWidth: openWpLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: openWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                id: openWpLbl
+                                                anchors.centerIn: parent
+                                                text: "Open folder"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: openWpMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.openWallpaperDir()
+                                            }
+                                        }
+                                    }
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+                                        Text {
+                                            text: "Tile size"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        Slider {
+                                            id: wpTileSizeSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 100
+                                            to: 260
+                                            stepSize: 10
+                                            snapMode: Slider.SnapAlways
+                                            value: root.wallpaperTilePref
+                                            onMoved: root.setWallpaperTilePref(Math.round(value))
+                                            onPressedChanged: {
+                                                if (!pressed)
+                                                    root.setWallpaperTilePref(Math.round(value))
+                                            }
+                                            background: Rectangle {
+                                                x: wpTileSizeSlider.leftPadding
+                                                y: wpTileSizeSlider.topPadding + wpTileSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: wpTileSizeSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: wpTileSizeSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: wpTileSizeSlider.leftPadding + wpTileSizeSlider.visualPosition * (wpTileSizeSlider.availableWidth - width)
+                                                y: wpTileSizeSlider.topPadding + wpTileSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: wpTileSizeSlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
+                                            }
+                                        }
+                                        Text {
+                                            Layout.preferredWidth: 44
+                                            horizontalAlignment: Text.AlignRight
+                                            text: root.wallpaperTilePref + "px"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        }
+                                    }
+
+                                    Item {
+                                        id: wpGridHost
+                                        Layout.fillWidth: true
+                                        implicitHeight: wpFlow.implicitHeight
+                                        height: implicitHeight
+
+                                        Flow {
+                                            id: wpFlow
+                                            width: parent.width
+                                            spacing: 8
+                                            readonly property int tileW: {
+                                                const spacing = 8
+                                                const pref = Math.max(80, root.wallpaperTilePref)
+                                                const w = Math.max(pref, width)
+                                                const cols = Math.max(1, Math.floor((w + spacing) / (pref + spacing)))
+                                                return Math.max(80, Math.floor((w - (cols - 1) * spacing) / cols))
+                                            }
+                                            readonly property int tileH: Math.round(tileW * 9 / 16) + 22
+
+                                            Repeater {
+                                                model: root.wallpaperImages
+                                                delegate: Rectangle {
+                                                    required property var modelData
+                                                    readonly property bool isCurrent: root.wallpaperCurrent() === modelData.path
+                                                    readonly property bool isBusy: root.wallpaperBusyPath === modelData.path
+                                                    readonly property bool showActions: thumbMa.containsMouse || wpRenameBtnMa.containsMouse || wpDeleteBtnMa.containsMouse
+                                                    width: wpFlow.tileW
+                                                    height: wpFlow.tileH
+                                                    radius: root.chipR
+                                                    color: Qt.rgba(0.05, 0.07, 0.12, 0.88)
+                                                    border.width: isCurrent || thumbMa.containsMouse ? 2 : 1
+                                                    border.color: isCurrent ? root.onGreen
+                                                                  : (thumbMa.containsMouse ? bar.accent : bar.dividerStrong)
+                                                    clip: true
+
+                                                    Image {
+                                                        id: thumb
+                                                        anchors.fill: parent
+                                                        anchors.margins: 2
+                                                        anchors.bottomMargin: 22
+                                                        source: modelData.url || ("file://" + modelData.path)
+                                                        fillMode: Image.PreserveAspectCrop
+                                                        asynchronous: true
+                                                        cache: true
+                                                        sourceSize.width: Math.max(296, root.wallpaperTilePref * 2)
+                                                        sourceSize.height: Math.max(168, Math.round(root.wallpaperTilePref * 2 * 9 / 16))
+                                                        smooth: true
+                                                        mipmap: true
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.fill: thumb
+                                                        visible: isBusy
+                                                        color: Qt.rgba(0, 0, 0, 0.45)
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "…"
+                                                            color: bar.accent
+                                                            font.pixelSize: 18
+                                                        }
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.left: parent.left
+                                                        anchors.right: parent.right
+                                                        anchors.bottom: parent.bottom
+                                                        height: 22
+                                                        color: Qt.rgba(0, 0, 0, 0.72)
+                                                        Text {
+                                                            anchors.fill: parent
+                                                            anchors.leftMargin: 6
+                                                            anchors.rightMargin: 6
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            elide: Text.ElideRight
+                                                            text: {
+                                                                const dims = (modelData.width > 0 && modelData.height > 0)
+                                                                    ? (modelData.width + "×" + modelData.height)
+                                                                    : "?"
+                                                                return modelData.name + "  ·  " + dims
+                                                            }
+                                                            color: isCurrent ? root.onGreen : bar.subtext
+                                                            font.pixelSize: 10
+                                                            font.family: bar.fontFamily
+                                                        }
+                                                    }
+
+                                                    MouseArea {
+                                                        id: thumbMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: (mouse) => {
+                                                            if (mouse.button === Qt.RightButton) {
+                                                                const p = mapToItem(panelBox, mouse.x, mouse.y)
+                                                                root.openWallpaperItemMenu(modelData.path, modelData.name, p.x, p.y)
+                                                            } else {
+                                                                root.closeWallpaperUi()
+                                                                root.applyWallpaper(modelData.path)
+                                                            }
+                                                        }
+                                                        ToolTip.visible: containsMouse && !wpRenameBtnMa.containsMouse && !wpDeleteBtnMa.containsMouse
+                                                        ToolTip.delay: bar.tooltipDelay
+                                                        ToolTip.text: {
+                                                            const dims = (modelData.width > 0 && modelData.height > 0)
+                                                                ? (modelData.width + " × " + modelData.height)
+                                                                : "dimensions unknown"
+                                                            return modelData.name + "\n" + dims + "\nClick to apply · Right-click for more"
+                                                        }
+                                                    }
+
+                                                    Row {
+                                                        z: 2
+                                                        visible: showActions
+                                                        anchors.top: parent.top
+                                                        anchors.right: parent.right
+                                                        anchors.margins: 4
+                                                        spacing: 4
+
+                                                        Rectangle {
+                                                            width: 22
+                                                            height: 22
+                                                            radius: 4
+                                                            color: wpRenameBtnMa.containsMouse ? bar.glassHover : Qt.rgba(0, 0, 0, 0.62)
+                                                            border.width: 1
+                                                            border.color: wpRenameBtnMa.containsMouse ? bar.accent : bar.pillBorder
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "✎"
+                                                                color: bar.text
+                                                                font.pixelSize: 11
+                                                            }
+                                                            MouseArea {
+                                                                id: wpRenameBtnMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.beginRenameWallpaper(modelData.path, modelData.name)
+                                                            }
+                                                        }
+                                                        Rectangle {
+                                                            width: 22
+                                                            height: 22
+                                                            radius: 4
+                                                            color: wpDeleteBtnMa.containsMouse ? Qt.rgba(1, 0.24, 0.54, 0.28) : Qt.rgba(0, 0, 0, 0.62)
+                                                            border.width: 1
+                                                            border.color: wpDeleteBtnMa.containsMouse ? root.offRed : bar.pillBorder
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "✕"
+                                                                color: wpDeleteBtnMa.containsMouse ? root.offRed : bar.text
+                                                                font.pixelSize: 11
+                                                            }
+                                                            MouseArea {
+                                                                id: wpDeleteBtnMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.beginDeleteWallpaper(modelData.path, modelData.name)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        WheelHandler {
+                                            acceptedModifiers: Qt.ControlModifier
+                                            onWheel: (event) => {
+                                                const d = event.angleDelta.y > 0 ? 10 : -10
+                                                root.setWallpaperTilePref(root.wallpaperTilePref + d)
+                                                event.accepted = true
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        visible: !root.wallpaperLoading && root.wallpaperImages.length === 0
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: "No images in this folder. Use “Add wallpapers…”, change folder, or drop image files here."
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
                                 }
                             }
 
@@ -9445,6 +9823,335 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: root.setClockFormat(modelData.format)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: wpDropArea.containsDrag && wpDropArea.enabled
+                                z: 20
+                                radius: panelBox.radius
+                                color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.16)
+                                border.width: 2
+                                border.color: bar.accent
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "Drop images to add"
+                                    color: bar.text
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                            }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        visible: root.activeMenu === "wallpaper"
+                                 && root.wallpaperMenuPath.length > 0
+                                 && root.wallpaperDialog === ""
+                        z: 30
+                        hoverEnabled: true
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+                        onClicked: root.closeWallpaperUi()
+                    }
+
+                    Rectangle {
+                        visible: root.activeMenu === "wallpaper" && root.wallpaperMenuPath.length > 0
+                                 && root.wallpaperDialog === ""
+                        x: root.wallpaperMenuX
+                        y: root.wallpaperMenuY
+                        z: 40
+                        width: 156
+                        height: wpMenuCol.implicitHeight + 12
+                        radius: root.chipR
+                        color: bar.glassPopupBg
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.glassPopupBorder
+
+                        ColumnLayout {
+                            id: wpMenuCol
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.margins: 6
+                            spacing: 4
+
+                            Repeater {
+                                model: [
+                                    { id: "apply", label: "Apply" },
+                                    { id: "rename", label: "Rename…" },
+                                    { id: "delete", label: "Delete…" }
+                                ]
+                                delegate: Rectangle {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 28
+                                    radius: 5
+                                    color: wpMenuItemMa.containsMouse
+                                           ? (modelData.id === "delete" ? Qt.rgba(1, 0.24, 0.54, 0.22) : bar.popupButtonHoverBg)
+                                           : Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: wpMenuItemMa.containsMouse
+                                                  ? (modelData.id === "delete" ? root.offRed : bar.accent)
+                                                  : bar.dividerStrong
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.left: parent.left
+                                        anchors.leftMargin: 10
+                                        text: modelData.label
+                                        color: modelData.id === "delete" ? root.offRed : bar.text
+                                        font.pixelSize: 12
+                                        font.family: bar.fontFamily
+                                    }
+                                    MouseArea {
+                                        id: wpMenuItemMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: {
+                                            const p = root.wallpaperMenuPath
+                                            const n = root.wallpaperMenuName
+                                            if (modelData.id === "apply") {
+                                                root.closeWallpaperUi()
+                                                root.applyWallpaper(p)
+                                            } else if (modelData.id === "rename") {
+                                                root.beginRenameWallpaper(p, n)
+                                            } else if (modelData.id === "delete") {
+                                                root.beginDeleteWallpaper(p, n)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: root.activeMenu === "wallpaper" && root.wallpaperDialog === "rename"
+                        z: 50
+                        color: Qt.rgba(0, 0, 0, 0.55)
+                        radius: panelBox.radius
+                        focus: visible
+                        onVisibleChanged: {
+                            if (visible) {
+                                wpRenameField.text = root.wallpaperRenameDraft
+                                wpRenameField.forceActiveFocus()
+                                wpRenameField.selectAll()
+                            }
+                        }
+                        Keys.onEscapePressed: root.closeWallpaperUi()
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: root.closeWallpaperUi()
+                        }
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: Math.min(parent.width - 28, 360)
+                            height: wpRenameCol.implicitHeight + 24
+                            radius: root.chipR
+                            color: bar.glassPopupBg
+                            border.width: bar.controlBorderWidth
+                            border.color: bar.glassPopupBorder
+
+                            MouseArea {
+                                anchors.fill: parent
+                            }
+
+                            ColumnLayout {
+                                id: wpRenameCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 12
+                                spacing: 8
+
+                                Text {
+                                    text: "Rename wallpaper"
+                                    color: bar.text
+                                    font.pixelSize: bar.popupTitleSize
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                TextField {
+                                    id: wpRenameField
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 30
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.family: bar.fontFamily
+                                    selectByMouse: true
+                                    background: Rectangle {
+                                        radius: 4
+                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                        border.width: 1
+                                        border.color: wpRenameField.activeFocus ? bar.accent : bar.pillBorder
+                                    }
+                                    onTextEdited: root.wallpaperRenameDraft = text
+                                    onAccepted: root.confirmRenameWallpaper()
+                                    Keys.onEscapePressed: root.closeWallpaperUi()
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wpRenameCancelLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: wpRenameCancelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: wpRenameCancelLbl
+                                            anchors.centerIn: parent
+                                            text: "Cancel"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wpRenameCancelMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.closeWallpaperUi()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wpRenameOkLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: wpRenameOkMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: wpRenameOkMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: wpRenameOkLbl
+                                            anchors.centerIn: parent
+                                            text: "Rename"
+                                            color: wpRenameOkMa.containsMouse ? root.activeLabelColor() : bar.text
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wpRenameOkMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.confirmRenameWallpaper()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: root.activeMenu === "wallpaper" && root.wallpaperDialog === "delete"
+                        z: 50
+                        color: Qt.rgba(0, 0, 0, 0.55)
+                        radius: panelBox.radius
+                        focus: visible
+                        Keys.onEscapePressed: root.closeWallpaperUi()
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: root.closeWallpaperUi()
+                        }
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: Math.min(parent.width - 28, 360)
+                            height: wpDeleteCol.implicitHeight + 24
+                            radius: root.chipR
+                            color: bar.glassPopupBg
+                            border.width: bar.controlBorderWidth
+                            border.color: bar.glassPopupBorder
+
+                            MouseArea {
+                                anchors.fill: parent
+                            }
+
+                            ColumnLayout {
+                                id: wpDeleteCol
+                                anchors.left: parent.left
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 12
+                                spacing: 8
+
+                                Text {
+                                    text: "Delete wallpaper"
+                                    color: bar.text
+                                    font.pixelSize: bar.popupTitleSize
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Remove “" + root.wallpaperDialogName + "” from this folder? This cannot be undone."
+                                    color: bar.subtext
+                                    font.pixelSize: 12
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wpDeleteCancelLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: wpDeleteCancelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: wpDeleteCancelLbl
+                                            anchors.centerIn: parent
+                                            text: "Cancel"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wpDeleteCancelMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.closeWallpaperUi()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wpDeleteOkLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: wpDeleteOkMa.containsMouse ? Qt.rgba(1, 0.24, 0.54, 0.28) : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: root.offRed
+                                        Text {
+                                            id: wpDeleteOkLbl
+                                            anchors.centerIn: parent
+                                            text: "Delete"
+                                            color: root.offRed
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wpDeleteOkMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.confirmDeleteWallpaper()
                                         }
                                     }
                                 }

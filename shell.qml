@@ -173,6 +173,8 @@ ShellRoot {
     // Wallpaper directory (Config default; editable from BarControlBar, persisted)
     property string wallpaperDir: "/home/crome/Pictures/wallpapers"
     property string wallpaperCurrent: ""
+    // Preferred wallpaper thumbnail width (px); grid stretches tiles to fill the panel.
+    property int wallpaperTileSize: 148
 
     // Per-widget pill scale (1.0 = default). Keys match widgetCatalog / layout ids.
     property var widgetScales: ({})
@@ -325,6 +327,7 @@ ShellRoot {
             root.widgetLayout = bar.cloneDefaultLayout()
             root.quickLaunchApps = bar.cloneQuickLaunchApps()
             root.wallpaperDir = cfg.wallpaperDir || root.wallpaperDir
+            root.wallpaperTileSize = cfg.wallpaperTileSize || root.wallpaperTileSize
 
             // Bar edge: Config default, then optional persisted override from state file.
             bar.barPosition = (cfg.barPosition === "bottom") ? "bottom" : "top"
@@ -494,6 +497,8 @@ ShellRoot {
                     root.wallpaperDir = barLayoutAdapter.wallpaperDir
                 if (barLayoutAdapter.wallpaperCurrent && barLayoutAdapter.wallpaperCurrent.length)
                     root.wallpaperCurrent = barLayoutAdapter.wallpaperCurrent
+                if (barLayoutAdapter.wallpaperTileSize >= 100)
+                    root.wallpaperTileSize = Math.max(100, Math.min(260, barLayoutAdapter.wallpaperTileSize))
                 if (barLayoutAdapter.widgetScalesJson && barLayoutAdapter.widgetScalesJson.length > 2) {
                     try {
                         const sc = JSON.parse(barLayoutAdapter.widgetScalesJson)
@@ -524,6 +529,7 @@ ShellRoot {
                 property string quickLaunchAppsJson: ""
                 property string wallpaperDir: ""
                 property string wallpaperCurrent: ""
+                property int wallpaperTileSize: 148
                 property string widgetScalesJson: ""
                 property bool showLauncherPill: true
                 property bool showQuickLaunchPill: true
@@ -950,6 +956,7 @@ ShellRoot {
             }
             barLayoutAdapter.wallpaperDir = root.wallpaperDir || ""
             barLayoutAdapter.wallpaperCurrent = root.wallpaperCurrent || ""
+            barLayoutAdapter.wallpaperTileSize = Math.max(100, Math.min(260, root.wallpaperTileSize || 148))
             try {
                 barLayoutAdapter.widgetScalesJson = JSON.stringify(root.widgetScales || {})
             } catch (e) {
@@ -1478,6 +1485,20 @@ ShellRoot {
             persistBarLayout()
         }
 
+        function setWallpaperTileSize(n) {
+            let v = Math.round(Number(n))
+            if (!(v > 0))
+                return
+            if (v < 100)
+                v = 100
+            if (v > 260)
+                v = 260
+            if (root.wallpaperTileSize === v)
+                return
+            root.wallpaperTileSize = v
+            wallpaperTilePersistTimer.restart()
+        }
+
         function widgetScale(id) {
             const key = String(id || "")
             const m = root.widgetScales || {}
@@ -1513,6 +1534,13 @@ ShellRoot {
         // Debounce disk writes while dragging size sliders (avoid thrashing bar-layout.json).
         Timer {
             id: scalePersistTimer
+            interval: 280
+            repeat: false
+            onTriggered: bar.persistBarLayout()
+        }
+
+        Timer {
+            id: wallpaperTilePersistTimer
             interval: 280
             repeat: false
             onTriggered: bar.persistBarLayout()
@@ -1756,12 +1784,15 @@ ShellRoot {
         property alias quickLaunchApps: root.quickLaunchApps
         property alias wallpaperDir: root.wallpaperDir
         property alias wallpaperCurrent: root.wallpaperCurrent
+        property alias wallpaperTileSize: root.wallpaperTileSize
         property alias widgetScales: root.widgetScales
         // Desktop app picker script for the Launch panel
         readonly property string desktopAppsJsonScript: "/home/crome/.config/quickshell/scripts/desktop-apps-json.sh"
         readonly property alias wallpaperListScript: cfg.wallpaperListScript
         readonly property alias wallpaperApplyScript: cfg.wallpaperApplyScript
         readonly property alias wallpaperAddScript: cfg.wallpaperAddScript
+        readonly property alias wallpaperRenameScript: cfg.wallpaperRenameScript
+        readonly property alias wallpaperDeleteScript: cfg.wallpaperDeleteScript
         readonly property alias wallpaperPickDirScript: cfg.wallpaperPickDirScript
         readonly property alias wallpaperMonitor: cfg.wallpaperMonitor
         readonly property alias monitorModeScript: cfg.monitorModeScript
