@@ -203,6 +203,14 @@ Item {
                || m === "colors" || m === "autostart" || m === "launch" || m === "display"
     }
 
+    // These panels pin a header/footer and scroll their body (like Themes / Audio).
+    readonly property bool panelUsesInnerScroll: {
+        const m = root.activeMenu
+        return m === "colors" || m === "audio" || m === "mime" || m === "services"
+               || m === "keybinds" || m === "wallpaper" || m === "widgets"
+               || m === "options" || m === "launch" || m === "autostart" || m === "display"
+    }
+
     function themeRows() {
         if (bar && bar.themeUiRows)
             return bar.themeUiRows
@@ -343,6 +351,13 @@ Item {
         }
         if (typeof themesBodyFlick !== "undefined" && themesBodyFlick)
             themesBodyFlick.contentY = 0
+        const inner = [wpBodyFlick, widgetsBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick, displayBodyFlick]
+        for (let i = 0; i < inner.length; i++) {
+            try {
+                if (inner[i])
+                    inner[i].contentY = 0
+            } catch (e) {}
+        }
     }
 
     function closeColorPicker() {
@@ -497,10 +512,18 @@ Item {
 
     function resetPanelScroll() {
         // Switching menus must not keep Widgets' scroll offset (Clock etc. look empty)
-        if (typeof panelFlick === "undefined" || !panelFlick)
-            return
-        panelFlick.contentY = 0
-        panelFlick.returnToBounds()
+        if (typeof panelFlick !== "undefined" && panelFlick) {
+            panelFlick.contentY = 0
+            if (panelFlick.returnToBounds)
+                panelFlick.returnToBounds()
+        }
+        const inner = [wpBodyFlick, widgetsBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick, displayBodyFlick, themesBodyFlick]
+        for (let i = 0; i < inner.length; i++) {
+            try {
+                if (inner[i])
+                    inner[i].contentY = 0
+            } catch (e) {}
+        }
     }
 
     function toggleMenu(name) {
@@ -2852,7 +2875,7 @@ Item {
                         // Themes panel scrolls internally (sticky tabs) — never use outer flick
                         interactive: root.panelNeedsScroll
                                      && (contentHeight > height + 4)
-                                     && root.activeMenu !== "colors"
+                                     && !root.panelUsesInnerScroll
 
                         onContentHeightChanged: {
                             if (contentHeight <= height + 4)
@@ -3020,6 +3043,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "display"
                                 Layout.fillWidth: true
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 12
 
                                 RowLayout {
@@ -3034,6 +3058,32 @@ Item {
                                         font.family: bar.fontFamily
                                     }
                                 }
+
+                                Flickable {
+                                    id: displayBodyFlick
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: displayBodyCol.implicitHeight
+                                    interactive: contentHeight > height + 4
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: displayBodyFlick.contentHeight > displayBodyFlick.height + 4
+                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 8
+                                        contentItem: Rectangle {
+                                            implicitWidth: 6
+                                            radius: 3
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        id: displayBodyCol
+                                        width: displayBodyFlick.width
+                                        spacing: 12
 
                                 // Current monitor indicator
                                 Rectangle {
@@ -3568,6 +3618,9 @@ Item {
                                     font.family: bar.fontFamily
                                 }
 
+                                    } // displayBodyCol
+                                } // displayBodyFlick
+
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
@@ -3639,17 +3692,12 @@ Item {
                             }
 
                             // ===== WALLPAPER =====
-                            Item {
+                            ColumnLayout {
                                 id: wallpaperPanel
                                 visible: root.activeMenu === "wallpaper"
                                 Layout.fillWidth: true
-                                implicitHeight: wpCol.implicitHeight
-                                Layout.preferredHeight: implicitHeight
-
-                                ColumnLayout {
-                                    id: wpCol
-                                    width: parent.width
-                                    spacing: 8
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                spacing: 8
 
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -3816,6 +3864,33 @@ Item {
                                             font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
                                         }
                                     }
+
+                                    Flickable {
+                                        id: wpBodyFlick
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        clip: true
+                                        boundsBehavior: Flickable.StopAtBounds
+                                        flickableDirection: Flickable.VerticalFlick
+                                        contentWidth: width
+                                        contentHeight: wpGridCol.implicitHeight
+                                        interactive: contentHeight > height + 4
+                                        ScrollBar.vertical: ScrollBar {
+                                            policy: wpBodyFlick.contentHeight > wpBodyFlick.height + 4
+                                                    ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                            width: 8
+                                            contentItem: Rectangle {
+                                                implicitWidth: 6
+                                                radius: 3
+                                                color: bar.accent
+                                                opacity: 0.5
+                                            }
+                                        }
+
+                                    ColumnLayout {
+                                        id: wpGridCol
+                                        width: wpBodyFlick.width
+                                        spacing: 8
 
                                     Item {
                                         id: wpGridHost
@@ -4002,6 +4077,8 @@ Item {
                                         font.pixelSize: 11
                                         font.family: bar.fontFamily
                                     }
+                                    } // wpGridCol
+                                    } // wpBodyFlick
 
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -4031,13 +4108,13 @@ Item {
                                         }
                                         Item { Layout.fillWidth: true }
                                     }
-                                }
                             }
 
                             // ===== WIDGETS (visibility + zone + order + width scale) =====
                             ColumnLayout {
                                 visible: root.activeMenu === "widgets" || root.activeMenu === "sizes"
                                 Layout.fillWidth: true
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 7
 
                                 RowLayout {
@@ -4059,6 +4136,32 @@ Item {
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
                                 }
+
+                                Flickable {
+                                    id: widgetsBodyFlick
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: widgetsBodyCol.implicitHeight
+                                    interactive: contentHeight > height + 4
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: widgetsBodyFlick.contentHeight > widgetsBodyFlick.height + 4
+                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 8
+                                        contentItem: Rectangle {
+                                            implicitWidth: 6
+                                            radius: 3
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        id: widgetsBodyCol
+                                        width: widgetsBodyFlick.width
+                                        spacing: 7
 
                                 Repeater {
                                     model: root.widgetEntries()
@@ -4384,6 +4487,9 @@ Item {
                                     }
                                 }
 
+                                    } // widgetsBodyCol
+                                } // widgetsBodyFlick
+
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
@@ -4451,6 +4557,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "launch"
                                 Layout.fillWidth: true
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 6
 
                                 RowLayout {
@@ -4472,6 +4579,32 @@ Item {
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
                                 }
+
+                                Flickable {
+                                    id: launchBodyFlick
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: launchBodyCol.implicitHeight
+                                    interactive: contentHeight > height + 4
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: launchBodyFlick.contentHeight > launchBodyFlick.height + 4
+                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 8
+                                        contentItem: Rectangle {
+                                            implicitWidth: 6
+                                            radius: 3
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        id: launchBodyCol
+                                        width: launchBodyFlick.width
+                                        spacing: 6
 
                                 // Current pins
                                 Repeater {
@@ -4815,6 +4948,9 @@ Item {
                                     }
                                 }
 
+                                    } // launchBodyCol
+                                } // launchBodyFlick
+
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
@@ -4854,6 +4990,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "autostart"
                                 Layout.fillWidth: true
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 6
 
                                 RowLayout {
@@ -4883,6 +5020,32 @@ Item {
                                     font.pixelSize: 11
                                     font.family: bar.fontFamily
                                 }
+
+                                Flickable {
+                                    id: autostartBodyFlick
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: autostartBodyCol.implicitHeight
+                                    interactive: contentHeight > height + 4
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: autostartBodyFlick.contentHeight > autostartBodyFlick.height + 4
+                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 8
+                                        contentItem: Rectangle {
+                                            implicitWidth: 6
+                                            radius: 3
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        id: autostartBodyCol
+                                        width: autostartBodyFlick.width
+                                        spacing: 6
 
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -5228,6 +5391,9 @@ Item {
                                     }
                                 }
 
+                                    } // autostartBodyCol
+                                } // autostartBodyFlick
+
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
@@ -5262,6 +5428,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "options"
                                 Layout.fillWidth: true
+                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
                                 spacing: 8
 
                                 RowLayout {
@@ -5283,6 +5450,33 @@ Item {
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
                                 }
+
+                                Flickable {
+                                    id: optionsBodyFlick
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: optionsBodyCol.implicitHeight
+                                    interactive: contentHeight > height + 4
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: optionsBodyFlick.contentHeight > optionsBodyFlick.height + 4
+                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 8
+                                        contentItem: Rectangle {
+                                            implicitWidth: 6
+                                            radius: 3
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        id: optionsBodyCol
+                                        width: optionsBodyFlick.width
+                                        spacing: 8
+
 
                                 Text {
                                     text: "Bar / UI"
@@ -7217,6 +7411,9 @@ Item {
                                         }
                                     }
                                 }
+
+                                    } // optionsBodyCol
+                                } // optionsBodyFlick
 
                                 RowLayout {
                                     Layout.fillWidth: true

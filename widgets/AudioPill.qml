@@ -1960,6 +1960,40 @@ Rectangle {
                 z: 1
             }
 
+            Rectangle {
+                z: 20
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.margins: 8
+                width: 26
+                height: 26
+                radius: bar.smallButtonRadius !== undefined ? bar.smallButtonRadius : bar.buttonRadius
+                color: audioCloseMa.containsMouse
+                       ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                       : bar.surface
+                border.width: 1
+                border.color: audioCloseMa.containsMouse ? "#FF3D8A" : bar.dividerStrong
+                Text {
+                    anchors.centerIn: parent
+                    text: "✕"
+                    color: audioCloseMa.containsMouse ? "#FF3D8A" : bar.subtext
+                    font.pixelSize: 12
+                    font.bold: true
+                    font.family: bar.fontFamily
+                }
+                MouseArea {
+                    id: audioCloseMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        audioPopup.visible = false
+                        audioDeviceListPopup.visible = false
+                        audioProfileListPopup.visible = false
+                    }
+                }
+            }
+
             // Scroll when content exceeds fixed popup height so Echo cancel
             // never paints over the bottom border.
             Flickable {

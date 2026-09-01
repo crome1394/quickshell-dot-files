@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Sticky control-bar headers + widget close ✕
+
+- Wallpaper / Widgets / Options / Launch / Autostart / Display pin title + controls (like Themes and Audio); only the body scrolls.
+- Bluetooth: **Power off/on** is visible at the bottom of the menu; hint is “Right-click pill to toggle on/off bluetooth”.
+- Network, Bluetooth, and Audio Controls popups have a top-right **✕**.
+
 ## 2026-09 — Control bar focus, close ✕, footer actions
 
 - **Keyboard search** works again in Autostart / MIME / Keybinds / Launch / Audio / Services (Hyprland focus grab stays armed; close with ✕ or Esc).

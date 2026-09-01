@@ -915,6 +915,32 @@ Rectangle {
                             onClicked: root.detailAddress = ""
                         }
                     }
+
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        radius: bar.buttonRadius
+                        color: btCloseMa.containsMouse
+                               ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                               : bar.surface
+                        border.width: 1
+                        border.color: btCloseMa.containsMouse ? "#FF3D8A" : bar.dividerStrong
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: btCloseMa.containsMouse ? "#FF3D8A" : bar.subtext
+                            font.pixelSize: 12
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: btCloseMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.closePopup()
+                        }
+                    }
                 }
 
                 Text {
@@ -1265,11 +1291,57 @@ Rectangle {
 
                     Text {
                         Layout.fillWidth: true
-                        text: "right-click pill toggles power · pair may open Blueman agent"
+                        text: "Right-click pill to toggle on/off bluetooth"
                         color: bar.subtext
                         font.pixelSize: bar.popupHintSize || bar.fontTiny
                         font.family: bar.fontFamily
                         horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 6
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 26
+                            radius: bar.buttonRadius
+                            color: powerMa.containsMouse
+                                   ? (bt.powered ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
+                                   : (bt.powered ? bar.surface : Qt.rgba(0.12, 0.35, 0.22, 0.55))
+                            border.width: bar.controlBorderWidth
+                            border.color: bar.dividerStrong
+                            Text {
+                                id: powerOnMetrics
+                                visible: false
+                                text: "Power on"
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.family: bar.fontFamily
+                            }
+                            Text {
+                                id: powerOffMetrics
+                                visible: false
+                                text: "Power off"
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.family: bar.fontFamily
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: bt.powered ? "Power off" : "Power on"
+                                color: powerMa.containsMouse && !bt.powered ? bar.bg : bar.text
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.family: bar.fontFamily
+                            }
+                            MouseArea {
+                                id: powerMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: bt.togglePower()
+                            }
+                        }
                     }
                 }
             }
@@ -1884,52 +1956,6 @@ Rectangle {
                         font.pixelSize: 10
                         font.family: bar.fontFamily
                         wrapMode: Text.WordWrap
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: 26
-                        radius: bar.buttonRadius
-                        color: powerMa.containsMouse
-                               ? (bt.powered ? Qt.rgba(0.55, 0.14, 0.14, 0.55) : bar.accent)
-                               : (bt.powered ? bar.surface : Qt.rgba(0.12, 0.35, 0.22, 0.55))
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-                        Text {
-                            id: powerOnMetrics
-                            visible: false
-                            text: "Power on"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            id: powerOffMetrics
-                            visible: false
-                            text: "Power off"
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: bt.powered ? "Power off" : "Power on"
-                            color: powerMa.containsMouse && !bt.powered ? bar.bg : bar.text
-                            font.pixelSize: 11
-                            font.bold: true
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: powerMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: bt.togglePower()
-                        }
                     }
                 }
             }

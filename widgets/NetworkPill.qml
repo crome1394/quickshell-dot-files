@@ -1163,6 +1163,32 @@ Rectangle {
                             onClicked: root.detailIface = ""
                         }
                     }
+
+                    Rectangle {
+                        width: 26
+                        height: 26
+                        radius: bar.buttonRadius
+                        color: netCloseMa.containsMouse
+                               ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                               : bar.surface
+                        border.width: 1
+                        border.color: netCloseMa.containsMouse ? "#FF3D8A" : bar.dividerStrong
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: netCloseMa.containsMouse ? "#FF3D8A" : bar.subtext
+                            font.pixelSize: 12
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: netCloseMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.closePopup()
+                        }
+                    }
                 }
 
                 // Connectivity (IP / DNS live at the bottom)
