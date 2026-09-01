@@ -9,6 +9,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
   - **Tile size** slider (100–260px, persisted in `bar-layout.json`); **Ctrl+wheel** on the grid also resizes.
   - Hover **✎ / ✕** or right-click a thumb to **Rename…** / **Delete…** (delete asks for confirmation). Rename of the current wallpaper re-applies it.
   - Drag-and-drop image files (or a folder of images) onto the panel to copy them in; **Add wallpapers…** still uses the file picker.
+  - The panel **stays open** while dragging from a file manager (outside-click dismiss is skipped on this tab so the drop can land). Click **Wallpaper** again, the bar chrome, or Esc to close.
   - Scripts: `wallpaper-add.sh` accepts extra file args; `wallpaper-rename.sh` / `wallpaper-delete.sh` only touch image files inside the wallpaper folder.
 
 ## 2026-08 — Theme system, fonts, polish

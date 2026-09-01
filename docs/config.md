@@ -17,6 +17,7 @@ Edit `Config.qml` to change:
 - Workspace pill count, active-only mode, magic pill default, startup focus, and workspace colors (search **WORKSPACES**; IPC: `setWsMinimumShown`, `setWsShowOnlyActive`, `setWsStartupWorkspace`, `setWsStartupCloseMagic`)
 - System Stats pill and metrics popups (search **SYS STATS PILL** and `popupStats*`)
 - Inspector sizing and semantic colors (search `insp*` properties)
+- Wallpaper folder / apply scripts / default tile size (search **Wallpaper**; runtime folder and tile size persist in `state/bar-layout.json`)
 
 Day-to-day color tweaks belong in the control strip **Colors** panel (persisted to `state/theme-colors.json`); only edit `Config.qml` for factory defaults or tokens not exposed in the UI.
 

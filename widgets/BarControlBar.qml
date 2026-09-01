@@ -5,7 +5,7 @@
 // Right-click blank area of the main bar (wired in shell.qml) toggles this
 // strip. Horizontally centered; stacks just inward from the main bar.
 //
-// Single PopupWindow (grabFocus). Expandable panel on top; toolbar buttons
+// Single PopupWindow. Expandable panel on top; toolbar buttons
 // along the bottom: Position · Display · Wallpaper · Widgets · Options ·
 // Themes · Launch · Autostart · MIME · Services · Audio · Keybinds · Clock
 // Widgets = layout; Options = behavior prefs; Themes = bar/widget theme;
@@ -18,6 +18,7 @@
 // =============================================================================
 
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io as Io
 import QtQuick
 import QtQuick.Layouts
@@ -408,10 +409,17 @@ Item {
     }
 
     function hide() {
+        // A file-manager drag starts as an outside press; do not tear down the
+        // surface while a drop is in flight or the wallpaper panel is holding
+        // itself open for that drop.
+        if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
+            return
         root.closeWallpaperUi()
         root.activeMenu = ""
         if (!controlPopup.visible)
             return
+        if (typeof controlFocusGrab !== "undefined" && controlFocusGrab)
+            controlFocusGrab.active = false
         controlPopup.visible = false
         root._closedAtMs = Date.now()
     }
@@ -504,6 +512,7 @@ Item {
             root.activeMenu = ""
         else
             root.activeMenu = name
+        root.armControlFocusGrab()
         if (root.activeMenu === "options")
             root.refreshOptions()
         if (root.activeMenu === "colors") {
@@ -1383,6 +1392,27 @@ Item {
         root.wallpaperRenameDraft = ""
     }
 
+    // HyprlandFocusGrab is dismissed by any outside press — including the start
+    // of a file-manager drag. Wallpaper keeps the popup up; re-arm after drop
+    // or when leaving the wallpaper tab so other panels still close on outside click.
+    function armControlFocusGrab() {
+        if (!controlPopup.visible)
+            return
+        if (typeof controlFocusGrab === "undefined" || !controlFocusGrab)
+            return
+        if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
+            return
+        controlFocusGrab.active = true
+    }
+
+    function onControlGrabCleared() {
+        if (!controlPopup.visible)
+            return
+        if (root.activeMenu === "wallpaper")
+            return
+        root.hide()
+    }
+
     function fileUrlToPath(url) {
         let s = String(url || "")
         if (!s.length)
@@ -1446,6 +1476,7 @@ Item {
         root.wallpaperDialogPath = String(path || "")
         root.wallpaperDialogName = String(name || "")
         root.wallpaperRenameDraft = String(name || "")
+        root.armControlFocusGrab()
     }
 
     function beginDeleteWallpaper(path, name) {
@@ -2638,22 +2669,49 @@ Item {
     }
 
     // -------------------------------------------------------------------------
-    // One popup: toolbar row + optional expandable panel (stays under grabFocus)
+    // One popup: toolbar row + optional expandable panel
+    // grabFocus (Qt::Popup) dismisses on any outside press, which also fires
+    // when a file-manager drag starts — so Wallpaper DnD would close the panel.
+    // HyprlandFocusGrab restores click-outside-to-close for every other tab.
     // -------------------------------------------------------------------------
+    HyprlandFocusGrab {
+        id: controlFocusGrab
+        windows: [controlPopup]
+        onCleared: root.onControlGrabCleared()
+    }
+
     PopupWindow {
         id: controlPopup
         anchor.window: bar
         implicitWidth: controlChrome.implicitWidth
         implicitHeight: controlChrome.implicitHeight
         visible: false
-        grabFocus: true
+        grabFocus: false
         color: "transparent"
 
+        Shortcut {
+            sequences: ["Escape"]
+            enabled: controlPopup.visible
+            onActivated: root.hide()
+        }
+
         onVisibleChanged: {
-            if (!visible) {
-                root._closedAtMs = Date.now()
-                root.activeMenu = ""
+            if (visible) {
+                root.armControlFocusGrab()
+                return
             }
+            if (root.activeMenu === "wallpaper"
+                    && typeof wpDropArea !== "undefined" && wpDropArea
+                    && wpDropArea.containsDrag) {
+                Qt.callLater(function() {
+                    controlPopup.visible = true
+                    root.activeMenu = "wallpaper"
+                    root.scheduleReposition()
+                })
+                return
+            }
+            root._closedAtMs = Date.now()
+            root.activeMenu = ""
         }
 
         onImplicitWidthChanged: if (visible) root.scheduleReposition()
@@ -2710,7 +2768,7 @@ Item {
                 anchors.margins: root.pad
                 spacing: 8
 
-                // ── Expandable panel (same window = clicks stay inside grabFocus) ──
+                // ── Expandable panel (same window so clicks stay in this popup) ──
                 Rectangle {
                     id: panelBox
                     visible: root.activeMenu.length > 0
@@ -2755,12 +2813,14 @@ Item {
                             if (wpDropArea.enabled)
                                 drag.accept(Qt.CopyAction)
                         }
+                        onExited: root.armControlFocusGrab()
                         onDropped: (drop) => {
                             if (!wpDropArea.enabled)
                                 return
                             if (drop.hasUrls)
                                 root.addDroppedWallpapers(drop.urls)
                             drop.accept(Qt.CopyAction)
+                            root.armControlFocusGrab()
                         }
 
                         Flickable {
@@ -10163,7 +10223,9 @@ Item {
                 Text {
                     visible: root.activeMenu.length > 0
                     Layout.alignment: Qt.AlignRight
-                    text: "click outside to close"
+                    text: root.activeMenu === "wallpaper"
+                          ? "drop images to add · click Wallpaper again to close"
+                          : "click outside to close"
                     color: bar.subtext
                     font.pixelSize: bar.popupHintSize
                     font.family: bar.fontFamily

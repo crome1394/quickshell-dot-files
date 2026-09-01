@@ -52,7 +52,7 @@ Thumbnail grid for the current wallpaper folder (`hyprpaper` apply). Tiles use a
 | Hover **✕** / right-click **Delete…** | Confirm, then delete only that image in the wallpaper folder |
 | **Tile size** | 100–260px preferred width; **Ctrl+wheel** on the grid also changes it (`wallpaperTileSize` in `bar-layout.json`) |
 | **Add wallpapers…** | zenity picker; copies into the folder |
-| Drag-and-drop | Image files, or a folder of images (top-level only), copied in (suffix if the name exists) |
+| Drag-and-drop | Image files, or a folder of images (top-level only), copied in (suffix if the name exists). The Wallpaper tab stays open for the drop (file-manager drags start as an outside click, which would otherwise dismiss the popup). Close with the **Wallpaper** tab, bar chrome, or Esc. |
 | **Change folder…** / **Open folder** | Pick or reveal the wallpaper directory |
 
 Scripts: `wallpaper-list-json.sh`, `wallpaper-apply.sh`, `wallpaper-add.sh`, `wallpaper-rename.sh`, `wallpaper-delete.sh`, `wallpaper-pick-dir.sh`.

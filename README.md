@@ -14,7 +14,8 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 ## Features
 
 - Liquid-glass bar (top/bottom) · left / center / right zones
-- **Control strip** (gear or right-click chrome): Position, Display, Wallpaper, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, Clock
+- **Control strip** (gear or right-click chrome): Position, Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, Clock
+- **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
 - **Themes** — colors, opacity, fonts (UI / mono / Main / Secondary / Bar roles), thresholds, liquid + solid presets
 - Net · BT · Audio (combined pill), workspaces, sys stats, tray, notifications (history + copy), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
@@ -34,7 +35,7 @@ qs --daemonize -n
 
 | Persist | File |
 |---------|------|
-| Layout / Options | `state/bar-layout.json` |
+| Layout / Options / wallpaper folder & tile size | `state/bar-layout.json` |
 | Active theme | `state/theme-colors.json` |
 | Named presets | `themes/*.json` |
 | Display mode | `~/.config/hypr/config/monitors.lua` (on Apply) |
@@ -67,7 +68,7 @@ Full tables: [docs/ipc.md](docs/ipc.md)
 
 | Guide | Topic |
 |-------|--------|
-| [Control bar](docs/control-bar.md) | Panels, Themes, Display, MIME |
+| [Control bar](docs/control-bar.md) | Panels, Wallpaper, Themes, Display, MIME |
 | [Config tokens](docs/config.md) | `Config.qml` reference |
 | [IPC](docs/ipc.md) | All IPC targets |
 | [Audio](docs/audio.md) · [Network](docs/network.md) · [Bluetooth](docs/bluetooth.md) | Connectivity pills |
