@@ -2044,12 +2044,16 @@ Rectangle {
             return
         }
         profilePopup.forAddress = addr
-        var pos = root.mapToItem(barBg, root.width / 2, root.height)
         var popupWidth = profilePopup.implicitWidth
-        var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        profilePopup.anchor.rect.x = Math.max(12, Math.min(targetX, screenW - popupWidth - 12))
-        profilePopup.anchor.rect.y = bar.popupAnchorY(profilePopup.implicitHeight, 8)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(profilePopup, root, popupWidth, profilePopup.implicitHeight, 8, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height)
+            var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            profilePopup.anchor.rect.x = Math.max(12, Math.min(targetX, screenW - popupWidth - 12))
+            profilePopup.anchor.rect.y = bar.popupAnchorY(profilePopup.implicitHeight, 8)
+        }
         profilePopup.visible = true
     }
 
@@ -2070,14 +2074,18 @@ Rectangle {
         if (root.expandedAddress.length)
             root.refreshProfilesForAddress(root.expandedAddress)
 
-        var pos = root.mapToItem(barBg, root.width / 2, root.height)
         var popupWidth = btPopup.implicitWidth
-        var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var minX = 12
-        var maxX = screenW - popupWidth - 12
-        btPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        btPopup.anchor.rect.y = bar.popupAnchorY(btPopup.implicitHeight, 2)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(btPopup, root, popupWidth, btPopup.implicitHeight, 2, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height)
+            var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var minX = 12
+            var maxX = screenW - popupWidth - 12
+            btPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            btPopup.anchor.rect.y = bar.popupAnchorY(btPopup.implicitHeight, 2)
+        }
         btPopup.visible = true
     }
 

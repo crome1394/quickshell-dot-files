@@ -103,15 +103,18 @@ Rectangle {
         }
         hidePowerMenu()
 
-        var pos = root.mapToItem(barBg, root.width / 2, 0)
         var popupW = powerContextPopup.implicitWidth
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var targetX = bar.sideMargin + pos.x - (popupW / 2)
-        var minX = 12
-        var maxX = screenW - popupW - 12
-
-        powerContextPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        powerContextPopup.anchor.rect.y = bar.popupAnchorY(powerContextPopup.implicitHeight, 2)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(powerContextPopup, root, popupW, powerContextPopup.implicitHeight, 2, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, 0)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var targetX = bar.sideMargin + pos.x - (popupW / 2)
+            var minX = 12
+            var maxX = screenW - popupW - 12
+            powerContextPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            powerContextPopup.anchor.rect.y = bar.popupAnchorY(powerContextPopup.implicitHeight, 2)
+        }
         powerContextPopup.visible = true
     }
 
@@ -122,16 +125,18 @@ Rectangle {
         }
         hidePowerContextMenu()
 
-        var pos = root.mapToItem(barBg, root.width / 2, root.height);
         var popupW = powerPopup.implicitWidth;
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920;
-
-        var targetX = bar.sideMargin + pos.x - (popupW / 2) + 60;
-
-        var minX = 12;
-        var maxX = screenW - popupW - 12;
-        powerPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX));
-        powerPopup.anchor.rect.y = bar.popupAnchorY(powerPopup.implicitHeight);
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(powerPopup, root, popupW, powerPopup.implicitHeight, undefined, root.width / 2, 60);
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height);
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920;
+            var targetX = bar.sideMargin + pos.x - (popupW / 2) + 60;
+            var minX = 12;
+            var maxX = screenW - popupW - 12;
+            powerPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX));
+            powerPopup.anchor.rect.y = bar.popupAnchorY(powerPopup.implicitHeight);
+        }
 
         powerPopup.visible = true;
     }

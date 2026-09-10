@@ -300,15 +300,19 @@ Rectangle {
                    : bar.popupStatsGpuBarGap
 
         var layoutAnchor = anchorWholePill ? root : anchorItem
-        var pos = layoutAnchor.mapToItem(barBg, layoutAnchor.width * anchorXFrac, 0)
         var popupW = popup.implicitWidth
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var targetX = bar.sideMargin + pos.x - (popupW / 2) + offsetX
-        var minX = 12
-        var maxX = screenW - popupW - 12
-
-        popup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        popup.anchor.rect.y = bar.popupAnchorY(popup.implicitHeight, barGap) + offsetY
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(popup, layoutAnchor, popupW, popup.implicitHeight, barGap,
+                           layoutAnchor.width * anchorXFrac, offsetX, offsetY)
+        } else {
+            var pos = layoutAnchor.mapToItem(barBg, layoutAnchor.width * anchorXFrac, 0)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var targetX = bar.sideMargin + pos.x - (popupW / 2) + offsetX
+            var minX = 12
+            var maxX = screenW - popupW - 12
+            popup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            popup.anchor.rect.y = bar.popupAnchorY(popup.implicitHeight, barGap) + offsetY
+        }
         popup.visible = true
         syncMetricsPolling()
     }

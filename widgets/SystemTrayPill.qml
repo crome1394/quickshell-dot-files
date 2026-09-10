@@ -117,8 +117,11 @@ Rectangle {
         trayMenuPopup.menuStack = [];
         trayMenuPopup.itemTitle = trayItem.title || trayItem.id || "Menu";
 
-        var p = sourceItem.mapToItem(barBg, sourceItem.width / 2, sourceItem.height);
-        trayMenuPopup.anchorSourceX = bar.sideMargin + p.x;
+        trayMenuPopup.anchorSourceItem = sourceItem;
+        if (typeof bar.placePopup !== "function") {
+            var p = sourceItem.mapToItem(barBg, sourceItem.width / 2, sourceItem.height);
+            trayMenuPopup.anchorSourceX = bar.sideMargin + p.x;
+        }
         trayMenuPopup.visible = true;
         trayMenuPopup.reposition();
         // Menu height is unknown until items load — reposition again after layout
@@ -146,10 +149,16 @@ Rectangle {
         property var menuStack: []
         property string itemTitle: ""
         property real anchorSourceX: 0
+        property var anchorSourceItem: null
 
         function reposition() {
             var popupW = implicitWidth > 0 ? implicitWidth : 220
             var popupH = implicitHeight > 0 ? implicitHeight : 80
+            if (typeof bar.placePopup === "function" && anchorSourceItem) {
+                bar.placePopup(trayMenuPopup, anchorSourceItem, popupW, popupH, undefined,
+                               anchorSourceItem.width / 2)
+                return
+            }
             var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
             var targetX = anchorSourceX - (popupW / 2)
             var minX = 12

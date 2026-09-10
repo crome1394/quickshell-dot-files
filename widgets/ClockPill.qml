@@ -336,17 +336,18 @@ Rectangle {
 
     // Helper to position + show the calendar popup
     function showCalendarPopup() {
-        var pos = root.mapToItem(barBg, root.width / 2, root.height)
-
         var popupWidth = calendarPopup.implicitWidth
-        var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
-
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var minX = 12
-        var maxX = screenW - popupWidth - 12
-
-        calendarPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        calendarPopup.anchor.rect.y = bar.popupAnchorY(calendarPopup.implicitHeight, 2)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(calendarPopup, root, popupWidth, calendarPopup.implicitHeight, 2, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height)
+            var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var minX = 12
+            var maxX = screenW - popupWidth - 12
+            calendarPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            calendarPopup.anchor.rect.y = bar.popupAnchorY(calendarPopup.implicitHeight, 2)
+        }
 
         calendarPopup.visible = true
     }

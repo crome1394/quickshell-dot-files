@@ -32,10 +32,14 @@ ToolTip {
         var gap = 6
         var side = tip.preferSide
         if (!side || !side.length) {
-            if (bar && bar.barPosition === "bottom")
-                side = "above"
-            else
-                side = "below"
+            var edge = "top"
+            if (bar && typeof bar.edgeForItem === "function")
+                edge = bar.edgeForItem(anchorItem)
+            else if (bar && bar.barPosition === "bottom")
+                edge = "bottom"
+            if (bar && bar.layoutEpoch !== undefined)
+                void bar.layoutEpoch
+            side = (edge === "bottom") ? "above" : "below"
         }
         if (side === "above")
             return -h - gap

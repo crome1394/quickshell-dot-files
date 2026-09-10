@@ -494,15 +494,24 @@ Item {
         // Center on the bar / screen
         var targetX = Math.round((screenW - popupW) / 2)
 
+        // Always anchor to `bar`. The control PopupWindow lives in that window;
+        // pointing it at the dual bottom bar made the strip unclickable (✕ / Esc / gear).
+        controlPopup.anchor.window = bar
         controlPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        // popupAnchorY keeps the edge of the popup against the bar (not floating mid-screen)
-        var y = bar.popupAnchorY(popupH, gap)
+        var y = (typeof bar.controlPopupAnchorY === "function")
+                ? bar.controlPopupAnchorY(popupH, gap)
+                : bar.popupAnchorY(popupH, gap)
+        var edge = (typeof bar.controlPopupEdge === "function") ? bar.controlPopupEdge() : bar.barPosition
         // Clamp so a huge panel never starts above the top of the monitor
-        if (bar.barPosition === "bottom") {
-            // y is top of popup relative to bar top; keep at least a few px on-screen
-            var minY = -(screenH - (bar.barHeight || 58) - 8)
-            if (y < minY)
-                y = minY
+        if (edge === "bottom") {
+            if (bar.barLayoutMode === "dual") {
+                if (y < 8)
+                    y = 8
+            } else {
+                var minY = -(screenH - (bar.barHeight || 58) - 8)
+                if (y < minY)
+                    y = minY
+            }
         }
         controlPopup.anchor.rect.y = y
         controlPopup.anchor.rect.width = 1
@@ -623,6 +632,24 @@ Item {
 
     function optUiScaleIsAuto() {
         return !(root.optUiScaleManual() > 0)
+    }
+
+    function optBarEdgeMargin() {
+        void root.optionsTick
+        void root.menuTick
+        const n = (bar && bar.barEdgeMargin !== undefined) ? Number(bar.barEdgeMargin) : 0
+        if (!(n >= 0))
+            return 0
+        return Math.max(0, Math.min(48, Math.round(n)))
+    }
+
+    function optBarSizePct() {
+        void root.optionsTick
+        void root.menuTick
+        const s = (bar && bar.barSizeScale !== undefined) ? Number(bar.barSizeScale) : 1
+        if (!(s > 0))
+            return 100
+        return Math.round(Math.max(0.8, Math.min(1.4, s)) * 100)
     }
 
     function setOptToggle(setterName, enabled) {
@@ -1231,15 +1258,18 @@ Item {
             for (let i = 0; i < cat.length; i++) {
                 out.push({
                     id: cat[i].id,
-                    zone: "right",
+                    zone: (bar.barLayoutMode === "dual") ? "bottom" : "right",
                     label: cat[i].label,
                     on: root.isWidgetOn(cat[i].id)
                 })
             }
         }
-        // Sort: zone L → C → R, then alphabetical by label (↑↓ still changes bar layout order)
+        // Sort: classic L → C → R, dual T → B, then alphabetical by label
         out.sort(function (a, b) {
-            const zoneOrder = { left: 0, center: 1, right: 2 }
+            const dual = bar.barLayoutMode === "dual"
+            const zoneOrder = dual
+                ? { top: 0, bottom: 1 }
+                : { left: 0, center: 1, right: 2 }
             const za = zoneOrder[a.zone] !== undefined ? zoneOrder[a.zone] : 9
             const zb = zoneOrder[b.zone] !== undefined ? zoneOrder[b.zone] : 9
             if (za !== zb)
@@ -1253,6 +1283,20 @@ Item {
             return 0
         })
         return out
+    }
+
+    function zoneChoices() {
+        void root.menuTick
+        if (bar && bar.barLayoutMode === "dual")
+            return [
+                { id: "top", label: "T" },
+                { id: "bottom", label: "B" }
+            ]
+        return [
+            { id: "left", label: "L" },
+            { id: "center", label: "C" },
+            { id: "right", label: "R" }
+        ]
     }
 
     function clockPresets() {
@@ -2732,7 +2776,14 @@ Item {
     // -------------------------------------------------------------------------
     HyprlandFocusGrab {
         id: controlFocusGrab
-        windows: [controlPopup, bar]
+        windows: {
+            void bar.layoutEpoch
+            void bar.barLayoutMode
+            const list = [controlPopup, bar]
+            if (bar && bar.barLayoutMode === "dual" && bar.bottomBarWindow)
+                list.push(bar.bottomBarWindow)
+            return list
+        }
         onCleared: root.onControlGrabCleared()
     }
 
@@ -2748,6 +2799,7 @@ Item {
         Shortcut {
             sequences: ["Escape"]
             enabled: controlPopup.visible
+            context: Qt.ApplicationShortcut
             onActivated: root.hide()
         }
 
@@ -2959,13 +3011,134 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 Text {
-                                    text: "Pin the status bar to the top or bottom edge"
+                                    text: (bar.barLayoutMode === "dual")
+                                          ? "Dual layout uses a centered bar on both edges. Switch to Classic for a single bar."
+                                          : "Pin the status bar to the top or bottom edge"
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
+                                    font.family: bar.fontFamily
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                Text {
+                                    text: "Layout"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
                                     font.family: bar.fontFamily
                                 }
 
                                 RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 52
+                                    Layout.minimumHeight: 52
+                                    spacing: 8
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        Layout.preferredHeight: 52
+                                        Layout.minimumHeight: 52
+                                        radius: root.chipR
+                                        color: (bar.barLayoutMode !== "dual")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (modeClassicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                        border.width: bar.controlBorderWidth
+                                        border.color: (bar.barLayoutMode !== "dual") ? root.activeLabelColor() : bar.pillBorder
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 12
+                                            anchors.rightMargin: 12
+                                            anchors.topMargin: 8
+                                            anchors.bottomMargin: 8
+                                            spacing: 0
+                                            Text {
+                                                text: "Classic"
+                                                font.pixelSize: 13
+                                                font.bold: bar.barLayoutMode !== "dual"
+                                                font.family: bar.fontFamily
+                                                color: bar.barLayoutMode !== "dual" ? root.activeLabelColor() : bar.text
+                                            }
+                                            Text {
+                                                text: "One bar · L / C / R"
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                color: bar.subtext
+                                            }
+                                        }
+                                        MouseArea {
+                                            id: modeClassicMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.setBarLayoutMode === "function")
+                                                    bar.setBarLayoutMode("classic")
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.fillHeight: true
+                                        Layout.preferredHeight: 52
+                                        Layout.minimumHeight: 52
+                                        radius: root.chipR
+                                        color: (bar.barLayoutMode === "dual")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (modeDualMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                        border.width: bar.controlBorderWidth
+                                        border.color: (bar.barLayoutMode === "dual") ? root.activeLabelColor() : bar.pillBorder
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 12
+                                            anchors.rightMargin: 12
+                                            anchors.topMargin: 8
+                                            anchors.bottomMargin: 8
+                                            spacing: 0
+                                            Text {
+                                                text: "Dual"
+                                                font.pixelSize: 13
+                                                font.bold: bar.barLayoutMode === "dual"
+                                                font.family: bar.fontFamily
+                                                color: bar.barLayoutMode === "dual" ? root.activeLabelColor() : bar.text
+                                            }
+                                            Text {
+                                                text: "Top + bottom · centered"
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                color: bar.subtext
+                                            }
+                                        }
+                                        MouseArea {
+                                            id: modeDualMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.setBarLayoutMode === "function")
+                                                    bar.setBarLayoutMode("dual")
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: bar.barLayoutMode !== "dual"
+                                    text: "Edge"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+
+                                RowLayout {
+                                    visible: bar.barLayoutMode !== "dual"
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 52
                                     Layout.minimumHeight: 52
@@ -3063,6 +3236,166 @@ Item {
                                                 if (typeof bar.setBarPosition === "function")
                                                     bar.setBarPosition("bottom")
                                                 Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: "Inset & size"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Gap from edge"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: root.optBarEdgeMargin() + " px"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: posEdgeSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 0
+                                            to: 48
+                                            stepSize: 2
+                                            value: root.optBarEdgeMargin()
+                                            onMoved: {
+                                                if (typeof bar.setBarEdgeMargin === "function")
+                                                    bar.setBarEdgeMargin(Math.round(value))
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                            background: Rectangle {
+                                                x: posEdgeSlider.leftPadding
+                                                y: posEdgeSlider.topPadding + posEdgeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: posEdgeSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: posEdgeSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: posEdgeSlider.leftPadding + posEdgeSlider.visualPosition * (posEdgeSlider.availableWidth - width)
+                                                y: posEdgeSlider.topPadding + posEdgeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: posEdgeSlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Bar size"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: root.optBarSizePct() + "%"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: posBarSizeSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 80
+                                            to: 140
+                                            stepSize: 5
+                                            value: root.optBarSizePct()
+                                            onMoved: {
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(value) / 100)
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                            background: Rectangle {
+                                                x: posBarSizeSlider.leftPadding
+                                                y: posBarSizeSlider.topPadding + posBarSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: posBarSizeSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: posBarSizeSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: posBarSizeSlider.leftPadding + posBarSizeSlider.visualPosition * (posBarSizeSlider.availableWidth - width)
+                                                y: posBarSizeSlider.topPadding + posBarSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: posBarSizeSlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
                                             }
                                         }
                                     }
@@ -4161,7 +4494,9 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "L→C→R then A–Z · ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
+                                    text: (bar.barLayoutMode === "dual")
+                                          ? "T→B then A–Z · ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
+                                          : "L→C→R then A–Z · ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
@@ -4283,86 +4618,42 @@ Item {
                                                     }
                                                 }
 
-                                                // Column 2: zone L C R (flush left of arrows)
+                                                // Column 2: zone L C R (classic) or T B (dual)
                                                 RowLayout {
-                                                    Layout.preferredWidth: 74
-                                                    Layout.maximumWidth: 74
-                                                    Layout.minimumWidth: 74
+                                                    readonly property int zoneBtnCount: root.zoneChoices().length
+                                                    Layout.preferredWidth: zoneBtnCount * 22 + (zoneBtnCount - 1) * 4
+                                                    Layout.maximumWidth: zoneBtnCount * 22 + (zoneBtnCount - 1) * 4
+                                                    Layout.minimumWidth: zoneBtnCount * 22 + (zoneBtnCount - 1) * 4
                                                     Layout.alignment: Qt.AlignVCenter
                                                     spacing: 4
 
-                                                    Rectangle {
-                                                        Layout.preferredWidth: 22
-                                                        Layout.preferredHeight: 22
-                                                        radius: 4
-                                                        color: widgetRow.widgetZone === "left" ? bar.controlActiveBg : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                        border.width: 1
-                                                        border.color: widgetRow.widgetZone === "left" ? root.activeLabelColor() : bar.pillBorder
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "L"
-                                                            font.pixelSize: 10
-                                                            font.family: bar.fontFamily
-                                                            color: widgetRow.widgetZone === "left" ? root.activeLabelColor() : bar.subtext
-                                                        }
-                                                        MouseArea {
-                                                            anchors.fill: parent
-                                                            cursorShape: Qt.PointingHandCursor
-                                                            onClicked: {
-                                                                if (typeof bar.setWidgetZone === "function")
-                                                                    bar.setWidgetZone(widgetRow.widgetId, "left")
-                                                                root.menuTick++
-                                                                Qt.callLater(root.reposition)
+                                                    Repeater {
+                                                        model: root.zoneChoices()
+                                                        delegate: Rectangle {
+                                                            required property var modelData
+                                                            readonly property bool zoneOn: widgetRow.widgetZone === modelData.id
+                                                            Layout.preferredWidth: 22
+                                                            Layout.preferredHeight: 22
+                                                            radius: 4
+                                                            color: zoneOn ? bar.controlActiveBg : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                            border.width: 1
+                                                            border.color: zoneOn ? root.activeLabelColor() : bar.pillBorder
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: modelData.label
+                                                                font.pixelSize: 10
+                                                                font.family: bar.fontFamily
+                                                                color: zoneOn ? root.activeLabelColor() : bar.subtext
                                                             }
-                                                        }
-                                                    }
-                                                    Rectangle {
-                                                        Layout.preferredWidth: 22
-                                                        Layout.preferredHeight: 22
-                                                        radius: 4
-                                                        color: widgetRow.widgetZone === "center" ? bar.controlActiveBg : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                        border.width: 1
-                                                        border.color: widgetRow.widgetZone === "center" ? root.activeLabelColor() : bar.pillBorder
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "C"
-                                                            font.pixelSize: 10
-                                                            font.family: bar.fontFamily
-                                                            color: widgetRow.widgetZone === "center" ? root.activeLabelColor() : bar.subtext
-                                                        }
-                                                        MouseArea {
-                                                            anchors.fill: parent
-                                                            cursorShape: Qt.PointingHandCursor
-                                                            onClicked: {
-                                                                if (typeof bar.setWidgetZone === "function")
-                                                                    bar.setWidgetZone(widgetRow.widgetId, "center")
-                                                                root.menuTick++
-                                                                Qt.callLater(root.reposition)
-                                                            }
-                                                        }
-                                                    }
-                                                    Rectangle {
-                                                        Layout.preferredWidth: 22
-                                                        Layout.preferredHeight: 22
-                                                        radius: 4
-                                                        color: widgetRow.widgetZone === "right" ? bar.controlActiveBg : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                        border.width: 1
-                                                        border.color: widgetRow.widgetZone === "right" ? root.activeLabelColor() : bar.pillBorder
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "R"
-                                                            font.pixelSize: 10
-                                                            font.family: bar.fontFamily
-                                                            color: widgetRow.widgetZone === "right" ? root.activeLabelColor() : bar.subtext
-                                                        }
-                                                        MouseArea {
-                                                            anchors.fill: parent
-                                                            cursorShape: Qt.PointingHandCursor
-                                                            onClicked: {
-                                                                if (typeof bar.setWidgetZone === "function")
-                                                                    bar.setWidgetZone(widgetRow.widgetId, "right")
-                                                                root.menuTick++
-                                                                Qt.callLater(root.reposition)
+                                                            MouseArea {
+                                                                anchors.fill: parent
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: {
+                                                                    if (typeof bar.setWidgetZone === "function")
+                                                                        bar.setWidgetZone(widgetRow.widgetId, modelData.id)
+                                                                    root.menuTick++
+                                                                    Qt.callLater(root.reposition)
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -5658,6 +5949,158 @@ Item {
                                                 implicitHeight: 12
                                                 radius: 3
                                                 color: uiScaleSlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Gap from edge"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: root.optBarEdgeMargin() + " px"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: optEdgeSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 0
+                                            to: 48
+                                            stepSize: 2
+                                            value: root.optBarEdgeMargin()
+                                            onMoved: {
+                                                if (typeof bar.setBarEdgeMargin === "function")
+                                                    bar.setBarEdgeMargin(Math.round(value))
+                                                root.optionsTick++
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                            background: Rectangle {
+                                                x: optEdgeSlider.leftPadding
+                                                y: optEdgeSlider.topPadding + optEdgeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: optEdgeSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: optEdgeSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: optEdgeSlider.leftPadding + optEdgeSlider.visualPosition * (optEdgeSlider.availableWidth - width)
+                                                y: optEdgeSlider.topPadding + optEdgeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: optEdgeSlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Bar size"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: root.optBarSizePct() + "%"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: optBarSizeSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 80
+                                            to: 140
+                                            stepSize: 5
+                                            value: root.optBarSizePct()
+                                            onMoved: {
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(value) / 100)
+                                                root.optionsTick++
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                            background: Rectangle {
+                                                x: optBarSizeSlider.leftPadding
+                                                y: optBarSizeSlider.topPadding + optBarSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: optBarSizeSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: optBarSizeSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: optBarSizeSlider.leftPadding + optBarSizeSlider.visualPosition * (optBarSizeSlider.availableWidth - width)
+                                                y: optBarSizeSlider.topPadding + optBarSizeSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: optBarSizeSlider.pressed ? bar.accent : bar.text
                                                 border.width: 1
                                                 border.color: bar.accent
                                             }
@@ -10897,6 +11340,33 @@ Item {
                                     root.toggleMenu(modelData.id)
                                 }
                             }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.preferredHeight: root.chipH + 4
+                        Layout.preferredWidth: Math.max(36, stripCloseLbl.implicitWidth + 16)
+                        radius: root.chipR
+                        color: stripCloseMa.containsMouse
+                               ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                        border.width: bar.controlBorderWidth
+                        border.color: stripCloseMa.containsMouse ? root.offRed : bar.pillBorder
+                        Text {
+                            id: stripCloseLbl
+                            anchors.centerIn: parent
+                            text: "✕"
+                            color: stripCloseMa.containsMouse ? root.offRed : bar.subtext
+                            font.pixelSize: 12
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: stripCloseMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.hide()
                         }
                     }
                 }

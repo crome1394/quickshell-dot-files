@@ -1635,7 +1635,7 @@ QtObject {
     // =========================================================================
     readonly property int sideMargin:           sp(10)   // Left/right margin of the whole bar (outside the glass rect)
     readonly property int barContentHMargin:    sp(20)   // Inner left/right padding inside the main bar row
-    readonly property int barContentVMargin:     sp(4)   // Top/bottom breathing room for the glass rect inside the window
+    readonly property int barContentVMargin:     sp(4)   // Inward (desktop-side) padding only; screen-edge gap is barEdgeMargin
     readonly property int pillHPadding:         sp(18)   // Typical horizontal inner padding for pill content (AudioPill etc use this indirectly)
     readonly property int popupPadding:         sp(16)   // Generic content margin inside most popups (prefer popupSpacing for new code)
     readonly property int popupPaddingSmall:    sp(10)   // Tighter popups (device lists, tray menus) (prefer popupSpacingTight)
@@ -1648,13 +1648,21 @@ QtObject {
     // =========================================================================
     // Bar position & size (consumed by shell.qml PanelWindow anchors)
     readonly property string barPosition:  "top"       // "top" | "bottom" — which screen edge the bar sits on
-    readonly property int barEdgeMargin:      0     // Gap between the bar and the screen edge (top or bottom)
+    // "classic" = one full-width bar with L/C/R zones (barPosition).
+    // "dual" = top + bottom centered bars (zones "top" | "bottom").
+    readonly property string barLayoutMode: "classic"
+    // Gap between the bar and the screen edge (top and/or bottom). 0 = flush.
+    // Writable: Options / Position sliders + bar-layout.json (0–48 px).
+    property int barEdgeMargin: 0
     readonly property int popupBarGap:        sp(4)     // Space between bar and pill popups (flips with barPosition)
-    readonly property int barHeight:           sp(58)   // Bar thickness (height for top/bottom bars)
+    // Extra thickness for the bar chrome + pills on top of uiScale. 1.0 = design default.
+    // Writable: Options / Position sliders + bar-layout.json (0.80–1.40).
+    property real barSizeScale: 1.0
+    readonly property int barHeight: Math.max(36, Math.round(sp(58) * barSizeScale))
     readonly property int barTopMargin:  barEdgeMargin   // Legacy alias — prefer barEdgeMargin
 
     // Pills (uniform height gives the clean segmented look)
-    readonly property int pillHeight:          sp(36)   // Standard height for every pill in the bar
+    readonly property int pillHeight: Math.max(22, Math.round(sp(36) * barSizeScale))
 
     // Audio widget (very sensitive — changing these requires testing dual view alignment)
     // Audio pill content width. Dual view (default) needs room for:
@@ -1906,7 +1914,7 @@ QtObject {
     ]
 
     // Default widget order + zone for BarControlBar layout editor / runtime reparent.
-    // zone: "left" | "center" | "right". Connectivity is Network+Bluetooth as one unit.
+    // Classic zone: "left" | "center" | "right". Connectivity is Network+Bluetooth+Audio as one unit.
     readonly property var defaultWidgetLayout: [
         { id: "launcher",      zone: "left" },
         { id: "quickLaunch",   zone: "left" },
@@ -1922,6 +1930,26 @@ QtObject {
         { id: "hyprInsp",      zone: "right" },
         { id: "controlBar",    zone: "right" },
         { id: "power",         zone: "right" }
+    ]
+
+    // Dual layout (two centered bars). zone: "top" | "bottom".
+    // Hidden-by-default pills (media, killTarget, hyprInsp) stay in the catalog so
+    // the Widgets panel can show them on either bar.
+    readonly property var defaultDualWidgetLayout: [
+        { id: "clock",         zone: "top" },
+        { id: "workspaces",    zone: "top" },
+        { id: "tray",          zone: "top" },
+        { id: "notifications", zone: "top" },
+        { id: "power",         zone: "top" },
+        { id: "killTarget",    zone: "top" },
+        { id: "hyprInsp",      zone: "top" },
+        { id: "media",         zone: "top" },
+        { id: "stats",         zone: "bottom" },
+        { id: "launcher",      zone: "bottom" },
+        { id: "quickLaunch",   zone: "bottom" },
+        { id: "freshRss",      zone: "bottom" },
+        { id: "controlBar",    zone: "bottom" },
+        { id: "connectivity",  zone: "bottom" }
     ]
 
     // =========================================================================

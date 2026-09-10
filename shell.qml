@@ -60,8 +60,10 @@
 //   (Run `qs ipc show` for the full list of shell commands.)
 //
 // Bar position (Config.qml):
-//   - barPosition: "top" or "bottom" (Config default; runtime toggle + IPC)
-//   - Right-click empty bar chrome → BarControlBar (top/bottom toggle lives there)
+//   - barLayoutMode: "classic" (one bar, L/C/R) or "dual" (top + bottom, centered)
+//   - barPosition: "top" or "bottom" (classic only; Config default; runtime toggle + IPC)
+//   - Right-click empty bar chrome → BarControlBar (layout + top/bottom live there)
+//   - qs ipc call shell setBarLayoutMode classic|dual / toggleBarLayoutMode
 //   - qs ipc call shell setBarPosition top|bottom / toggleBarPosition
 //   - qs ipc call shell toggleBarControlBar / showBarControlBar / hideBarControlBar
 //   - UI scale: auto from screen width (Config.uiDesignWidth); override with
@@ -69,38 +71,34 @@
 //   - barEdgeMargin: gap from the screen edge
 //
 // =============================================================================
-// BAR LAYOUT — how to move widgets (left / center / right)
+// BAR LAYOUT — classic (left / center / right) or dual (top / bottom, centered)
 // =============================================================================
 //
-// The bar has three sections. Each one is marked clearly below:
+// Classic mode has three sections on one bar:
 //
 //   LEFT ZONE   →  pinned to the left side of the bar
 //   CENTER ZONE →  always centered on the bar (screen middle)
 //   RIGHT ZONE  →  pinned to the right side of the bar
 //
-// TO MOVE A WIDGET:
-//   1. Find the widget block (starts with // ─ Widget Name ─).
-//   2. Select from that comment line down to the closing } of the widget.
-//      Include the // ── divider ── line above it if there is one.
-//   3. Cut (Ctrl+X) and paste (Ctrl+V) into a different zone.
-//   4. Save the file. Quickshell reloads automatically.
+// Dual mode has two centered bars (glass hugs the widget row):
 //
-// That is all — you do not need to change anything inside the block.
-// Every widget works in any zone exactly as written.
+//   TOP ZONE    →  centered cluster on the top edge
+//   BOTTOM ZONE →  centered cluster on the bottom edge
 //
-// Default layout (overridable at runtime via BarControlBar → Layout, persisted
-// in state/bar-layout.json):
+// Switch layouts from BarControlBar → Position. Reorder / show / hide / scale
+// from BarControlBar → Widgets (L/C/R in classic, T/B in dual). Persisted in
+// state/bar-layout.json (each mode keeps its own widget order).
+//
+// Classic default:
 //   LEFT:   App Launcher, Quick Launch, FreshRSS, Media Player
 //   CENTER: Workspaces
-//   RIGHT:  System Stats, System Tray, Connectivity (Network+Bluetooth),
-//           Audio, Clock, Notifications, Power
+//   RIGHT:  System Stats, System Tray, Connectivity (Network+Bluetooth+Audio),
+//           Clock, Notifications, Power
 //
-// Right-click empty bar chrome → BarControlBar (position, display, widgets,
-// clock format, layout order/zones).
-//
-// Why CENTER is special: left and right zones are different widths, so a widget
-// placed "between" them would look off-center. CENTER ZONE is pinned to the
-// true middle of the bar automatically.
+// Dual default:
+//   TOP:    Clock, Workspaces, System Tray, Notifications, Power
+//   BOTTOM: Sys Stats, Launcher, Quick Launch, FreshRSS, Config menu,
+//           Net · BT · Audio
 // =============================================================================
 
 import Quickshell
@@ -166,7 +164,10 @@ ShellRoot {
     // Clock format string (Qt.formatDateTime); Config default, persisted override.
     property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
 
-    // Runtime layout: [{ id, zone }, ...] — zone is left|center|right
+    // "classic" = one bar with left|center|right zones; "dual" = top+bottom centered bars
+    property string barLayoutMode: "classic"
+
+    // Runtime layout: [{ id, zone }, ...] — classic: left|center|right; dual: top|bottom
     property var widgetLayout: []
 
     // Runtime Quick Launch pins (Config default, editable from BarControlBar, persisted)
@@ -277,12 +278,14 @@ ShellRoot {
         id: bar
         color: "transparent"
         implicitHeight: bar.barHeight
+        mask: Region { item: barBg }
         anchors.left: true
         anchors.right: true
-        anchors.top: bar.barPosition === "top"
-        anchors.bottom: bar.barPosition === "bottom"
-        margins.top: bar.barPosition === "top" ? bar.barEdgeMargin : 0
-        margins.bottom: bar.barPosition === "bottom" ? bar.barEdgeMargin : 0
+        // Dual mode always uses this window as the top bar; classic follows barPosition.
+        anchors.top: root.barLayoutMode === "dual" || bar.barPosition === "top"
+        anchors.bottom: root.barLayoutMode !== "dual" && bar.barPosition === "bottom"
+        margins.top: (root.barLayoutMode === "dual" || bar.barPosition === "top") ? bar.barEdgeMargin : 0
+        margins.bottom: (root.barLayoutMode !== "dual" && bar.barPosition === "bottom") ? bar.barEdgeMargin : 0
 
         // --- Config (single source of truth — see Config.qml) ---
         Config { id: cfg }
@@ -326,7 +329,10 @@ ShellRoot {
             root.wsStartupWorkspace = cfg.wsStartupWorkspace
             root.wsStartupCloseMagic = cfg.wsStartupCloseMagic
             root.clockFormat = cfg.clockFormat || root.clockFormat
-            root.widgetLayout = bar.cloneDefaultLayout()
+            root.barLayoutMode = (cfg.barLayoutMode === "dual") ? "dual" : "classic"
+            root.widgetLayout = (root.barLayoutMode === "dual")
+                ? bar.cloneDualDefaultLayout()
+                : bar.cloneDefaultLayout()
             root.quickLaunchApps = bar.cloneQuickLaunchApps()
             root.wallpaperDir = cfg.wallpaperDir || root.wallpaperDir
             root.wallpaperTileSize = cfg.wallpaperTileSize || root.wallpaperTileSize
@@ -418,6 +424,33 @@ ShellRoot {
             bar.setUiScale(0)
         }
 
+        function setBarEdgeMargin(px) {
+            var n = Math.round(Number(px))
+            if (!(n >= 0))
+                n = 0
+            if (n > 48)
+                n = 48
+            if (cfg.barEdgeMargin === n)
+                return
+            cfg.barEdgeMargin = n
+            barGeomPersistTimer.restart()
+        }
+
+        function setBarSizeScale(scale) {
+            var v = Number(scale)
+            if (!(v > 0))
+                return
+            if (v < 0.8)
+                v = 0.8
+            if (v > 1.4)
+                v = 1.4
+            v = Math.round(v * 20) / 20
+            if (Math.abs(cfg.barSizeScale - v) < 0.001)
+                return
+            cfg.barSizeScale = v
+            barGeomPersistTimer.restart()
+        }
+
         // Persist bar layout prefs (edge, scale, widgets, clock, order/zones).
         // Guard: our own writeAdapter() must not re-enter onLoaded (that reparented
         // widgets and dismissed the control bar via focus loss).
@@ -438,9 +471,15 @@ ShellRoot {
                 const p = barLayoutAdapter.barPosition
                 if (p === "top" || p === "bottom")
                     bar.barPosition = p
+                if (barLayoutAdapter.barLayoutMode === "dual" || barLayoutAdapter.barLayoutMode === "classic")
+                    root.barLayoutMode = barLayoutAdapter.barLayoutMode
                 // Manual scale from state overrides Config default when present.
                 if (barLayoutAdapter.uiScaleManual >= 0)
                     cfg.uiScaleManual = barLayoutAdapter.uiScaleManual
+                if (barLayoutAdapter.barEdgeMargin >= 0)
+                    cfg.barEdgeMargin = Math.max(0, Math.min(48, Math.round(barLayoutAdapter.barEdgeMargin)))
+                if (barLayoutAdapter.barSizeScale > 0)
+                    cfg.barSizeScale = Math.max(0.8, Math.min(1.4, Number(barLayoutAdapter.barSizeScale)))
                 if (barLayoutAdapter.clockFormat && barLayoutAdapter.clockFormat.length)
                     root.clockFormat = barLayoutAdapter.clockFormat
                 // Visibility (only apply keys that exist in the adapter defaults)
@@ -482,12 +521,12 @@ ShellRoot {
                 }
                 if (barLayoutAdapter.hasFreshRssPrefs)
                     root.freshRssFiltersExpanded = barLayoutAdapter.freshRssFiltersExpanded
-                // Layout JSON
+                // Layout JSON (normalize with the active mode so zones stay valid)
                 if (barLayoutAdapter.widgetLayoutJson && barLayoutAdapter.widgetLayoutJson.length > 2) {
                     try {
                         const parsed = JSON.parse(barLayoutAdapter.widgetLayoutJson)
                         if (parsed && parsed.length)
-                            root.widgetLayout = bar.normalizeLayout(parsed)
+                            root.widgetLayout = bar.normalizeLayout(parsed, root.barLayoutMode)
                     } catch (e) {}
                 }
                 if (barLayoutAdapter.quickLaunchAppsJson && barLayoutAdapter.quickLaunchAppsJson.length > 2) {
@@ -527,9 +566,14 @@ ShellRoot {
             Io.JsonAdapter {
                 id: barLayoutAdapter
                 property string barPosition: "top"
+                property string barLayoutMode: "classic"
                 property real uiScaleManual: 0
+                property int barEdgeMargin: 0
+                property real barSizeScale: 1.0
                 property string clockFormat: ""
                 property string widgetLayoutJson: ""
+                property string widgetLayoutClassicJson: ""
+                property string widgetLayoutDualJson: ""
                 property string quickLaunchAppsJson: ""
                 property string wallpaperDir: ""
                 property string wallpaperCurrent: ""
@@ -947,10 +991,18 @@ ShellRoot {
         function persistBarLayout() {
             bar._barLayoutWriteGuard = true
             barLayoutAdapter.barPosition = bar.barPosition
+            barLayoutAdapter.barLayoutMode = root.barLayoutMode === "dual" ? "dual" : "classic"
             barLayoutAdapter.uiScaleManual = cfg.uiScaleManual
+            barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
+            barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
             barLayoutAdapter.clockFormat = root.clockFormat
             try {
-                barLayoutAdapter.widgetLayoutJson = JSON.stringify(root.widgetLayout || [])
+                const json = JSON.stringify(root.widgetLayout || [])
+                barLayoutAdapter.widgetLayoutJson = json
+                if (root.barLayoutMode === "dual")
+                    barLayoutAdapter.widgetLayoutDualJson = json
+                else
+                    barLayoutAdapter.widgetLayoutClassicJson = json
             } catch (e) {
                 barLayoutAdapter.widgetLayoutJson = "[]"
             }
@@ -1170,6 +1222,62 @@ ShellRoot {
             setBarPosition(bar.barPosition === "top" ? "bottom" : "top")
         }
 
+        function setBarLayoutMode(mode) {
+            const next = (String(mode) === "dual") ? "dual" : "classic"
+            if (root.barLayoutMode === next)
+                return
+            // Keep the layout the user is leaving so switching back restores it.
+            try {
+                const json = JSON.stringify(root.widgetLayout || [])
+                if (root.barLayoutMode === "dual")
+                    barLayoutAdapter.widgetLayoutDualJson = json
+                else
+                    barLayoutAdapter.widgetLayoutClassicJson = json
+            } catch (e) {}
+
+            root.barLayoutMode = next
+
+            let loaded = null
+            try {
+                const raw = (next === "dual")
+                    ? barLayoutAdapter.widgetLayoutDualJson
+                    : barLayoutAdapter.widgetLayoutClassicJson
+                if (raw && String(raw).length > 2)
+                    loaded = JSON.parse(raw)
+            } catch (e2) {}
+
+            if (loaded && loaded.length)
+                root.widgetLayout = bar.normalizeLayout(loaded, next)
+            else
+                root.widgetLayout = (next === "dual")
+                    ? bar.cloneDualDefaultLayout()
+                    : bar.cloneDefaultLayout()
+
+            bar.applyWidgetLayout()
+            persistBarLayout()
+        }
+
+        function toggleBarLayoutMode() {
+            setBarLayoutMode(root.barLayoutMode === "dual" ? "classic" : "dual")
+        }
+
+        function coerceZone(zone, mode) {
+            const m = mode || root.barLayoutMode || "classic"
+            const z = String(zone || "")
+            if (m === "dual") {
+                if (z === "bottom" || z === "right")
+                    return "bottom"
+                return "top"
+            }
+            if (z === "center" || z === "right")
+                return z
+            if (z === "top")
+                return "center"
+            if (z === "bottom")
+                return "right"
+            return "left"
+        }
+
         function cloneDefaultLayout() {
             const src = cfg.defaultWidgetLayout || []
             const out = []
@@ -1177,12 +1285,29 @@ ShellRoot {
                 const e = src[i]
                 if (!e || !e.id)
                     continue
-                out.push({ id: String(e.id), zone: (e.zone === "center" || e.zone === "right") ? e.zone : "left" })
+                out.push({ id: String(e.id), zone: bar.coerceZone(e.zone, "classic") })
             }
             return out
         }
 
-        function normalizeLayout(arr) {
+        function cloneDualDefaultLayout() {
+            const src = cfg.defaultDualWidgetLayout || []
+            const out = []
+            for (let i = 0; i < src.length; i++) {
+                const e = src[i]
+                if (!e || !e.id)
+                    continue
+                out.push({ id: String(e.id), zone: bar.coerceZone(e.zone, "dual") })
+            }
+            return out
+        }
+
+        function cloneLayoutForMode(mode) {
+            return (mode === "dual") ? bar.cloneDualDefaultLayout() : bar.cloneDefaultLayout()
+        }
+
+        function normalizeLayout(arr, mode) {
+            const m = mode || root.barLayoutMode || "classic"
             const known = {}
             const cat = root.widgetCatalog
             for (let i = 0; i < cat.length; i++)
@@ -1203,12 +1328,12 @@ ShellRoot {
                     seen[id] = true
                     out.push({
                         id: id,
-                        zone: (e.zone === "center" || e.zone === "right") ? String(e.zone) : "left"
+                        zone: bar.coerceZone(e.zone, m)
                     })
                 }
             }
             // Append any missing catalog ids at end of their default zones
-            const defaults = bar.cloneDefaultLayout()
+            const defaults = bar.cloneLayoutForMode(m)
             for (let i = 0; i < defaults.length; i++) {
                 if (!seen[defaults[i].id])
                     out.push(defaults[i])
@@ -1237,12 +1362,26 @@ ShellRoot {
             }
         }
 
+        function assignWidgetChrome(w, chrome) {
+            if (!w || chrome === undefined || chrome === null)
+                return
+            try {
+                if (w.barBg !== undefined)
+                    w.barBg = chrome
+            } catch (e) {}
+        }
+
         function applyWidgetLayout() {
-            if (!leftZone || !centerZone || !rightZone || !widgetPool)
+            const dual = root.barLayoutMode === "dual"
+            if (!widgetPool || !centerZone)
+                return
+            if (dual && !bottomCenterZone)
+                return
+            if (!dual && (!leftZone || !rightZone))
                 return
             const layout = (root.widgetLayout && root.widgetLayout.length)
                 ? root.widgetLayout
-                : bar.cloneDefaultLayout()
+                : bar.cloneLayoutForMode(root.barLayoutMode)
             const items = []
             for (let i = 0; i < layout.length; i++) {
                 const w = bar.widgetItemById(layout[i].id)
@@ -1257,10 +1396,27 @@ ShellRoot {
                 const w = bar.widgetItemById(entry.id)
                 if (!w)
                     continue
-                const zone = entry.zone === "center" ? centerZone
-                    : (entry.zone === "right" ? rightZone : leftZone)
-                w.parent = zone
+                let zoneItem = centerZone
+                let chrome = barBg
+                if (dual) {
+                    if (entry.zone === "bottom" && bottomCenterZone) {
+                        zoneItem = bottomCenterZone
+                        chrome = bottomBarBg
+                    }
+                } else {
+                    zoneItem = entry.zone === "center" ? centerZone
+                        : (entry.zone === "right" ? rightZone : leftZone)
+                    chrome = barBg
+                }
+                w.parent = zoneItem
+                bar.assignWidgetChrome(w, chrome)
+                if (entry.id === "connectivity") {
+                    bar.assignWidgetChrome(networkPill, chrome)
+                    bar.assignWidgetChrome(bluetoothPill, chrome)
+                    bar.assignWidgetChrome(audioPill, chrome)
+                }
             }
+            bar.layoutEpoch++
         }
 
         function setClockFormat(fmt) {
@@ -1330,8 +1486,8 @@ ShellRoot {
         }
 
         function setWidgetZone(id, zone) {
-            const z = (zone === "center" || zone === "right") ? zone : "left"
-            const layout = bar.normalizeLayout(root.widgetLayout)
+            const z = bar.coerceZone(zone, root.barLayoutMode)
+            const layout = bar.normalizeLayout(root.widgetLayout, root.barLayoutMode)
             let found = false
             for (let i = 0; i < layout.length; i++) {
                 if (layout[i].id === id) {
@@ -1348,7 +1504,7 @@ ShellRoot {
         }
 
         function moveWidget(id, delta) {
-            const layout = bar.normalizeLayout(root.widgetLayout)
+            const layout = bar.normalizeLayout(root.widgetLayout, root.barLayoutMode)
             let idx = -1
             for (let i = 0; i < layout.length; i++) {
                 if (layout[i].id === id) {
@@ -1379,7 +1535,7 @@ ShellRoot {
         }
 
         function resetWidgetLayout() {
-            root.widgetLayout = bar.cloneDefaultLayout()
+            root.widgetLayout = bar.cloneLayoutForMode(root.barLayoutMode)
             bar.applyWidgetLayout()
             persistBarLayout()
         }
@@ -1544,6 +1700,13 @@ ShellRoot {
         // Debounce disk writes while dragging size sliders (avoid thrashing bar-layout.json).
         Timer {
             id: scalePersistTimer
+            interval: 280
+            repeat: false
+            onTriggered: bar.persistBarLayout()
+        }
+
+        Timer {
+            id: barGeomPersistTimer
             interval: 280
             repeat: false
             onTriggered: bar.persistBarLayout()
@@ -1755,9 +1918,15 @@ ShellRoot {
         // Clock format is owned on root (persisted); bar exposes it for ClockPill / control bar.
         property alias clockFormat: root.clockFormat
         readonly property alias clockFormatPresets: cfg.clockFormatPresets
-        readonly property alias barEdgeMargin: cfg.barEdgeMargin
+        property alias barEdgeMargin: cfg.barEdgeMargin
+        property alias barSizeScale: cfg.barSizeScale
         readonly property alias popupBarGap: cfg.popupBarGap
         readonly property alias barHeight: cfg.barHeight
+        // This window sits on the top edge in dual mode, or when classic is pinned top.
+        readonly property bool barIsTopEdge: root.barLayoutMode === "dual" || barPosition === "top"
+        // Screen-edge gap is only barEdgeMargin (window margin). Do not add barContentVMargin
+        // on the outer side — that is what left a visible strip at "Gap from edge: 0".
+        readonly property bool barGlassFlush: barEdgeMargin <= 0
         readonly property alias barTopMargin: cfg.barTopMargin
         readonly property alias barPositionIconTop: cfg.barPositionIconTop
         readonly property alias barPositionIconBottom: cfg.barPositionIconBottom
@@ -1770,11 +1939,128 @@ ShellRoot {
         // Widget catalog + layout helpers for BarControlBar
         readonly property alias widgetCatalog: root.widgetCatalog
         readonly property alias widgetLayout: root.widgetLayout
+        readonly property alias barLayoutMode: root.barLayoutMode
+        property int layoutEpoch: 0
+        readonly property var bottomBarWindow: bottomBar
+        readonly property var controlBarItem: controlBarPill
+        readonly property var topBarChrome: barBg
+        readonly property var bottomBarChrome: bottomBarBg
 
-        // Popup Y anchor — opens below the bar (top) or above it (bottom)
-        function popupAnchorY(popupHeight, gap) {
+        function isDualLayout() {
+            return root.barLayoutMode === "dual"
+        }
+
+        function edgeForItem(item) {
+            if (!bar.isDualLayout())
+                return barPosition
+            var p = item
+            var hops = 0
+            while (p && hops < 32) {
+                if (p === bottomBar || p === bottomBarBg || p === bottomCenterZone)
+                    return "bottom"
+                if (p === barBg || p === centerZone || p === leftZone || p === rightZone)
+                    return "top"
+                p = p.parent
+                hops++
+            }
+            return "top"
+        }
+
+        function chromeForItem(item) {
+            if (bar.isDualLayout() && bar.edgeForItem(item) === "bottom")
+                return bottomBarBg
+            return barBg
+        }
+
+        function popupAnchorWindow(item) {
+            if (bar.isDualLayout() && bar.edgeForItem(item) === "bottom")
+                return bottomBar
+            return bar
+        }
+
+        function controlPopupEdge() {
+            if (!bar.isDualLayout())
+                return barPosition
+            return bar.edgeForItem(controlBarPill)
+        }
+
+        // Control strip PopupWindow is parented to `bar` (the top/classic window)
+        // and must stay anchored there. Dual + gear-on-bottom uses a screen-relative
+        // Y so the strip sits above the bottom bar instead of reparenting the popup.
+        function controlPopupAnchorY(popupHeight, gap) {
+            return bar.popupAnchorY(popupHeight, gap, controlBarPill)
+        }
+
+        function popupX(item, localX, popupWidth, extraOffset) {
+            var extra = extraOffset || 0
+            var chrome = bar.chromeForItem(item)
+            var pos
+            try {
+                pos = item.mapToItem(chrome, localX, 0)
+            } catch (e) {
+                pos = { x: localX, y: 0 }
+            }
+            var originX = 0
+            try {
+                originX = chrome ? chrome.x : bar.sideMargin
+            } catch (e2) {
+                originX = bar.sideMargin
+            }
+            var x = originX + pos.x - (popupWidth / 2) + extra
+            var win = bar.popupAnchorWindow(item)
+            var screenW = 1920
+            try {
+                if (win && win.screen && win.screen.width)
+                    screenW = win.screen.width
+                else if (bar.screen && bar.screen.width)
+                    screenW = bar.screen.width
+            } catch (e3) {}
+            var minX = 12
+            var maxX = screenW - popupWidth - 12
+            if (maxX < minX)
+                maxX = minX
+            return Math.max(minX, Math.min(x, maxX))
+        }
+
+        function placePopup(popup, item, popupW, popupH, gap, localX, extraX, extraY) {
+            if (!popup || !popup.anchor)
+                return
+            // Always keep the popup on `bar`. Pointing it at the dual bottom window
+            // made bottom-bar menus unclickable and hitch whenever they resized.
+            if (popup.anchor.window !== bar)
+                popup.anchor.window = bar
+            var lx = (localX !== undefined && localX !== null) ? localX : (item ? item.width / 2 : 0)
+            popup.anchor.rect.x = bar.popupX(item, lx, popupW, extraX || 0)
+            popup.anchor.rect.y = bar.popupAnchorY(popupH, gap, item) + (extraY || 0)
+            popup.anchor.rect.width = 1
+            popup.anchor.rect.height = 1
+        }
+
+        // Popup Y anchor — opens below the bar (top) or above it (bottom).
+        // Optional `item` selects the dual-mode edge. Dual popups stay anchored
+        // to `bar` (top window); bottom-edge Y is screen-relative.
+        function popupAnchorY(popupHeight, gap, item) {
             var spacing = (gap !== undefined) ? gap : popupBarGap
-            return barPosition === "bottom" ? -popupHeight - spacing : implicitHeight + spacing
+            var edge = barPosition
+            if (bar.isDualLayout())
+                edge = (item !== undefined && item !== null) ? bar.edgeForItem(item) : "top"
+            if (edge === "bottom") {
+                if (bar.isDualLayout()) {
+                    var screenH = 1080
+                    try {
+                        if (bar.screen && bar.screen.height)
+                            screenH = bar.screen.height
+                    } catch (e) {}
+                    var bottomH = implicitHeight
+                    try {
+                        if (bottomBar && bottomBar.implicitHeight)
+                            bottomH = bottomBar.implicitHeight
+                    } catch (e2) {}
+                    return screenH - bottomH - popupHeight - spacing
+                }
+                return -popupHeight - spacing
+            }
+            return implicitHeight + spacing
         }
         readonly property alias pillHeight: cfg.pillHeight
         readonly property alias audioViewContentWidth: cfg.audioViewContentWidth
@@ -2093,12 +2379,28 @@ ShellRoot {
 
         Rectangle {
             id: barBg
-            anchors.fill: parent
-            anchors.leftMargin: bar.sideMargin
-            anchors.rightMargin: bar.sideMargin
-            anchors.topMargin: bar.barContentVMargin
-            anchors.bottomMargin: bar.barContentVMargin
+            readonly property bool compact: root.barLayoutMode === "dual"
+            readonly property int hugMeasured: Math.max(bar.sp(120), Math.min(parent.width - 2 * bar.sideMargin,
+                              centerZone.implicitWidth + 2 * bar.barContentHMargin))
+            // Ignore 1–15px text ticks (clock/stats) so the glass does not relayout every second.
+            property int hugW: 200
+            onHugMeasuredChanged: {
+                if (compact && Math.abs(hugMeasured - hugW) >= 16)
+                    hugW = hugMeasured
+            }
+            onCompactChanged: hugW = hugMeasured
+            Component.onCompleted: hugW = hugMeasured
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.topMargin: bar.barIsTopEdge ? 0 : bar.barContentVMargin
+            anchors.bottomMargin: bar.barIsTopEdge ? bar.barContentVMargin : 0
+            x: compact ? Math.round((parent.width - hugW) / 2) : bar.sideMargin
+            width: compact ? hugW : Math.max(0, parent.width - 2 * bar.sideMargin)
             radius: bar.barRadius
+            topLeftRadius: (bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
+            topRightRadius: (bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
+            bottomLeftRadius: (!bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
+            bottomRightRadius: (!bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
             color: bar.glassBg
             border.width: Math.max(1, bar.controlBorderWidth)
             border.color: bar.glassBorder
@@ -2110,6 +2412,10 @@ ShellRoot {
                 height: bar.popupHeaderHighlightHeight
                 color: bar.glassHighlight
                 radius: parent.radius
+                topLeftRadius: parent.topLeftRadius
+                topRightRadius: parent.topRightRadius
+                bottomLeftRadius: 0
+                bottomRightRadius: 0
             }
 
             // Right-click empty bar chrome → open/close the control mini-bar
@@ -2145,6 +2451,7 @@ ShellRoot {
 
             RowLayout {
                 z: 1
+                visible: root.barLayoutMode !== "dual"
                 anchors.fill: parent
                 anchors.leftMargin: bar.barContentHMargin
                 anchors.rightMargin: bar.barContentHMargin
@@ -2746,6 +3053,84 @@ ShellRoot {
 
     }
 
+    // Dual-mode bottom bar. Hidden in classic mode (no exclusive zone).
+    PanelWindow {
+        id: bottomBar
+        visible: root.barLayoutMode === "dual"
+        color: "transparent"
+        implicitHeight: bar.barHeight
+        screen: bar.screen
+        exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Auto : ExclusionMode.Ignore
+        mask: Region { item: bottomBarBg }
+        anchors.left: true
+        anchors.right: true
+        anchors.bottom: root.barLayoutMode === "dual"
+        margins.bottom: root.barLayoutMode === "dual" ? bar.barEdgeMargin : 0
+
+        Rectangle {
+            id: bottomBarBg
+            readonly property int hugMeasured: Math.max(bar.sp(120), Math.min(parent.width - 2 * bar.sideMargin,
+                           bottomCenterZone.implicitWidth + 2 * bar.barContentHMargin))
+            property int hugW: 200
+            onHugMeasuredChanged: {
+                if (Math.abs(hugMeasured - hugW) >= 16)
+                    hugW = hugMeasured
+            }
+            Component.onCompleted: hugW = hugMeasured
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.topMargin: bar.barContentVMargin
+            anchors.bottomMargin: 0
+            width: hugW
+            radius: bar.barRadius
+            topLeftRadius: bar.barRadius
+            topRightRadius: bar.barRadius
+            bottomLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            bottomRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            color: bar.glassBg
+            border.width: Math.max(1, bar.controlBorderWidth)
+            border.color: bar.glassBorder
+
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: bar.popupHeaderHighlightHeight
+                color: bar.glassHighlight
+                radius: parent.radius
+                topLeftRadius: parent.topLeftRadius
+                topRightRadius: parent.topRightRadius
+                bottomLeftRadius: 0
+                bottomRightRadius: 0
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                z: 0
+                acceptedButtons: Qt.RightButton
+                hoverEnabled: false
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton)
+                        barControlBar.toggle()
+                }
+            }
+
+            RowLayout {
+                id: bottomCenterZone
+                z: 1
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: bar.widgetSpacing
+            }
+        }
+
+        Component.onCompleted: {
+            if (root.barLayoutMode === "dual")
+                Qt.callLater(function() { bar.applyWidgetLayout() })
+        }
+    }
+
     // IPC handlers must use explicit types (bool, string, etc.) — `var` is not supported
     Io.IpcHandler {
         target: "shell"
@@ -2839,6 +3224,12 @@ ShellRoot {
         function toggleBarPosition(): void {
             bar.toggleBarPosition()
         }
+        function setBarLayoutMode(mode: string): void {
+            bar.setBarLayoutMode(mode)
+        }
+        function toggleBarLayoutMode(): void {
+            bar.toggleBarLayoutMode()
+        }
         function toggleBarControlBar(): void {
             barControlBar.toggle()
         }
@@ -2856,6 +3247,12 @@ ShellRoot {
         }
         function setUiScaleAuto(): void {
             bar.setUiScaleAuto()
+        }
+        function setBarEdgeMargin(px: string): void {
+            bar.setBarEdgeMargin(px)
+        }
+        function setBarSizeScale(scale: string): void {
+            bar.setBarSizeScale(scale)
         }
         function setShowKillTargetPill(enabled: bool): void {
             bar.setWidgetVisible("killTarget", enabled)

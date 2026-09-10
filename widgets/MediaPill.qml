@@ -361,15 +361,18 @@ Rectangle {
         }
 
         // Position under the bar, centered on the media pill
-        var pos = root.mapToItem(barBg, root.width / 2, root.height);
         var popupW = mediaPopup.implicitWidth;
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920;
-
-        var targetX = bar.sideMargin + pos.x - (popupW / 2);
-        var minX = 12;
-        var maxX = screenW - popupW - 12;
-        mediaPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX));
-        mediaPopup.anchor.rect.y = bar.popupAnchorY(mediaPopup.implicitHeight);
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(mediaPopup, root, popupW, mediaPopup.implicitHeight, undefined, root.width / 2);
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height);
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920;
+            var targetX = bar.sideMargin + pos.x - (popupW / 2);
+            var minX = 12;
+            var maxX = screenW - popupW - 12;
+            mediaPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX));
+            mediaPopup.anchor.rect.y = bar.popupAnchorY(mediaPopup.implicitHeight);
+        }
 
         media.refreshBrowserAudioNodes();
 

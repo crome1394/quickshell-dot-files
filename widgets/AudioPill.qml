@@ -3607,11 +3607,15 @@ Rectangle {
         } else {
             var popupW = popup.implicitWidth
             var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-            var p = root.mapToItem(barBg, 0, root.height)
-            var baseX = bar.sideMargin + p.x
-            popup.anchor.window = bar
-            popup.anchor.rect.x = Math.min(baseX, screenW - popupW - 12)
-            popup.anchor.rect.y = bar.popupAnchorY(popup.implicitHeight, 46)
+            if (typeof bar.placePopup === "function") {
+                bar.placePopup(popup, root, popupW, popup.implicitHeight, 46, 0, popupW / 2)
+            } else {
+                var p = root.mapToItem(barBg, 0, root.height)
+                var baseX = bar.sideMargin + p.x
+                popup.anchor.window = bar
+                popup.anchor.rect.x = Math.min(baseX, screenW - popupW - 12)
+                popup.anchor.rect.y = bar.popupAnchorY(popup.implicitHeight, 46)
+            }
         }
     }
 
@@ -3649,16 +3653,18 @@ Rectangle {
             return
         }
 
-        var pos = root.mapToItem(barBg, root.width / 2, root.height)
         var popupW = audioPopup.implicitWidth
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-
-        var targetX = bar.sideMargin + pos.x - (popupW / 2) + 60
-
-        var minX = 12
-        var maxX = screenW - popupW - 12
-        audioPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        audioPopup.anchor.rect.y = bar.popupAnchorY(audioPopup.implicitHeight)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(audioPopup, root, popupW, audioPopup.implicitHeight, undefined, root.width / 2, 60)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var targetX = bar.sideMargin + pos.x - (popupW / 2) + 60
+            var minX = 12
+            var maxX = screenW - popupW - 12
+            audioPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            audioPopup.anchor.rect.y = bar.popupAnchorY(audioPopup.implicitHeight)
+        }
 
         // Always open on the live system defaults (forceLive).
         audio.refreshDevices()

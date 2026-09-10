@@ -439,15 +439,18 @@ Rectangle {
         }
         root.loadHistoryOnce()
 
-        var pos = root.mapToItem(barBg, root.width / 2, 0)
         var popupW = historyPopup.implicitWidth
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var targetX = bar.sideMargin + pos.x - (popupW / 2)
-        var minX = 12
-        var maxX = screenW - popupW - 12
-
-        historyPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        historyPopup.anchor.rect.y = bar.popupAnchorY(historyPopup.implicitHeight, 2)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(historyPopup, root, popupW, historyPopup.implicitHeight, 2, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, 0)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var targetX = bar.sideMargin + pos.x - (popupW / 2)
+            var minX = 12
+            var maxX = screenW - popupW - 12
+            historyPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            historyPopup.anchor.rect.y = bar.popupAnchorY(historyPopup.implicitHeight, 2)
+        }
         historyPopup.visible = true
     }
 

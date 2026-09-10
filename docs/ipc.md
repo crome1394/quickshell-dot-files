@@ -32,6 +32,10 @@ qs ipc call shell setShowAudioPill false
 qs ipc call shell toggleShowPowerPill
 qs ipc call shell setShowControlBarPill true
 qs ipc call shell toggleBarControlBar
+qs ipc call shell setBarLayoutMode dual
+qs ipc call shell toggleBarLayoutMode
+qs ipc call shell setBarEdgeMargin 8
+qs ipc call shell setBarSizeScale 1.1
 
 # Config.qml defaults apply when bar-layout has no override
 showAudioPill: false

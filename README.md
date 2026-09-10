@@ -13,8 +13,8 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 
 ## Features
 
-- Liquid-glass bar (top/bottom) · left / center / right zones
-- **Control strip** (gear or right-click chrome): Position, Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, **Region & Clock**
+- Liquid-glass bar: **Classic** (one bar, left / center / right) or **Dual** (top + bottom, centered)
+- **Control strip** (gear or right-click chrome): Position (layout + edge), Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, **Region & Clock**
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
 - **Network** — per-adapter on/off + Enable after disconnect; Options for full IP on the bar
 - **Themes** — colors, opacity, fonts (UI / mono / Main / Secondary / Bar roles), thresholds, liquid + solid presets
@@ -42,7 +42,11 @@ qs --daemonize -n
 | Display mode | `~/.config/hypr/config/monitors.lua` (on Apply) |
 | FreshRSS secrets | `~/.config/freshrss-quickshell/freshrss.env` (not in git) |
 
-## Bar layout (default)
+## Bar layout
+
+Switch **Classic** / **Dual** in the control strip **Position** panel. Each mode keeps its own widget order in `state/bar-layout.json`.
+
+**Classic** (default — one bar, L / C / R):
 
 | Zone | Widgets |
 |------|---------|
@@ -50,7 +54,14 @@ qs --daemonize -n
 | **Center** | Workspaces |
 | **Right** | Sys Stats, Tray, Net·BT·Audio, Clock, Notifications, Config, Power |
 
-Reorder in **Widgets**. Theme in **Themes**. Options for gauges, graphs, applets.
+**Dual** (top + bottom, centered; glass hugs the widget row):
+
+| Bar | Widgets |
+|------|---------|
+| **Top** | Clock, Workspaces, Tray, Notifications, Power |
+| **Bottom** | Sys Stats, Launcher, Quick Launch, FreshRSS, Config, Net·BT·Audio |
+
+Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B in Dual). Theme in **Themes**. Options for gauges, graphs, applets.
 
 ## IPC (cheat sheet)
 
@@ -58,6 +69,9 @@ Reorder in **Widgets**. Theme in **Themes**. Options for gauges, graphs, applets
 qs ipc show
 qs ipc call shell toggleBarControlBar
 qs ipc call shell setBarPosition bottom
+qs ipc call shell setBarLayoutMode dual
+qs ipc call shell setBarEdgeMargin 8
+qs ipc call shell setBarSizeScale 1.1
 qs ipc call shell setUiScale 0.85
 qs ipc call networkPill togglePopup
 qs ipc call notificationBell toggleDoNotDisturb

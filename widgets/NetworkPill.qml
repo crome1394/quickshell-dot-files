@@ -1096,6 +1096,18 @@ Rectangle {
         color: "transparent"
         grabFocus: false
 
+        Shortcut {
+            sequences: ["Escape"]
+            enabled: netPopup.visible
+            context: Qt.ApplicationShortcut
+            onActivated: {
+                if (root.pskSsid.length)
+                    root.clearPsk()
+                else
+                    root.closePopup()
+            }
+        }
+
         // Keep on-screen when the second column opens/closes
         onImplicitWidthChanged: {
             if (visible)
@@ -2619,14 +2631,18 @@ Rectangle {
     function repositionPopup() {
         if (!netPopup.visible && !netPopup.implicitWidth)
             return
-        var pos = root.mapToItem(barBg, root.width / 2, root.height)
         var popupWidth = root.networkPopupWidth
-        var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
-        var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-        var minX = 12
-        var maxX = Math.max(minX, screenW - popupWidth - 12)
-        netPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        netPopup.anchor.rect.y = bar.popupAnchorY(netPopup.implicitHeight, 2)
+        if (typeof bar.placePopup === "function") {
+            bar.placePopup(netPopup, root, popupWidth, netPopup.implicitHeight, 2, root.width / 2)
+        } else {
+            var pos = root.mapToItem(barBg, root.width / 2, root.height)
+            var targetX = bar.sideMargin + pos.x - (popupWidth / 2)
+            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
+            var minX = 12
+            var maxX = Math.max(minX, screenW - popupWidth - 12)
+            netPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
+            netPopup.anchor.rect.y = bar.popupAnchorY(netPopup.implicitHeight, 2)
+        }
     }
 
     function showPopup() {

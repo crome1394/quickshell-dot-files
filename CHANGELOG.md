@@ -2,6 +2,18 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Bar edge gap + bar size
+
+- Control strip **Position** and **Options → Bar / UI**: **Gap from edge** (0–48 px) and **Bar size** (80–140%). Dual applies the gap to both bars. Persisted in `bar-layout.json`.
+- IPC: `setBarEdgeMargin` / `setBarSizeScale`.
+
+## 2026-09 — Dual centered bars
+
+- Control strip **Position** can switch **Classic** (one bar, L/C/R) and **Dual** (top + bottom, centered). Each mode stores its own widget order in `bar-layout.json`.
+- Dual default: top = Clock, Workspaces, Tray, Notifications, Power; bottom = Sys Stats, Launcher, Quick Launch, FreshRSS, Config, Net·BT·Audio (sound stays in that combined pill).
+- **Widgets** panel uses **T/B** zone buttons in Dual (same show/hide, reorder, width % as Classic). **Reset layout** restores the default for the active mode.
+- IPC: `setBarLayoutMode classic|dual` / `toggleBarLayoutMode`. Classic remains the default so existing layouts keep working.
+
 ## 2026-09 — Clock region map + custom format
 
 - Control-strip button is **Region & Clock**, with MIME-style **Region** / **Clock** tabs (Region is the default).
