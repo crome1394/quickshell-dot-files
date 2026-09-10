@@ -149,6 +149,8 @@ ShellRoot {
     property bool showNetTrafficGraph: true
     // Network pill face: last IPv4 octet (false) vs full address (true)
     property bool showNetworkFullIp: false
+    // Network pill face: show adapter name (enp10s0, wlan0) next to the IP
+    property bool showNetworkDeviceName: false
     // Hide Echo cancel block in Audio popup / control-bar Audio panel when false (Options)
     property bool showEchoCancelInMenu: true
     // Control-bar Audio panel section visibility (Options + bar-layout.json)
@@ -510,6 +512,8 @@ ShellRoot {
                     root.showNetTrafficGraph = barLayoutAdapter.showNetTrafficGraph
                     if (barLayoutAdapter.showNetworkFullIp !== undefined)
                         root.showNetworkFullIp = barLayoutAdapter.showNetworkFullIp
+                    if (barLayoutAdapter.showNetworkDeviceName !== undefined)
+                        root.showNetworkDeviceName = barLayoutAdapter.showNetworkDeviceName
                 }
                 if (barLayoutAdapter.hasAudioMenuPrefs) {
                     root.showEchoCancelInMenu = barLayoutAdapter.showEchoCancelInMenu
@@ -614,6 +618,7 @@ ShellRoot {
                 property bool showStatMenuGraphs: true
                 property bool showNetTrafficGraph: true
                 property bool showNetworkFullIp: false
+                property bool showNetworkDeviceName: false
                 // Audio popup / control-bar Audio panel sections
                 property bool hasAudioMenuPrefs: false
                 property bool showEchoCancelInMenu: true
@@ -1051,6 +1056,7 @@ ShellRoot {
             barLayoutAdapter.showStatMenuGraphs = root.showStatMenuGraphs
             barLayoutAdapter.showNetTrafficGraph = root.showNetTrafficGraph
             barLayoutAdapter.showNetworkFullIp = root.showNetworkFullIp
+            barLayoutAdapter.showNetworkDeviceName = root.showNetworkDeviceName
             barLayoutAdapter.hasAudioMenuPrefs = true
             barLayoutAdapter.showEchoCancelInMenu = root.showEchoCancelInMenu
             barLayoutAdapter.showAudioSummary = root.showAudioSummary
@@ -1104,6 +1110,10 @@ ShellRoot {
         }
         function setShowNetworkFullIp(enabled) {
             root.showNetworkFullIp = !!enabled
+            persistBarLayout()
+        }
+        function setShowNetworkDeviceName(enabled) {
+            root.showNetworkDeviceName = !!enabled
             persistBarLayout()
         }
         function setShowEchoCancelInMenu(enabled) {
@@ -2308,6 +2318,7 @@ ShellRoot {
         property alias showStatMenuGraphs: root.showStatMenuGraphs
         property alias showNetTrafficGraph: root.showNetTrafficGraph
         property alias showNetworkFullIp: root.showNetworkFullIp
+        property alias showNetworkDeviceName: root.showNetworkDeviceName
         property alias showEchoCancelInMenu: root.showEchoCancelInMenu
         property alias showAudioSummary: root.showAudioSummary
         property alias showAudioDefaults: root.showAudioDefaults

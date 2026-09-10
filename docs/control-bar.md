@@ -111,7 +111,7 @@ The bar clock itself still uses local time, so after a successful region apply i
 | **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Bar size** · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
 | **Workspaces** | Magic pill · only-active · min pills · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
-| **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** | XDG / `bar-layout.json` |
+| **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |

@@ -173,6 +173,7 @@ Rectangle {
             var wifiScored = []   // {ssid, conn, known, sig} when wantLists
             var primaryLabel = ""
             var primaryIp = ""
+            var primaryIface = ""
             var primaryKind = "none"   // wired | wifi | none
             var anyConnected = false
             var wifiConnected = false
@@ -205,6 +206,7 @@ Rectangle {
                             if (!primaryLabel.length || isWired) {
                                 primaryKind = isWifi ? "wifi" : (isWired ? "wired" : "other")
                                 primaryLabel = name
+                                primaryIface = name
                                 var st = root.deviceStatus(name)
                                 if (st && st.connection) primaryLabel = st.connection
                                 if (st && st.ip4 && st.ip4.length) primaryIp = st.ip4[0]
@@ -231,6 +233,7 @@ Rectangle {
                                         if (connected || !primaryLabel.length || primaryKind !== "wired") {
                                             primaryKind = "wifi"
                                             primaryLabel = ssid
+                                            primaryIface = name
                                             var stw = root.deviceStatus(name)
                                             if (stw && stw.ip4 && stw.ip4.length) primaryIp = stw.ip4[0]
                                         }
@@ -273,6 +276,7 @@ Rectangle {
                 wifiSsids: wifiSsids,
                 primaryLabel: primaryLabel,
                 primaryIp: primaryIp,
+                primaryIface: primaryIface,
                 primaryKind: primaryKind,
                 anyConnected: anyConnected,
                 wifiStrength: wifiStrength,
@@ -286,6 +290,7 @@ Rectangle {
         readonly property var wifiSsids: snapshot.wifiSsids
         readonly property string primaryLabel: snapshot.primaryLabel
         readonly property string primaryIp: snapshot.primaryIp
+        readonly property string primaryIface: snapshot.primaryIface
         readonly property string primaryKind: snapshot.primaryKind
         readonly property bool anyConnected: snapshot.anyConnected
         readonly property int wifiStrength: snapshot.wifiStrength
@@ -1017,18 +1022,34 @@ Rectangle {
                 }
 
                 Text {
-                    visible: net.anyConnected && net.primaryIp.length > 0
+                    visible: {
+                        void (bar ? bar.showNetworkDeviceName : false)
+                        if (!net.anyConnected)
+                            return false
+                        if (bar && bar.showNetworkDeviceName && net.primaryIface.length)
+                            return true
+                        return net.primaryIp.length > 0
+                    }
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
                         void (bar ? bar.showNetworkFullIp : false)
+                        void (bar ? bar.showNetworkDeviceName : false)
                         var ip = net.primaryIp
                         var slash = ip.indexOf("/")
                         if (slash > 0) ip = ip.substring(0, slash)
+                        var ipText = ""
                         if (bar && bar.showNetworkFullIp)
-                            return ip
-                        var parts = ip.split(".")
-                        if (parts.length === 4) return parts[3]
-                        return ""
+                            ipText = ip
+                        else {
+                            var parts = ip.split(".")
+                            if (parts.length === 4) ipText = parts[3]
+                        }
+                        var nameText = (bar && bar.showNetworkDeviceName) ? String(net.primaryIface || "") : ""
+                        if (nameText.length && ipText.length)
+                            return nameText + " " + ipText
+                        if (nameText.length)
+                            return nameText
+                        return ipText
                     }
                     // Bar widget text (Themes → Fonts → Bar widget text)
                     color: bar
@@ -1062,6 +1083,8 @@ Rectangle {
                     return "Networking off · left-click for menu"
                 var bits = []
                 if (net.primaryLabel.length) bits.push(net.primaryLabel)
+                if (net.primaryIface.length && net.primaryIface !== net.primaryLabel)
+                    bits.push(net.primaryIface)
                 if (net.primaryIp.length) bits.push(net.primaryIp)
                 bits.push("connectivity: " + net.connectivity)
                 bits.push("left-click menu")

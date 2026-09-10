@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Network device name on bar
+
+- **Network pill:** Options → **Device name on bar** shows the adapter name (`enp10s0`, `wlan0`) next to the IP (`showNetworkDeviceName` in `bar-layout.json`). Combines with **Full IP on bar**.
+
 ## 2026-09 — Bar edge gap + bar size
 
 - Control strip **Position** and **Options → Bar / UI**: **Gap from edge** (0–48 px) and **Bar size** (80–140%). Dual applies the gap to both bars. Persisted in `bar-layout.json`.

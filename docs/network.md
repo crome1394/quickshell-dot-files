@@ -9,7 +9,7 @@ Glassmorphic bar pill for day-to-day NetworkManager control via **Quickshell.Net
 | **Left-click** | Open / close the Network popup |
 | **Right-click** | Disabled (use per-adapter **WiFi on/off** or `qs ipc call networkPill toggleWifi`) |
 
-Bar face shows the last IPv4 octet by default. Options → **Full IP on bar** (`showNetworkFullIp` in `bar-layout.json`) shows the complete address.
+Bar face shows the last IPv4 octet by default. Options → **Full IP on bar** (`showNetworkFullIp` in `bar-layout.json`) shows the complete address. Options → **Device name on bar** (`showNetworkDeviceName`) adds the adapter name (`enp10s0`, `wlan0`) next to it.
 
 ## Layout
 
