@@ -1543,6 +1543,10 @@ Item {
     // HyprlandFocusGrab is dismissed by any outside press — including the start
     // of a file-manager drag. Close is the panel ✕ / Esc / tab; keep the grab
     // armed so TextFields (search) receive keys. Skip re-arm during a wallpaper drop.
+    // Pulse the grab after the popup maps: setting active=true before the surface
+    // exists leaves hover dead until the user clicks the panel.
+    property bool _armingGrab: false
+
     function armControlFocusGrab() {
         if (!controlPopup.visible)
             return
@@ -1550,10 +1554,31 @@ Item {
             return
         if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
             return
-        controlFocusGrab.active = true
+        if (root._armingGrab) {
+            controlFocusGrab.active = true
+            return
+        }
+        root._armingGrab = true
+        if (controlFocusGrab.active)
+            controlFocusGrab.active = false
+        Qt.callLater(function() {
+            root._armingGrab = false
+            if (!controlPopup.visible)
+                return
+            if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
+                return
+            controlFocusGrab.active = true
+            if (controlChrome) {
+                controlChrome.focus = true
+                controlChrome.forceActiveFocus()
+            }
+            grabRetryTimer.restart()
+        })
     }
 
     function onControlGrabCleared() {
+        if (root._armingGrab)
+            return
         if (!controlPopup.visible)
             return
         if (root.activeMenu === "wallpaper")
@@ -2317,7 +2342,24 @@ Item {
         id: settleRepositionTimer
         interval: 48
         repeat: false
-        onTriggered: root.reposition()
+        onTriggered: {
+            root.reposition()
+            if (controlPopup.visible)
+                root.armControlFocusGrab()
+        }
+    }
+
+    Timer {
+        id: grabRetryTimer
+        interval: 90
+        repeat: false
+        onTriggered: {
+            if (!controlPopup.visible)
+                return
+            if (controlFocusGrab && controlFocusGrab.active)
+                return
+            root.armControlFocusGrab()
+        }
     }
 
     // Light debounce when sizes change (avoid reposition every slider step)
@@ -2827,6 +2869,9 @@ Item {
         windows: {
             void bar.layoutEpoch
             void bar.barLayoutMode
+            void controlPopup.visible
+            void controlPopup.implicitWidth
+            void controlPopup.implicitHeight
             const list = [controlPopup, bar]
             if (bar && bar.barLayoutMode === "dual" && bar.bottomBarWindow)
                 list.push(bar.bottomBarWindow)

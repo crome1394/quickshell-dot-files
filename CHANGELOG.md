@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control-bar hover without an extra click
+
+- Opening the config strip re-arms Hyprland focus grab after the popup maps, so toolbar/panel hover works immediately.
+
 ## 2026-09 — Tooltip placement + region map paint
 
 - Bar hover tips sit **above or below** the pill (by bar edge) and are click-through, so they no longer cover the icon.
