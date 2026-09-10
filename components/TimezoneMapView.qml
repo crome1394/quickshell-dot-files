@@ -41,6 +41,7 @@ Item {
     property string pendingId: ""
     property string hoverId: ""
     property int hoverBucket: -1
+    property int selectedBucket: -1
     property string searchText: ""
     property string statusMsg: ""
     property string errorMsg: ""
@@ -60,7 +61,7 @@ Item {
     onHighlightColorChanged: root.schedulePaint()
     onGridColorChanged: root.schedulePaint()
     onAccentColorChanged: root.schedulePaint()
-    onPendingIdChanged: root.schedulePaint()
+    onPendingIdChanged: root.refreshSelectedBucket()
 
     function schedulePaint() {
         if (mapCanvas)
@@ -169,9 +170,22 @@ Item {
             return
         root.pendingId = z.id
         root.errorMsg = ""
+        root.refreshSelectedBucket()
+        root.hoverBucket = root.selectedBucket
         root.refreshPreview(z.id)
         if (applyNow)
             root.applyPending()
+        root.schedulePaint()
+    }
+
+    function refreshSelectedBucket() {
+        const z = root.findZone(root.pendingId) || root.pendingZone
+        let b = -1
+        if (z) {
+            const rb = root.sampleRaster(z.lon, z.lat)
+            b = (rb > 0) ? rb : root.zoneBucket(z)
+        }
+        root.selectedBucket = b
         root.schedulePaint()
     }
 
@@ -348,7 +362,7 @@ Item {
                     if (root.pendingId === root.currentId)
                         root.pendingPreview = j
                     root.dataVersion++
-                    root.schedulePaint()
+                    root.refreshSelectedBucket()
                 } catch (e) {}
             }
         }
@@ -367,7 +381,7 @@ Item {
                 try {
                     root.zones = JSON.parse(t)
                     root.dataVersion++
-                    root.schedulePaint()
+                    root.refreshSelectedBucket()
                 } catch (e) {
                     root.zones = []
                 }
@@ -407,7 +421,7 @@ Item {
                     root.tzRasterW = Number(j.w) || 0
                     root.tzRasterH = Number(j.h) || 0
                     root.tzRaster = root.unpackRaster(j.data)
-                    root.schedulePaint()
+                    root.refreshSelectedBucket()
                 } catch (e) {}
             }
         }
@@ -559,7 +573,7 @@ Item {
                         ctx.fill()
                     }
 
-                    const selB = root.zoneBucket(root.pendingZone)
+                    const selB = root.selectedBucket
                     const hovB = root.hoverBucket
                     const activeB = (hovB >= 0) ? hovB : selB
                     const rw = root.tzRasterW
@@ -570,31 +584,40 @@ Item {
                             const img = ctx.getImageData(0, 0, w, h)
                             const px = img.data
                             const n = px.length
-                            const hR = Math.round(root.highlightColor.r * 255)
-                            const hG = Math.round(root.highlightColor.g * 255)
-                            const hB = Math.round(root.highlightColor.b * 255)
                             for (let i = 0; i < n; i += 4) {
+                                const isOcean = (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
+                                if (isOcean)
+                                    continue
                                 const p = i / 4
                                 const x = p % w
                                 const y = (p - x) / w
                                 const b = root.sampleRaster(root.xToLon(x + 0.5, w), root.yToLat(y + 0.5, h))
-                                const isOcean = (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
-                                const lit = activeB >= 0 && b === activeB
-                                if (isOcean) {
-                                    if (!lit)
-                                        continue
-                                    px[i] = hR
-                                    px[i + 1] = hG
-                                    px[i + 2] = hB
-                                    continue
-                                }
-                                const col = lit ? root.highlightColor : root.bandColor(b, false, false)
+                                const col = root.bandColor(b, false, false)
                                 px[i] = Math.round(col.r * 255)
                                 px[i + 1] = Math.round(col.g * 255)
                                 px[i + 2] = Math.round(col.b * 255)
                             }
                             ctx.putImageData(img, 0, 0)
                         } catch (e) {}
+                        if (activeB >= 0) {
+                            ctx.fillStyle = root.cssColor(root.highlightColor, 0.92)
+                            const cellW = w / rw
+                            const cellH = h / rh
+                            for (let y = 0; y < rh; y++) {
+                                let run = -1
+                                const row = y * rw
+                                for (let x = 0; x <= rw; x++) {
+                                    const on = x < rw && raster[row + x] === activeB
+                                    if (on) {
+                                        if (run < 0)
+                                            run = x
+                                    } else if (run >= 0) {
+                                        ctx.fillRect(run * cellW, y * cellH, (x - run) * cellW, cellH)
+                                        run = -1
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

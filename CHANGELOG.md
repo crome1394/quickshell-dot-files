@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Region map selected zone
+
+- Current timezone (e.g. America/New_York) and a clicked city now keep the green band after hover ends. Highlight is sampled from the same raster as mouseover, including ocean.
+
 ## 2026-09 — Region map hover highlight
 
 - **Region & Clock:** hovering a timezone lights the whole offset band including ocean (GNOME Date & Time style). Example: hover San Francisco → Pacific band. Repaint only when the hovered band changes.
