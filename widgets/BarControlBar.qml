@@ -453,6 +453,7 @@ Item {
         root.menuTick++
         controlPopup.visible = true
         root.scheduleReposition()
+        Qt.callLater(root.armControlFocusGrab)
     }
 
     function toggle() {
@@ -653,6 +654,38 @@ Item {
         if (!(s > 0))
             return 100
         return Math.round(Math.max(0.8, Math.min(1.4, s)) * 100)
+    }
+
+    function optTooltipDelay() {
+        void root.optionsTick
+        void root.menuTick
+        const n = (bar && bar.tooltipDelay !== undefined) ? Number(bar.tooltipDelay) : 1550
+        if (!(n >= 0))
+            return 1550
+        return Math.max(0, Math.min(3000, Math.round(n)))
+    }
+
+    function tooltipAlignTargets() {
+        return [
+            { id: "launcher", label: "Launcher" },
+            { id: "quickLaunch", label: "Quick Launch" },
+            { id: "freshRss", label: "FreshRSS" },
+            { id: "stats", label: "Sys Stats" },
+            { id: "network", label: "Network" },
+            { id: "bluetooth", label: "Bluetooth" },
+            { id: "notifications", label: "Notifications" },
+            { id: "killTarget", label: "Kill Target" },
+            { id: "hyprInsp", label: "Hypr Inspector" },
+            { id: "controlBar", label: "Config menu" },
+            { id: "power", label: "Power" }
+        ]
+    }
+
+    function optTooltipAlign(id) {
+        void root.optionsTick
+        if (bar && typeof bar.tooltipAlignFor === "function")
+            return String(bar.tooltipAlignFor(id) || "auto")
+        return "auto"
     }
 
     function setOptToggle(setterName, enabled) {
@@ -6279,6 +6312,165 @@ Item {
                                                 color: optBarSizeSlider.pressed ? bar.accent : bar.text
                                                 border.width: 1
                                                 border.color: bar.accent
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: "Tooltips"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Delay"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: root.optTooltipDelay() + " ms"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: 56
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: optTipDelaySlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 0
+                                            to: 3000
+                                            stepSize: 50
+                                            value: root.optTooltipDelay()
+                                            onMoved: {
+                                                if (typeof bar.setTooltipDelay === "function")
+                                                    bar.setTooltipDelay(Math.round(value))
+                                                root.optionsTick++
+                                                root.menuTick++
+                                            }
+                                            background: Rectangle {
+                                                x: optTipDelaySlider.leftPadding
+                                                y: optTipDelaySlider.topPadding + optTipDelaySlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: optTipDelaySlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: optTipDelaySlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                            handle: Rectangle {
+                                                x: optTipDelaySlider.leftPadding + optTipDelaySlider.visualPosition * (optTipDelaySlider.availableWidth - width)
+                                                y: optTipDelaySlider.topPadding + optTipDelaySlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 12
+                                                implicitHeight: 12
+                                                radius: 3
+                                                color: optTipDelaySlider.pressed ? bar.accent : bar.text
+                                                border.width: 1
+                                                border.color: bar.accent
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: "Per-widget side (auto follows the bar edge)"
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Repeater {
+                                    model: root.tooltipAlignTargets()
+                                    delegate: Rectangle {
+                                        id: tipAlignRow
+                                        required property var modelData
+                                        readonly property string widgetId: modelData.id
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 36
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 8
+                                            spacing: 6
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.label
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                            }
+                                            Repeater {
+                                                model: [
+                                                    { id: "auto", label: "A" },
+                                                    { id: "above", label: "T" },
+                                                    { id: "below", label: "B" },
+                                                    { id: "left", label: "L" },
+                                                    { id: "right", label: "R" }
+                                                ]
+                                                delegate: Rectangle {
+                                                    required property var modelData
+                                                    readonly property bool on: {
+                                                        const cur = root.optTooltipAlign(tipAlignRow.widgetId)
+                                                        if (modelData.id === "auto")
+                                                            return cur === "auto" || cur === ""
+                                                        return cur === modelData.id
+                                                    }
+                                                    width: 22
+                                                    height: 22
+                                                    radius: 4
+                                                    color: on
+                                                           ? Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.22)
+                                                           : "transparent"
+                                                    border.width: 1
+                                                    border.color: on ? bar.accent : bar.pillBorder
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: modelData.label
+                                                        color: on ? bar.accent : bar.subtext
+                                                        font.pixelSize: 10
+                                                        font.bold: on
+                                                        font.family: bar.fontFamily
+                                                    }
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: {
+                                                            if (typeof bar.setTooltipAlign === "function")
+                                                                bar.setTooltipAlign(tipAlignRow.widgetId, modelData.id)
+                                                            root.optionsTick++
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
                                     }

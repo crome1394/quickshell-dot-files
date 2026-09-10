@@ -37,6 +37,7 @@ qs ipc call shell toggleBarLayoutMode
 qs ipc call shell setBarEdgeMargin 8
 qs ipc call shell setBarSizeScale 1.1
 qs ipc call shell setFlushWindowsToBar true
+qs ipc call shell setTooltipDelay 400
 
 # Config.qml defaults apply when bar-layout has no override
 showAudioPill: false

@@ -463,6 +463,7 @@ Rectangle {
 
         BarToolTip {
             bar: root.bar
+            widgetId: "notifications"
             visible: bellMouse.containsMouse && !historyPopup.visible
             anchorItem: bellMouse
             text: {

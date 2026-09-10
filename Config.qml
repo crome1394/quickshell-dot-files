@@ -2713,7 +2713,8 @@ QtObject {
     readonly property int animSlow:   220   // Slower, more noticeable motion
 
     // Interaction delays
-    readonly property int tooltipDelay: 1550   // ms before showing tooltips (used by ToolTip components)
+    // Writable: Options → Tooltips delay + bar-layout.json (200–3000 ms).
+    property int tooltipDelay: 1550
 
     // =========================================================================
     // Z-LAYERS (only the global ones that matter across components)

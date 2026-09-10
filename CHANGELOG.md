@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Tooltip placement + region map paint
+
+- Bar hover tips sit **above or below** the pill (by bar edge) and are click-through, so they no longer cover the icon.
+- Options → **Tooltips**: delay (0–3000 ms) and per-widget side (Auto / T / B / L / R).
+- Region map highlight repaints as soon as the panel opens (no extra click).
+
 ## 2026-09 — Region map timezone bands
 
 - **Region & Clock:** the world map stretches to fill the panel, includes Antarctica, tints land by timezone, and highlights the whole offset band when you click a city (GNOME Date & Time style).

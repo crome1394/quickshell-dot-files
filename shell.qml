@@ -154,6 +154,8 @@ ShellRoot {
     property bool showNetworkLastOctet: true
     // Network pill face: show adapter name (enp10s0, wlan0) next to the IP
     property bool showNetworkDeviceName: false
+    // Per-widget tooltip side: "above" | "below" | "left" | "right" (missing = auto)
+    property var tooltipAlign: ({})
     // Hide Echo cancel block in Audio popup / control-bar Audio panel when false (Options)
     property bool showEchoCancelInMenu: true
     // Control-bar Audio panel section visibility (Options + bar-layout.json)
@@ -467,6 +469,46 @@ ShellRoot {
             barGeomPersistTimer.restart()
         }
 
+        function setTooltipDelay(ms) {
+            var n = Math.round(Number(ms))
+            if (!(n >= 0))
+                n = 0
+            if (n > 3000)
+                n = 3000
+            if (n < 0)
+                n = 0
+            if (cfg.tooltipDelay === n)
+                return
+            cfg.tooltipDelay = n
+            barGeomPersistTimer.restart()
+        }
+
+        function tooltipAlignFor(id) {
+            const key = String(id || "")
+            const map = root.tooltipAlign || {}
+            const v = map[key]
+            if (v === "above" || v === "below" || v === "left" || v === "right")
+                return v
+            return ""
+        }
+
+        function setTooltipAlign(id, side) {
+            const key = String(id || "")
+            if (!key.length)
+                return
+            let next = "auto"
+            const s = String(side || "")
+            if (s === "above" || s === "below" || s === "left" || s === "right")
+                next = s
+            const cur = Object.assign({}, root.tooltipAlign || {})
+            if (next === "auto")
+                delete cur[key]
+            else
+                cur[key] = next
+            root.tooltipAlign = cur
+            persistBarLayout()
+        }
+
         // Persist bar layout prefs (edge, scale, widgets, clock, order/zones).
         // Guard: our own writeAdapter() must not re-enter onLoaded (that reparented
         // widgets and dismissed the control bar via focus loss).
@@ -498,6 +540,15 @@ ShellRoot {
                     cfg.barSizeScale = Math.max(0.8, Math.min(1.4, Number(barLayoutAdapter.barSizeScale)))
                 if (barLayoutAdapter.flushWindowsToBar !== undefined)
                     cfg.flushWindowsToBar = !!barLayoutAdapter.flushWindowsToBar
+                if (barLayoutAdapter.tooltipDelay !== undefined)
+                    cfg.tooltipDelay = Math.max(0, Math.min(3000, Math.round(barLayoutAdapter.tooltipDelay)))
+                if (barLayoutAdapter.tooltipAlignJson && barLayoutAdapter.tooltipAlignJson.length > 2) {
+                    try {
+                        const ta = JSON.parse(barLayoutAdapter.tooltipAlignJson)
+                        if (ta && typeof ta === "object")
+                            root.tooltipAlign = ta
+                    } catch (e) {}
+                }
                 if (barLayoutAdapter.clockFormat && barLayoutAdapter.clockFormat.length)
                     root.clockFormat = barLayoutAdapter.clockFormat
                 // Visibility (only apply keys that exist in the adapter defaults)
@@ -593,6 +644,8 @@ ShellRoot {
                 property int barEdgeMargin: 0
                 property real barSizeScale: 1.0
                 property bool flushWindowsToBar: false
+                property int tooltipDelay: 1550
+                property string tooltipAlignJson: ""
                 property string clockFormat: ""
                 property string widgetLayoutJson: ""
                 property string widgetLayoutClassicJson: ""
@@ -1021,6 +1074,12 @@ ShellRoot {
             barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
             barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
             barLayoutAdapter.flushWindowsToBar = !!cfg.flushWindowsToBar
+            barLayoutAdapter.tooltipDelay = Math.max(0, Math.min(3000, cfg.tooltipDelay || 0))
+            try {
+                barLayoutAdapter.tooltipAlignJson = JSON.stringify(root.tooltipAlign || {})
+            } catch (e) {
+                barLayoutAdapter.tooltipAlignJson = "{}"
+            }
             barLayoutAdapter.clockFormat = root.clockFormat
             try {
                 const json = JSON.stringify(root.widgetLayout || [])
@@ -2466,7 +2525,8 @@ ShellRoot {
         readonly property alias animFast: cfg.animFast
         readonly property alias animMedium: cfg.animMedium
         readonly property alias animSlow: cfg.animSlow
-        readonly property alias tooltipDelay: cfg.tooltipDelay
+        property alias tooltipDelay: cfg.tooltipDelay
+        property alias tooltipAlign: root.tooltipAlign
 
         // --- Tray menu
         readonly property alias menuCheckMark: cfg.menuCheckMark
@@ -2624,6 +2684,7 @@ ShellRoot {
 
                 BarToolTip {
                     bar: bar
+                    widgetId: "launcher"
                     visible: launcherMouse.containsMouse
                     text: bar.launcherTooltip
                     anchorItem: launcherMouse
@@ -2803,6 +2864,7 @@ ShellRoot {
                     }
                     BarToolTip {
                         bar: bar
+                        widgetId: "hyprInsp"
                         visible: hyprInspMouse.containsMouse
                         text: "Hyprland Config Inspector"
                         anchorItem: hyprInspMouse
@@ -2845,6 +2907,7 @@ ShellRoot {
                     }
                     BarToolTip {
                         bar: bar
+                        widgetId: "controlBar"
                         visible: controlBarMouse.containsMouse
                         text: "Config menu (or right-click empty bar)"
                         anchorItem: controlBarMouse
@@ -3367,6 +3430,9 @@ ShellRoot {
         }
         function setFlushWindowsToBar(enabled: bool): void {
             bar.setFlushWindowsToBar(enabled)
+        }
+        function setTooltipDelay(ms: string): void {
+            bar.setTooltipDelay(ms)
         }
         function setShowKillTargetPill(enabled: bool): void {
             bar.setWidgetVisible("killTarget", enabled)

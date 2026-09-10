@@ -172,6 +172,7 @@ Item {
 
             BarToolTip {
                 bar: root.bar
+                widgetId: "killTarget"
                 visible: pickMouse.containsMouse || root.statusMessage.length > 0
                 anchorItem: pickMouse
                 text: root.pickActive

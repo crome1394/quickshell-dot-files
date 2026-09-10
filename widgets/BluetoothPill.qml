@@ -800,6 +800,7 @@ Rectangle {
 
         BarToolTip {
             bar: root.bar
+            widgetId: "bluetooth"
             visible: btMouse.containsMouse && !btPopup.visible
             anchorItem: btMouse
             text: {

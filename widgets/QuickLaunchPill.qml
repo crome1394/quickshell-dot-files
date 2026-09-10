@@ -133,6 +133,7 @@ Rectangle {
 
                     BarToolTip {
                         bar: root.bar
+                        widgetId: "quickLaunch"
                         visible: launchClick.containsMouse && (modelData.tooltip || "").length > 0
                         text: modelData.tooltip || ""
                         anchorItem: launchClick

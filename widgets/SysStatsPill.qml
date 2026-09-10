@@ -364,6 +364,7 @@ Rectangle {
                 }
                 BarToolTip {
                     bar: root.bar
+                    widgetId: "stats"
                     visible: cpuClick.containsMouse
                     text: "Left: CPU metrics · Right: btop"
                     anchorItem: cpuClick
@@ -483,6 +484,7 @@ Rectangle {
                 }
                 BarToolTip {
                     bar: root.bar
+                    widgetId: "stats"
                     visible: memClick.containsMouse
                     text: "Left: Memory metrics · Right: btop"
                     anchorItem: memClick
@@ -601,6 +603,7 @@ Rectangle {
                 }
                 BarToolTip {
                     bar: root.bar
+                    widgetId: "stats"
                     visible: gpuClick.containsMouse
                     text: "Left: GPU metrics · Right: nvtop"
                     anchorItem: gpuClick

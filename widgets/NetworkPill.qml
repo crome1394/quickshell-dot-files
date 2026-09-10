@@ -1083,6 +1083,7 @@ Rectangle {
 
         BarToolTip {
             bar: root.bar
+            widgetId: "network"
             visible: netMouse.containsMouse && !netPopup.visible
             anchorItem: netMouse
             text: {

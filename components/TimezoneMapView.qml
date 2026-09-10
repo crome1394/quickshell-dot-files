@@ -54,12 +54,27 @@ Item {
 
     implicitWidth: 480
 
-    onOceanColorChanged: if (mapCanvas) mapCanvas.requestPaint()
-    onLandColorChanged: if (mapCanvas) mapCanvas.requestPaint()
-    onHighlightColorChanged: if (mapCanvas) mapCanvas.requestPaint()
-    onGridColorChanged: if (mapCanvas) mapCanvas.requestPaint()
-    onAccentColorChanged: if (mapCanvas) mapCanvas.requestPaint()
-    onPendingIdChanged: if (mapCanvas) mapCanvas.requestPaint()
+    onOceanColorChanged: root.schedulePaint()
+    onLandColorChanged: root.schedulePaint()
+    onHighlightColorChanged: root.schedulePaint()
+    onGridColorChanged: root.schedulePaint()
+    onAccentColorChanged: root.schedulePaint()
+    onPendingIdChanged: root.schedulePaint()
+
+    function schedulePaint() {
+        if (mapCanvas)
+            mapCanvas.requestPaint()
+        paintRetry.restart()
+    }
+    Timer {
+        id: paintRetry
+        interval: 90
+        repeat: false
+        onTriggered: {
+            if (mapCanvas)
+                mapCanvas.requestPaint()
+        }
+    }
 
     function scriptPath() {
         const u = Qt.resolvedUrl("../scripts/timezone-control.sh").toString()
@@ -156,7 +171,7 @@ Item {
         root.refreshPreview(z.id)
         if (applyNow)
             root.applyPending()
-        mapCanvas.requestPaint()
+        root.schedulePaint()
     }
 
     function offsetBucket(hours) {
@@ -306,6 +321,7 @@ Item {
     onActiveChanged: {
         if (active) {
             root.refreshAll()
+            root.schedulePaint()
         } else {
             root.hoverId = ""
             root.statusMsg = ""
@@ -330,7 +346,7 @@ Item {
                     if (root.pendingId === root.currentId)
                         root.pendingPreview = j
                     root.dataVersion++
-                    mapCanvas.requestPaint()
+                    root.schedulePaint()
                 } catch (e) {}
             }
         }
@@ -349,7 +365,7 @@ Item {
                 try {
                     root.zones = JSON.parse(t)
                     root.dataVersion++
-                    mapCanvas.requestPaint()
+                    root.schedulePaint()
                 } catch (e) {
                     root.zones = []
                 }
@@ -369,7 +385,7 @@ Item {
                 try {
                     const j = JSON.parse(t)
                     root.landRings = j.rings || []
-                    mapCanvas.requestPaint()
+                    root.schedulePaint()
                 } catch (e) {}
             }
         }
@@ -389,7 +405,7 @@ Item {
                     root.tzRasterW = Number(j.w) || 0
                     root.tzRasterH = Number(j.h) || 0
                     root.tzRaster = root.unpackRaster(j.data)
-                    mapCanvas.requestPaint()
+                    root.schedulePaint()
                 } catch (e) {}
             }
         }
@@ -427,7 +443,7 @@ Item {
                         root.statusMsg = "Region set to " + root.currentId
                         root.errorMsg = ""
                         root.dataVersion++
-                        mapCanvas.requestPaint()
+                        root.schedulePaint()
                     } catch (e) {}
                 }
             }
@@ -493,8 +509,10 @@ Item {
                 antialiasing: true
                 renderTarget: Canvas.Image
                 renderStrategy: Canvas.Immediate
-                onWidthChanged: requestPaint()
-                onHeightChanged: requestPaint()
+                onWidthChanged: root.schedulePaint()
+                onHeightChanged: root.schedulePaint()
+                visible: true
+                onVisibleChanged: if (visible) root.schedulePaint()
                 onPaint: {
                     const ctx = getContext("2d")
                     const w = Math.floor(width)

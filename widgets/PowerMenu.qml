@@ -72,6 +72,7 @@ Rectangle {
 
         BarToolTip {
             bar: root.bar
+            widgetId: "power"
             visible: powerMouse.containsMouse
             text: "Left: power menu · Right: quick menu"
             anchorItem: powerMouse
