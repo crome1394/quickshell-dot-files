@@ -93,7 +93,7 @@ Rectangle {
     readonly property int _padW: embedded ? 12 : 14
     readonly property int _naturalW: netContent.implicitWidth + _padW
     implicitWidth: Math.round(_naturalW * _s)
-    implicitHeight: embedded ? Math.max(18, _h - 8) : _h
+    implicitHeight: embedded ? Math.max(18, _h - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4)) : _h
     width: implicitWidth
     height: implicitHeight
     Layout.preferredWidth: implicitWidth
@@ -985,7 +985,7 @@ Rectangle {
         id: netChip
         anchors.centerIn: parent
         width: Math.max(18, netContent.implicitWidth + (embedded ? 4 : 10))
-        height: embedded ? parent.height : Math.max(18, parent.height - 8)
+        height: embedded ? parent.height : Math.max(18, parent.height - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4))
         radius: bar.workspaceRadius
         color: {
             if (embedded)

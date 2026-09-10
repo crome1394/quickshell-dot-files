@@ -85,7 +85,7 @@ Rectangle {
 
     // Standalone: full pill size. Embedded: content chip sized for shared shell.
     implicitWidth: Math.round(_naturalW * _s)
-    implicitHeight: embedded ? Math.max(18, _h - 8) : _h
+    implicitHeight: embedded ? Math.max(18, _h - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4)) : _h
     width: implicitWidth
     height: implicitHeight
     Layout.preferredWidth: implicitWidth
@@ -725,7 +725,7 @@ Rectangle {
         id: btChip
         anchors.centerIn: parent
         width: Math.max(18, btContent.implicitWidth + (embedded ? 4 : 10))
-        height: embedded ? parent.height : Math.max(18, parent.height - 8)
+        height: embedded ? parent.height : Math.max(18, parent.height - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4))
         radius: bar.workspaceRadius
         color: {
             if (embedded)

@@ -21,7 +21,7 @@ Rectangle {
 
     // === Layout (for RowLayout participation in the bar) ===
     readonly property real _ws: (bar.widgetScale ? bar.widgetScale("clock") : 1.0)
-    Layout.preferredWidth: Math.round((clockLabel.implicitWidth + 28) * _ws)
+    Layout.preferredWidth: Math.round((clockLabel.implicitWidth + 20) * _ws)
     Layout.preferredHeight: bar.pillHeight
     Layout.alignment: Qt.AlignVCenter
 
@@ -37,7 +37,7 @@ Rectangle {
         id: clockChip
         anchors.centerIn: parent
         width: Math.round((clockLabel.implicitWidth + 16) * root._ws)
-        height: parent.height - 8
+        height: Math.max(18, parent.height - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4))
         radius: bar.workspaceRadius
         color: clockArea.containsMouse ? bar.iconHoverBg : "transparent"
         border.width: clockArea.containsMouse ? bar.controlBorderWidth : 0
@@ -53,12 +53,15 @@ Rectangle {
             // Bar widget text (Themes → Bar widget text font/size)
             color: (bar.barText !== undefined) ? bar.barText : bar.text
             font.pixelSize: {
-                var base = (bar.fontBarFace !== undefined) ? bar.fontBarFace : 13
+                var base = (bar.clockFontFace !== undefined) ? bar.clockFontFace
+                           : ((bar.fontBarFace !== undefined) ? bar.fontBarFace : 13)
                 return Math.max(9, Math.round(base * root._ws))
             }
-            font.family: (bar.fontBarResolved !== undefined && String(bar.fontBarResolved).length)
-                         ? bar.fontBarResolved
-                         : (bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily)
+            font.family: (bar.clockFontResolved !== undefined && String(bar.clockFontResolved).length)
+                         ? bar.clockFontResolved
+                         : ((bar.fontBarResolved !== undefined && String(bar.fontBarResolved).length)
+                            ? bar.fontBarResolved
+                            : (bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily))
             font.bold: true
         }
 

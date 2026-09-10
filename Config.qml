@@ -1639,7 +1639,9 @@ QtObject {
     readonly property int pillHPadding:         sp(18)   // Typical horizontal inner padding for pill content (AudioPill etc use this indirectly)
     readonly property int popupPadding:         sp(16)   // Generic content margin inside most popups (prefer popupSpacing for new code)
     readonly property int popupPaddingSmall:    sp(10)   // Tighter popups (device lists, tray menus) (prefer popupSpacingTight)
-    readonly property int widgetSpacing:        sp(14)   // Spacing between major widgets in the bar row
+    readonly property int widgetSpacing:         sp(8)   // Spacing between major widgets in the bar row
+    // Total vertical inset of inner hover chips vs pillHeight (workspaces use ~4).
+    readonly property int pillChipInset:         4
     readonly property int iconTextGap:           sp(6)   // Gap between icon and volume bar or label inside audio pill
     readonly property int dualAudioSidePadding:  sp(3)   // Extra tight padding used only in AudioPill dual view
 
@@ -1905,6 +1907,14 @@ QtObject {
     // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
     readonly property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
+    // Clock face family (empty = inherit bar widget text). Scale is independent of fontBarScale.
+    property string clockFont: ""
+    property real clockFontScale: 1.0
+    readonly property string clockFontResolved: {
+        var s = (clockFont !== undefined && clockFont !== null) ? ("" + clockFont).trim() : ""
+        return s.length ? s : fontBarResolved
+    }
+    readonly property int clockFontFace: fspRole(13, clockFontScale)
     readonly property string timezoneControlScript: "/home/crome/.config/quickshell/scripts/timezone-control.sh"
     // Presets shown in the control-bar Clock menu: { label, format, tip }
     readonly property var clockFormatPresets: [

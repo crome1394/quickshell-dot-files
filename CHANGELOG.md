@@ -2,6 +2,13 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Hover height, clock font, widget dividers
+
+- Hover chips on Clock / Network / Bluetooth / Audio match workspace pill height.
+- Tighter gap between bar widgets (`widgetSpacing` 8px).
+- **Region & Clock → Clock:** face font family + size (independent of Themes → Bar widget text).
+- **Widgets:** **Add |** inserts a movable `|` divider (up to 8) to split widget groups.
+
 ## 2026-09 — Control-bar hover without an extra click
 
 - Opening the config strip re-arms Hyprland focus grab after the popup maps, so toolbar/panel hover works immediately.

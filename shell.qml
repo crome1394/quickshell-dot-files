@@ -551,6 +551,10 @@ ShellRoot {
                 }
                 if (barLayoutAdapter.clockFormat && barLayoutAdapter.clockFormat.length)
                     root.clockFormat = barLayoutAdapter.clockFormat
+                if (barLayoutAdapter.clockFont !== undefined)
+                    cfg.clockFont = String(barLayoutAdapter.clockFont || "")
+                if (barLayoutAdapter.clockFontScale > 0)
+                    cfg.clockFontScale = Math.max(0.70, Math.min(1.50, Number(barLayoutAdapter.clockFontScale)))
                 // Visibility (only apply keys that exist in the adapter defaults)
                 root.showLauncherPill = barLayoutAdapter.showLauncherPill
                 root.showQuickLaunchPill = barLayoutAdapter.showQuickLaunchPill
@@ -647,6 +651,8 @@ ShellRoot {
                 property int tooltipDelay: 1550
                 property string tooltipAlignJson: ""
                 property string clockFormat: ""
+                property string clockFont: ""
+                property real clockFontScale: 1.0
                 property string widgetLayoutJson: ""
                 property string widgetLayoutClassicJson: ""
                 property string widgetLayoutDualJson: ""
@@ -1081,6 +1087,8 @@ ShellRoot {
                 barLayoutAdapter.tooltipAlignJson = "{}"
             }
             barLayoutAdapter.clockFormat = root.clockFormat
+            barLayoutAdapter.clockFont = cfg.clockFont || ""
+            barLayoutAdapter.clockFontScale = Number(cfg.clockFontScale) || 1.0
             try {
                 const json = JSON.stringify(root.widgetLayout || [])
                 barLayoutAdapter.widgetLayoutJson = json
@@ -1418,7 +1426,8 @@ ShellRoot {
                     let id = String(e.id)
                     if (id === "audio")
                         id = "connectivity"
-                    if (!known[id] || seen[id])
+                    const ok = known[id] || bar.isDividerId(id)
+                    if (!ok || seen[id])
                         continue
                     seen[id] = true
                     out.push({
@@ -1437,7 +1446,11 @@ ShellRoot {
         }
 
         function widgetItemById(id) {
-            switch (String(id)) {
+            const sid = String(id)
+            const dm = sid.match(/^divider([1-8])$/)
+            if (dm && typeof dividerRepeater !== "undefined" && dividerRepeater)
+                return dividerRepeater.itemAt(Number(dm[1]) - 1)
+            switch (sid) {
             case "launcher": return launcherPill
             case "quickLaunch": return quickLaunchPill
             case "freshRss": return freshRssPill
@@ -1524,6 +1537,69 @@ ShellRoot {
             persistBarLayout()
         }
 
+        function setClockFont(name) {
+            const next = String(name || "").trim()
+            if (cfg.clockFont === next)
+                return
+            cfg.clockFont = next
+            persistBarLayout()
+        }
+
+        function setClockFontScale(scale) {
+            var v = Number(scale)
+            if (!(v > 0))
+                return
+            if (v < 0.70)
+                v = 0.70
+            if (v > 1.50)
+                v = 1.50
+            v = Math.round(v * 100) / 100
+            if (Math.abs(cfg.clockFontScale - v) < 0.001)
+                return
+            cfg.clockFontScale = v
+            persistBarLayout()
+        }
+
+        function isDividerId(id) {
+            return /^divider[1-8]$/.test(String(id || ""))
+        }
+
+        function addWidgetDivider() {
+            const layout = bar.normalizeLayout(root.widgetLayout, root.barLayoutMode)
+            const used = {}
+            for (let i = 0; i < layout.length; i++)
+                used[layout[i].id] = true
+            let id = ""
+            for (let n = 1; n <= 8; n++) {
+                const cand = "divider" + n
+                if (!used[cand]) {
+                    id = cand
+                    break
+                }
+            }
+            if (!id.length)
+                return
+            const dual = root.barLayoutMode === "dual"
+            layout.push({ id: id, zone: dual ? "bottom" : "center" })
+            root.widgetLayout = layout
+            bar.applyWidgetLayout()
+            persistBarLayout()
+        }
+
+        function removeWidgetDivider(id) {
+            if (!bar.isDividerId(id))
+                return
+            const layout = bar.normalizeLayout(root.widgetLayout, root.barLayoutMode)
+            const next = []
+            for (let i = 0; i < layout.length; i++) {
+                if (layout[i].id !== id)
+                    next.push(layout[i])
+            }
+            root.widgetLayout = next
+            bar.applyWidgetLayout()
+            persistBarLayout()
+        }
+
         function getWidgetVisible(id) {
             switch (String(id)) {
             case "launcher": return root.showLauncherPill
@@ -1543,7 +1619,16 @@ ShellRoot {
             case "hyprInsp": return root.showHyprInspPill
             case "controlBar": return root.showControlBarPill
             case "power": return root.showPowerPill
-            default: return false
+            default:
+                if (bar.isDividerId(id)) {
+                    const layout = root.widgetLayout || []
+                    for (let i = 0; i < layout.length; i++) {
+                        if (layout[i] && layout[i].id === String(id))
+                            return true
+                    }
+                    return false
+                }
+                return false
             }
         }
 
@@ -1571,7 +1656,15 @@ ShellRoot {
             case "hyprInsp": root.showHyprInspPill = on; break
             case "controlBar": root.showControlBarPill = on; break
             case "power": root.showPowerPill = on; break
-            default: return
+            default:
+                if (bar.isDividerId(id)) {
+                    if (on)
+                        bar.addWidgetDivider()
+                    else
+                        bar.removeWidgetDivider(id)
+                    return
+                }
+                return
             }
             persistBarLayout()
         }
@@ -2013,6 +2106,11 @@ ShellRoot {
         // Clock format is owned on root (persisted); bar exposes it for ClockPill / control bar.
         property alias clockFormat: root.clockFormat
         readonly property alias clockFormatPresets: cfg.clockFormatPresets
+        property alias clockFont: cfg.clockFont
+        property alias clockFontScale: cfg.clockFontScale
+        readonly property alias clockFontResolved: cfg.clockFontResolved
+        readonly property alias clockFontFace: cfg.clockFontFace
+        readonly property alias pillChipInset: cfg.pillChipInset
         property alias barEdgeMargin: cfg.barEdgeMargin
         property alias barSizeScale: cfg.barSizeScale
         property alias flushWindowsToBar: cfg.flushWindowsToBar
@@ -2610,6 +2708,29 @@ ShellRoot {
                 height: 0
                 x: -10000
                 y: -10000
+
+                Repeater {
+                    id: dividerRepeater
+                    model: 8
+                    delegate: Item {
+                        Layout.preferredWidth: 12
+                        Layout.preferredHeight: bar.pillHeight
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitWidth: 12
+                        implicitHeight: bar.pillHeight
+                        width: 12
+                        height: bar.pillHeight
+                        Text {
+                            anchors.centerIn: parent
+                            text: "|"
+                            color: bar.subtext
+                            opacity: 0.75
+                            font.pixelSize: Math.max(12, Math.round((bar.pillHeight || 36) * 0.58))
+                            font.bold: true
+                            font.family: bar.fontFamily
+                        }
+                    }
+                }
             }
 
             RowLayout {
@@ -3382,6 +3503,12 @@ ShellRoot {
         }
         function setClockFormat(format: string): void {
             bar.setClockFormat(format)
+        }
+        function setClockFont(name: string): void {
+            bar.setClockFont(name)
+        }
+        function setClockFontScale(scale: string): void {
+            bar.setClockFontScale(scale)
         }
         function setWidgetZone(widgetId: string, zone: string): void {
             bar.setWidgetZone(widgetId, zone)

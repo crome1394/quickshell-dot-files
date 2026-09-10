@@ -90,7 +90,7 @@ Rectangle {
     Layout.preferredWidth: embedded
         ? (_contentW + 8)
         : (_contentW + _outerPad)
-    Layout.preferredHeight: embedded ? Math.max(18, _h - 8) : _h
+    Layout.preferredHeight: embedded ? Math.max(18, _h - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4)) : _h
     Layout.alignment: Qt.AlignVCenter
     width: Layout.preferredWidth
     height: Layout.preferredHeight
@@ -1519,7 +1519,7 @@ Rectangle {
         id: audioContent
         anchors.centerIn: parent
         width: root._contentW
-        height: embedded ? parent.height : Math.max(18, parent.height - 8)
+        height: embedded ? parent.height : Math.max(18, parent.height - (bar.pillChipInset !== undefined ? bar.pillChipInset : 4))
         radius: bar.workspaceRadius
         color: {
             if (embedded)

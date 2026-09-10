@@ -1282,6 +1282,49 @@ Item {
         root.setClockFormat(fmt)
     }
 
+    function currentClockFontName() {
+        void root.menuTick
+        return (bar && bar.clockFont) ? String(bar.clockFont).trim() : ""
+    }
+
+    function clockFontComboModel() {
+        void root.menuTick
+        const list = root.systemFontFamilies || []
+        return ["Bar default"].concat(list)
+    }
+
+    function clockFontComboIndex() {
+        void root.menuTick
+        void root.systemFontFamilies
+        const s = root.currentClockFontName()
+        if (!s.length)
+            return 0
+        const i = root.fontIndexFor(s)
+        return i < 0 ? 0 : i + 1
+    }
+
+    function applyClockFontFromCombo(index) {
+        if (!(index > 0)) {
+            if (typeof bar.setClockFont === "function")
+                bar.setClockFont("")
+            root.menuTick++
+            return
+        }
+        const list = root.systemFontFamilies || []
+        const name = list[index - 1]
+        if (name && typeof bar.setClockFont === "function")
+            bar.setClockFont(name)
+        root.menuTick++
+    }
+
+    function currentClockFontScalePct() {
+        void root.menuTick
+        const s = (bar && bar.clockFontScale !== undefined) ? Number(bar.clockFontScale) : 1
+        if (!(s > 0))
+            return 100
+        return Math.round(Math.max(0.70, Math.min(1.50, s)) * 100)
+    }
+
     // Widget list for the combined Widgets panel (layout + visibility + scale).
     function widgetEntries() {
         void root.menuTick
@@ -1295,11 +1338,13 @@ Item {
         if (layout && layout.length) {
             for (let i = 0; i < layout.length; i++) {
                 const e = layout[i]
+                const div = !!(bar && typeof bar.isDividerId === "function" && bar.isDividerId(e.id))
                 out.push({
                     id: e.id,
                     zone: e.zone,
-                    label: labels[e.id] || e.id,
-                    on: root.isWidgetOn(e.id)
+                    label: div ? ("|  Divider " + String(e.id).replace("divider", "")) : (labels[e.id] || e.id),
+                    on: root.isWidgetOn(e.id),
+                    divider: div
                 })
             }
         } else {
@@ -4708,12 +4753,13 @@ Item {
                                         readonly property string widgetZone: modelData.zone
                                         readonly property string widgetLabel: modelData.label
                                         readonly property bool widgetOn: modelData.on
+                                        readonly property bool widgetDivider: !!modelData.divider
                                         readonly property int livePct: root.scalePercentOf(widgetId)
                                         property int localPct: livePct
                                         property bool editing: false
 
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 58
+                                        Layout.preferredHeight: widgetRow.widgetDivider ? 40 : 58
                                         radius: root.chipR
                                         color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                         border.width: bar.controlBorderWidth
@@ -4895,6 +4941,7 @@ Item {
 
                                             // Row 2: horizontal width scale
                                             RowLayout {
+                                                visible: !widgetRow.widgetDivider
                                                 Layout.fillWidth: true
                                                 spacing: 6
 
@@ -4985,6 +5032,34 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: addDivLbl.implicitWidth + 12
+                                        radius: root.chipR
+                                        color: addDivMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: bar.controlBorderWidth
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: addDivLbl
+                                            anchors.centerIn: parent
+                                            text: "Add  |"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: addDivMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.addWidgetDivider === "function")
+                                                    bar.addWidgetDivider()
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: resetLbl.implicitWidth + 12
@@ -11235,6 +11310,8 @@ Item {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     root.clockTab = modelData.id
+                                                    if (modelData.id === "clock")
+                                                        root.refreshSystemFonts()
                                                     root.menuTick++
                                                     Qt.callLater(root.reposition)
                                                 }
@@ -11306,6 +11383,125 @@ Item {
                                             color: bar.accent
                                             font.pixelSize: 12
                                             font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            wrapMode: Text.WordWrap
+                                            text: "Clock face font"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 10
+                                            ComboBox {
+                                                id: clockFaceFontCombo
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 34
+                                                Layout.minimumWidth: 120
+                                                model: root.clockFontComboModel()
+                                                currentIndex: root.clockFontComboIndex()
+                                                onActivated: function(index) { root.applyClockFontFromCombo(index) }
+                                                contentItem: Text {
+                                                    leftPadding: 10
+                                                    rightPadding: clockFaceFontCombo.indicator.width + 12
+                                                    text: clockFaceFontCombo.displayText
+                                                    color: (bar.barText !== undefined) ? bar.barText : bar.text
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    elide: Text.ElideRight
+                                                    font.family: root.currentClockFontName().length
+                                                                 ? root.currentClockFontName()
+                                                                 : ((bar.fontBarResolved !== undefined) ? bar.fontBarResolved : bar.fontFamily)
+                                                }
+                                                background: Rectangle {
+                                                    radius: 6
+                                                    color: root.optFieldBg
+                                                    border.width: 1
+                                                    border.color: clockFaceFontCombo.popup.visible ? bar.accent : bar.pillBorder
+                                                }
+                                                indicator: Text {
+                                                    x: clockFaceFontCombo.width - width - 10
+                                                    y: (clockFaceFontCombo.height - height) / 2
+                                                    text: clockFaceFontCombo.popup.visible ? "▴" : "▾"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 11
+                                                }
+                                                popup: Popup {
+                                                    y: clockFaceFontCombo.height + 2
+                                                    width: clockFaceFontCombo.width
+                                                    implicitHeight: Math.min(260, contentItem.implicitHeight + 4)
+                                                    padding: 2
+                                                    contentItem: ListView {
+                                                        clip: true
+                                                        implicitHeight: contentHeight
+                                                        model: clockFaceFontCombo.popup.visible ? clockFaceFontCombo.delegateModel : null
+                                                        currentIndex: clockFaceFontCombo.highlightedIndex
+                                                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                                                    }
+                                                    background: Rectangle {
+                                                        radius: 8
+                                                        color: bar.glassPopupBg !== undefined ? bar.glassPopupBg : Qt.rgba(0.06, 0.08, 0.12, 0.96)
+                                                        border.width: 1
+                                                        border.color: bar.glassPopupBorder !== undefined ? bar.glassPopupBorder : bar.pillBorder
+                                                    }
+                                                }
+                                                delegate: ItemDelegate {
+                                                    width: clockFaceFontCombo.width
+                                                    height: 30
+                                                    required property int index
+                                                    required property string modelData
+                                                    highlighted: clockFaceFontCombo.highlightedIndex === index
+                                                    contentItem: Text {
+                                                        text: modelData
+                                                        color: (bar.barText !== undefined) ? bar.barText : bar.text
+                                                        font.family: index === 0 ? bar.fontFamily : modelData
+                                                        font.pixelSize: 12
+                                                        elide: Text.ElideRight
+                                                        verticalAlignment: Text.AlignVCenter
+                                                    }
+                                                    background: Rectangle {
+                                                        color: parent.highlighted
+                                                               ? (bar.controlActiveBg !== undefined ? bar.controlActiveBg : Qt.rgba(0, 0.7, 0.75, 0.35))
+                                                               : "transparent"
+                                                        radius: 4
+                                                    }
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.fontSizeChipWidth()
+                                                Layout.maximumWidth: root.fontSizeChipWidth()
+                                                Layout.preferredHeight: 34
+                                                radius: root.chipR
+                                                color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
+                                                border.width: 1
+                                                border.color: bar.dividerStrong
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: 8
+                                                    anchors.rightMargin: 8
+                                                    spacing: 4
+                                                    Slider {
+                                                        Layout.fillWidth: true
+                                                        from: 70; to: 150; stepSize: 1
+                                                        value: root.currentClockFontScalePct()
+                                                        onMoved: {
+                                                            if (typeof bar.setClockFontScale === "function")
+                                                                bar.setClockFontScale(Math.round(value) / 100)
+                                                            root.menuTick++
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: root.currentClockFontScalePct() + "%"
+                                                        color: bar.subtext
+                                                        font.pixelSize: 11
+                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                        Layout.preferredWidth: 40
+                                                        horizontalAlignment: Text.AlignRight
+                                                    }
+                                                }
+                                            }
                                         }
                                         Text {
                                             Layout.fillWidth: true

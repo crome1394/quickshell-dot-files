@@ -9,7 +9,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 | **Position** | Layout **Classic** (one bar, L/C/R) or **Dual** (top + bottom, centered) · classic edge top/bottom · **Gap from edge** (0–48px) · **Flush windows to bar** · **Bar size** (80–140%) → `state/bar-layout.json` |
 | **Display** | Monitor resolution / refresh / bit depth + adapter stats from `hyprctl` (see Display subsection) |
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
-| **Widgets** | **A–Z list**; each row is three columns: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
+| **Widgets** | **A–Z list**; each row is three columns: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
 | **Options** | Behavior prefs (not layout) — table below |
 | **Themes** | Live colors/opacity, text roles, **Fonts** (UI·Mono·Main·Secondary·Bar + sizes), thresholds, liquid presets (see Themes subsection) |
 | **Launch** | Quick Launch pins (installed apps or custom) |
@@ -100,7 +100,7 @@ Toolbar button **Region & Clock**. Two tabs (MIME-style chips); **Region** is th
 |---------|----------|
 | **Region tab** | Stretched equirectangular map (includes Antarctica). Timezone bands are tinted; click highlights the whole offset region (GNOME Date & Time style). Search overlays the map; city list stays below. |
 | **Apply region** | Closes the control strip first (so a polkit password prompt is not covered), then runs `timedatectl set-timezone` (pkexec if the session call is denied). |
-| **Clock tab** | Format presets (Full / Date / Time / Short / 12h / US) plus a **Custom** `Qt.formatDateTime` field. Preview updates as you type; **Set** or Enter saves to `bar-layout.json`. |
+| **Clock tab** | Format presets (Full / Date / Time / Short / 12h / US) plus a **Custom** `Qt.formatDateTime` field. **Clock face font** (family + size). Preview updates as you type; **Set** or Enter saves to `bar-layout.json`. |
 
 The bar clock itself still uses local time, so after a successful region apply it follows the new timezone automatically.
 
