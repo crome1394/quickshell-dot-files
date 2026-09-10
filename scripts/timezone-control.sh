@@ -252,11 +252,16 @@ def cmd_land() -> int:
     return 0
 
 
+RASTER_VERSION = 2
+
+
 def build_raster(width: int = 360, height: int = 180) -> dict:
     import math
 
     zones = load_zones()
     pts = [(float(z["lat"]), float(z["lon"]), offset_bucket(z.get("offsetHours") or 0)) for z in zones]
+    # City Voronoi only near a city; far ocean uses lon/15 strips (GNOME-like bands).
+    near = 12.0 * 12.0
     data = bytearray(width * height)
     for y in range(height):
         lat = 90.0 - (y + 0.5) * (180.0 / height)
@@ -264,7 +269,7 @@ def build_raster(width: int = 360, height: int = 180) -> dict:
         for x in range(width):
             lon = (x + 0.5) * (360.0 / width) - 180.0
             best_d = 1e18
-            best_b = 56
+            best_b = offset_bucket(lon / 15.0)
             for zlat, zlon, zb in pts:
                 dlat = zlat - lat
                 dlon = zlon - lon
@@ -276,16 +281,19 @@ def build_raster(width: int = 360, height: int = 180) -> dict:
                 if d < best_d:
                     best_d = d
                     best_b = zb
+            if best_d > near:
+                best_b = offset_bucket(lon / 15.0)
             data[y * width + x] = best_b & 0xFF
-    return {"w": width, "h": height, "data": data.hex()}
+    return {"v": RASTER_VERSION, "w": width, "h": height, "data": data.hex()}
 
 
 def cmd_raster() -> int:
     if RASTER_FILE.is_file():
         try:
             data = json.loads(RASTER_FILE.read_text(encoding="utf-8"))
-            emit(data)
-            return 0
+            if int(data.get("v") or 0) == RASTER_VERSION and data.get("data"):
+                emit(data)
+                return 0
         except Exception:
             pass
     data = build_raster()

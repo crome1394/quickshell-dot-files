@@ -181,10 +181,8 @@ Item {
     function refreshSelectedBucket() {
         const z = root.findZone(root.pendingId) || root.pendingZone
         let b = -1
-        if (z) {
-            const rb = root.sampleRaster(z.lon, z.lat)
-            b = (rb > 0) ? rb : root.zoneBucket(z)
-        }
+        if (z)
+            b = root.zoneBucket(z)
         root.selectedBucket = b
         root.schedulePaint()
     }
@@ -817,9 +815,7 @@ Item {
                     const lon = root.xToLon(mouse.x, width)
                     const z = root.nearestZone(lat, lon)
                     root.hoverId = z ? z.id : ""
-                    const rb = root.sampleRaster(lon, lat)
-                    const zb = z ? root.zoneBucket(z) : -1
-                    const b = (rb > 0) ? rb : zb
+                    const b = z ? root.zoneBucket(z) : -1
                     if (root.hoverBucket !== b) {
                         root.hoverBucket = b
                         mapCanvas.requestPaint()

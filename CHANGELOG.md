@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Region map zone alignment
+
+- Hover/click highlight follows the **city's UTC offset**, not the ocean pixel under the cursor (Los Angeles no longer lights random Pacific blobs).
+- Raster v2: far ocean uses longitude bands; land stays city-based so west-coast PST covers California.
+
 ## 2026-09 — Region map selected zone
 
 - Current timezone (e.g. America/New_York) and a clicked city now keep the green band after hover ends. Highlight is sampled from the same raster as mouseover, including ocean.
