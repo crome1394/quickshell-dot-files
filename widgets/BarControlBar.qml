@@ -11020,13 +11020,10 @@ Item {
                                     subtextColor: bar.subtext
                                     accentColor: bar.accent
                                     surfaceColor: bar.surface !== undefined ? bar.surface : Qt.rgba(0.10, 0.12, 0.18, 0.9)
-                                    oceanColor: Qt.rgba(0.035, 0.06, 0.10, 1)
-                                    landColor: Qt.rgba(
-                                        (bar.accent.r * 0.22) + 0.16,
-                                        (bar.accent.g * 0.20) + 0.22,
-                                        (bar.accent.b * 0.18) + 0.30,
-                                        1)
-                                    gridColor: Qt.rgba(1, 1, 1, 0.07)
+                                    oceanColor: "#8aa0b5"
+                                    landColor: "#e7e2d6"
+                                    highlightColor: "#6fbf3a"
+                                    gridColor: Qt.rgba(1, 1, 1, 0.16)
                                     fieldBg: root.optFieldBg
                                     fieldBgFocus: root.optFieldBgFocus
                                     pillBorder: bar.pillBorder

@@ -5,6 +5,7 @@
 #   timezone-control.sh status-json
 #   timezone-control.sh list-json
 #   timezone-control.sh land-json
+#   timezone-control.sh raster-json
 #   timezone-control.sh preview <Area/City>
 #   timezone-control.sh set <Area/City>
 set -euo pipefail
@@ -27,6 +28,14 @@ ROOT = Path(sys.argv[1])
 ZONE_TAB = Path("/usr/share/zoneinfo/zone1970.tab")
 ZONEINFO = Path("/usr/share/zoneinfo")
 LAND_FILE = ROOT / "assets" / "world-land.json"
+RASTER_FILE = ROOT / "assets" / "tz-raster.json"
+
+# Stations missing from zone1970.tab as primary rows (linked or extra).
+ANTARCTICA_EXTRA = [
+    ("Antarctica/DumontDUrville", -66.6628, 140.0019, "Dumont d'Urville"),
+    ("Antarctica/Syowa", -69.0069, 39.5900, "Syowa"),
+    ("Antarctica/McMurdo", -77.8419, 166.6863, "McMurdo"),
+]
 TZ_RE = re.compile(r"^[A-Za-z0-9/_+\-]+$")
 COORD_RE = re.compile(
     r"^([+-])(\d{2})(\d{2})(\d{2})?([+-])(\d{3})(\d{2})(\d{2})?$"
@@ -70,6 +79,31 @@ def pretty_region(tz_id: str) -> str:
     return "Other"
 
 
+def standard_offset_hours(tz_id: str) -> float:
+    """Non-DST UTC offset in hours (mid-January), matching GNOME's map grouping."""
+    old = os.environ.get("TZ")
+    os.environ["TZ"] = tz_id
+    time.tzset()
+    try:
+        t = time.mktime((2024, 1, 15, 12, 0, 0, 0, 0, 0))
+        off = time.strftime("%z", time.localtime(t))
+    finally:
+        if old is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old
+        time.tzset()
+    try:
+        sign = 1 if off[0] != "-" else -1
+        return sign * (int(off[1:3]) + int(off[3:5]) / 60.0)
+    except Exception:
+        return 0.0
+
+
+def offset_bucket(hours: float) -> int:
+    return int(round((float(hours) + 14.0) * 4.0))
+
+
 def load_zones() -> list[dict]:
     rows: list[dict] = []
     if not ZONE_TAB.is_file():
@@ -98,9 +132,27 @@ def load_zones() -> list[dict]:
                 "comment": comment,
                 "lat": round(lat, 4),
                 "lon": round(lon, 4),
+                "offsetHours": standard_offset_hours(tz_id),
                 "countries": [c for c in cols[0].split(",") if c],
             }
         )
+    seen = {r["id"] for r in rows}
+    for tz_id, lat, lon, city in ANTARCTICA_EXTRA:
+        if tz_id in seen or not valid_zone(tz_id):
+            continue
+        rows.append(
+            {
+                "id": tz_id,
+                "region": "Antarctica",
+                "city": city,
+                "comment": "Antarctica",
+                "lat": lat,
+                "lon": lon,
+                "offsetHours": standard_offset_hours(tz_id),
+                "countries": ["AQ"],
+            }
+        )
+        seen.add(tz_id)
     rows.sort(key=lambda z: (z["region"], z["city"], z["id"]))
     return rows
 
@@ -200,6 +252,51 @@ def cmd_land() -> int:
     return 0
 
 
+def build_raster(width: int = 360, height: int = 180) -> dict:
+    import math
+
+    zones = load_zones()
+    pts = [(float(z["lat"]), float(z["lon"]), offset_bucket(z.get("offsetHours") or 0)) for z in zones]
+    data = bytearray(width * height)
+    for y in range(height):
+        lat = 90.0 - (y + 0.5) * (180.0 / height)
+        cos = math.cos(math.radians(lat))
+        for x in range(width):
+            lon = (x + 0.5) * (360.0 / width) - 180.0
+            best_d = 1e18
+            best_b = 56
+            for zlat, zlon, zb in pts:
+                dlat = zlat - lat
+                dlon = zlon - lon
+                if dlon > 180:
+                    dlon -= 360
+                if dlon < -180:
+                    dlon += 360
+                d = dlat * dlat + (dlon * cos) * (dlon * cos)
+                if d < best_d:
+                    best_d = d
+                    best_b = zb
+            data[y * width + x] = best_b & 0xFF
+    return {"w": width, "h": height, "data": data.hex()}
+
+
+def cmd_raster() -> int:
+    if RASTER_FILE.is_file():
+        try:
+            data = json.loads(RASTER_FILE.read_text(encoding="utf-8"))
+            emit(data)
+            return 0
+        except Exception:
+            pass
+    data = build_raster()
+    try:
+        RASTER_FILE.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    except Exception:
+        pass
+    emit(data)
+    return 0
+
+
 def cmd_preview(tz_id: str) -> int:
     if not valid_zone(tz_id):
         die(f"unknown timezone: {tz_id}")
@@ -245,6 +342,8 @@ def main(argv: list[str]) -> int:
         return cmd_list()
     if cmd in ("land", "land-json"):
         return cmd_land()
+    if cmd in ("raster", "raster-json"):
+        return cmd_raster()
     if cmd in ("preview",):
         if len(argv) < 4:
             die("usage: timezone-control.sh preview <Area/City>")
@@ -254,7 +353,7 @@ def main(argv: list[str]) -> int:
             die("usage: timezone-control.sh set <Area/City>")
         return cmd_set(argv[3])
     print(
-        f"usage: {Path(argv[0]).name} [status-json|list-json|land-json|preview <tz>|set <tz>]",
+        f"usage: {Path(argv[0]).name} [status-json|list-json|land-json|raster-json|preview <tz>|set <tz>]",
         file=sys.stderr,
     )
     return 2

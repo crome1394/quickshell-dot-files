@@ -4,8 +4,8 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell.Io as Io
 
-// Clickable equirectangular timezone map (installer-style) for the Clock panel.
-// Zones from zone1970.tab; land from assets/world-land.json (Natural Earth, public domain).
+// Clickable equirectangular timezone map (GNOME Date & Time style) for the Clock panel.
+// Zones from zone1970.tab; land from assets/world-land.json; offset bands from assets/tz-raster.json.
 Item {
     id: root
 
@@ -19,9 +19,10 @@ Item {
     property color subtextColor: "#a8b4c8"
     property color accentColor: "#00F0E0"
     property color surfaceColor: "#141a24"
-    property color oceanColor: "#0b1220"
-    property color landColor: "#2a3a4e"
-    property color gridColor: Qt.rgba(1, 1, 1, 0.07)
+    property color oceanColor: "#8aa0b5"
+    property color landColor: "#e7e2d6"
+    property color highlightColor: "#6fbf3a"
+    property color gridColor: Qt.rgba(1, 1, 1, 0.14)
     property color fieldBg: Qt.rgba(0.10, 0.12, 0.18, 0.92)
     property color fieldBgFocus: Qt.rgba(0.14, 0.16, 0.24, 0.95)
     property color pillBorder: Qt.rgba(1, 1, 1, 0.12)
@@ -33,6 +34,9 @@ Item {
 
     property var zones: []
     property var landRings: []
+    property var tzRaster: []
+    property int tzRasterW: 0
+    property int tzRasterH: 0
     property string currentId: ""
     property string pendingId: ""
     property string hoverId: ""
@@ -52,8 +56,10 @@ Item {
 
     onOceanColorChanged: if (mapCanvas) mapCanvas.requestPaint()
     onLandColorChanged: if (mapCanvas) mapCanvas.requestPaint()
+    onHighlightColorChanged: if (mapCanvas) mapCanvas.requestPaint()
     onGridColorChanged: if (mapCanvas) mapCanvas.requestPaint()
     onAccentColorChanged: if (mapCanvas) mapCanvas.requestPaint()
+    onPendingIdChanged: if (mapCanvas) mapCanvas.requestPaint()
 
     function scriptPath() {
         const u = Qt.resolvedUrl("../scripts/timezone-control.sh").toString()
@@ -153,10 +159,84 @@ Item {
         mapCanvas.requestPaint()
     }
 
+    function offsetBucket(hours) {
+        return Math.round((Number(hours) + 14) * 4)
+    }
+
+    function zoneBucket(z) {
+        if (!z)
+            return -1
+        if (z.offsetHours !== undefined && z.offsetHours !== null)
+            return root.offsetBucket(z.offsetHours)
+        return -1
+    }
+
+    function sampleRaster(lon, lat) {
+        const w = root.tzRasterW
+        const h = root.tzRasterH
+        const data = root.tzRaster
+        if (!w || !h || !data || !data.length)
+            return 0
+        let x = Math.floor(((Number(lon) + 180) / 360) * w)
+        let y = Math.floor(((90 - Number(lat)) / 180) * h)
+        if (x < 0)
+            x = 0
+        if (y < 0)
+            y = 0
+        if (x >= w)
+            x = w - 1
+        if (y >= h)
+            y = h - 1
+        return data[y * w + x] || 0
+    }
+
+    function unpackRaster(hex) {
+        const s = String(hex || "")
+        const n = Math.floor(s.length / 2)
+        const out = []
+        out.length = n
+        for (let i = 0; i < n; i++)
+            out[i] = parseInt(s.substr(i * 2, 2), 16) || 0
+        return out
+    }
+
+    function bandColor(bucket, selected, hovered) {
+        if (selected)
+            return root.highlightColor
+        if (hovered)
+            return Qt.rgba(root.highlightColor.r * 0.72 + 0.18,
+                           root.highlightColor.g * 0.72 + 0.22,
+                           root.highlightColor.b * 0.55 + 0.12, 1)
+        const pal = [
+            Qt.rgba(0.86, 0.84, 0.72, 1),
+            Qt.rgba(0.78, 0.86, 0.70, 1),
+            Qt.rgba(0.90, 0.82, 0.68, 1),
+            Qt.rgba(0.74, 0.82, 0.66, 1),
+            Qt.rgba(0.88, 0.88, 0.76, 1),
+            Qt.rgba(0.82, 0.78, 0.64, 1)
+        ]
+        const i = Math.abs(Number(bucket) || 0) % pal.length
+        return pal[i]
+    }
+
+    function utcLabel(hours) {
+        const h = Number(hours)
+        if (isNaN(h))
+            return "UTC"
+        const sign = h < 0 ? "-" : "+"
+        const ah = Math.abs(h)
+        const hh = Math.floor(ah)
+        const mm = Math.round((ah - hh) * 60)
+        if (mm)
+            return "UTC" + sign + hh + ":" + (mm < 10 ? "0" : "") + mm
+        return "UTC" + sign + hh
+    }
+
     function refreshAll() {
         root.loadStatus()
         root.loadList()
         root.loadLand()
+        root.loadRaster()
     }
 
     function loadStatus() {
@@ -176,6 +256,12 @@ Item {
         if (landProc.running)
             return
         landProc.exec([root.scriptPath(), "land-json"])
+    }
+
+    function loadRaster() {
+        if (rasterProc.running)
+            return
+        rasterProc.exec([root.scriptPath(), "raster-json"])
     }
 
     function refreshPreview(id) {
@@ -290,6 +376,26 @@ Item {
     }
 
     Io.Process {
+        id: rasterProc
+        running: false
+        stdout: Io.StdioCollector {
+            id: rasterOut
+            onStreamFinished: {
+                const t = (rasterOut.text || "").trim()
+                if (!t.startsWith("{"))
+                    return
+                try {
+                    const j = JSON.parse(t)
+                    root.tzRasterW = Number(j.w) || 0
+                    root.tzRasterH = Number(j.h) || 0
+                    root.tzRaster = root.unpackRaster(j.data)
+                    mapCanvas.requestPaint()
+                } catch (e) {}
+            }
+        }
+    }
+
+    Io.Process {
         id: previewProc
         running: false
         stdout: Io.StdioCollector {
@@ -369,19 +475,12 @@ Item {
             }
         }
 
-        Text {
-            Layout.fillWidth: true
-            text: "Click the map or pick a city — same idea as a Linux installer region step."
-            color: root.subtextColor
-            font.pixelSize: 11
-            font.family: root.fontFamily
-            wrapMode: Text.WordWrap
-        }
-
         Rectangle {
             id: mapFrame
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(168, Math.min(268, Math.round(width * 0.5)))
+            Layout.fillHeight: true
+            Layout.minimumHeight: 240
+            Layout.preferredHeight: 360
             radius: root.chipR
             color: root.oceanColor
             border.width: 1
@@ -392,20 +491,25 @@ Item {
                 id: mapCanvas
                 anchors.fill: parent
                 antialiasing: true
-                renderTarget: Canvas.FramebufferObject
+                renderTarget: Canvas.Image
+                renderStrategy: Canvas.Immediate
                 onWidthChanged: requestPaint()
                 onHeightChanged: requestPaint()
                 onPaint: {
                     const ctx = getContext("2d")
-                    const w = width
-                    const h = height
+                    const w = Math.floor(width)
+                    const h = Math.floor(height)
                     if (w < 8 || h < 8)
                         return
                     ctx.reset()
-                    ctx.fillStyle = root.cssColor(root.oceanColor)
+                    const ocean = root.oceanColor
+                    const oR = Math.round(ocean.r * 255)
+                    const oG = Math.round(ocean.g * 255)
+                    const oB = Math.round(ocean.b * 255)
+                    ctx.fillStyle = root.cssColor(ocean)
                     ctx.fillRect(0, 0, w, h)
 
-                    ctx.strokeStyle = root.cssColor(root.gridColor)
+                    ctx.strokeStyle = "rgba(255,255,255,0.16)"
                     ctx.lineWidth = 1
                     for (let lon = -180; lon <= 180; lon += 15) {
                         const x = root.lonToX(lon, w)
@@ -414,14 +518,9 @@ Item {
                         ctx.lineTo(x, h)
                         ctx.stroke()
                     }
-                    ctx.beginPath()
-                    ctx.moveTo(0, root.latToY(0, h))
-                    ctx.lineTo(w, root.latToY(0, h))
-                    ctx.stroke()
 
                     const rings = root.landRings || []
                     ctx.fillStyle = root.cssColor(root.landColor)
-                    ctx.lineWidth = 0.6
                     for (let r = 0; r < rings.length; r++) {
                         const ring = rings[r]
                         if (!ring || ring.length < 3)
@@ -440,88 +539,222 @@ Item {
                         ctx.fill()
                     }
 
-                    const zones = root.zones || []
-                    const sel = root.pendingId
-                    const hov = root.hoverId
-                    for (let i = 0; i < zones.length; i++) {
-                        const z = zones[i]
-                        if (!z || z.id === sel || z.id === hov)
-                            continue
-                        ctx.fillStyle = "rgba(220, 230, 245, 0.35)"
-                        const x = root.lonToX(z.lon, w)
-                        const y = root.latToY(z.lat, h)
+                    const selB = root.zoneBucket(root.pendingZone)
+                    const rw = root.tzRasterW
+                    const rh = root.tzRasterH
+                    const raster = root.tzRaster
+                    if (rw > 0 && rh > 0 && raster && raster.length >= rw * rh) {
+                        try {
+                            const img = ctx.getImageData(0, 0, w, h)
+                            const px = img.data
+                            const n = px.length
+                            for (let i = 0; i < n; i += 4) {
+                                if (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
+                                    continue
+                                const p = i / 4
+                                const x = p % w
+                                const y = (p - x) / w
+                                const b = root.sampleRaster(root.xToLon(x + 0.5, w), root.yToLat(y + 0.5, h))
+                                const col = (selB >= 0 && b === selB)
+                                            ? root.highlightColor
+                                            : root.bandColor(b, false, false)
+                                px[i] = Math.round(col.r * 255)
+                                px[i + 1] = Math.round(col.g * 255)
+                                px[i + 2] = Math.round(col.b * 255)
+                            }
+                            ctx.putImageData(img, 0, 0)
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            Rectangle {
+                id: hoverBubble
+                visible: root.hoverId.length > 0 && root.hoverId !== root.pendingId && !!root.findZone(root.hoverId)
+                x: Math.min(mapCanvas.width - width - 8, Math.max(8, mapMa.mouseX + 14))
+                y: Math.min(mapCanvas.height - height - 8, Math.max(8, mapMa.mouseY + 14))
+                width: hoverCol.implicitWidth + 16
+                height: hoverCol.implicitHeight + 12
+                radius: 6
+                color: Qt.rgba(0.10, 0.11, 0.13, 0.92)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+                z: 5
+                Column {
+                    id: hoverCol
+                    anchors.centerIn: parent
+                    spacing: 1
+                    Text {
+                        text: {
+                            const z = root.findZone(root.hoverId)
+                            const p = (root.hoverId === root.pendingId) ? (root.pendingPreview || {}) : {}
+                            const abbr = p.abbr || ""
+                            const hours = (p.offsetHours !== undefined) ? p.offsetHours : (z ? z.offsetHours : 0)
+                            const utc = root.utcLabel(hours)
+                            return abbr ? (abbr + "  (" + utc + ")") : utc
+                        }
+                        color: "#f4f6fa"
+                        font.pixelSize: 11
+                        font.bold: true
+                        font.family: root.fontFamily
+                    }
+                    Text {
+                        text: {
+                            const z = root.findZone(root.hoverId)
+                            if (!z)
+                                return ""
+                            return z.comment ? (z.city + ", " + z.comment) : (z.city + ", " + z.region)
+                        }
+                        color: "#c8d0dc"
+                        font.pixelSize: 10
+                        font.family: root.fontFamily
+                    }
+                    Text {
+                        visible: {
+                            const p = (root.hoverId === root.pendingId) ? (root.pendingPreview || {}) : {}
+                            return !!(p.local && String(p.local).length)
+                        }
+                        text: (root.pendingPreview && root.pendingPreview.local) ? root.pendingPreview.local : ""
+                        color: "#f4f6fa"
+                        font.pixelSize: 12
+                        font.bold: true
+                        font.family: root.fontMono
+                    }
+                }
+            }
+
+            Rectangle {
+                id: selBubble
+                visible: !!root.pendingZone && (!root.hoverId.length || root.hoverId === root.pendingId)
+                z: 5
+                width: selCol.implicitWidth + 16
+                height: selCol.implicitHeight + 12
+                radius: 6
+                color: Qt.rgba(0.10, 0.11, 0.13, 0.92)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+                x: {
+                    if (!root.pendingZone)
+                        return 8
+                    const px = root.lonToX(root.pendingZone.lon, mapCanvas.width) + 14
+                    return Math.min(mapCanvas.width - width - 8, Math.max(8, px))
+                }
+                y: {
+                    if (!root.pendingZone)
+                        return 8
+                    const py = root.latToY(root.pendingZone.lat, mapCanvas.height) - height / 2
+                    return Math.min(mapCanvas.height - height - 8, Math.max(8, py))
+                }
+                Column {
+                    id: selCol
+                    anchors.centerIn: parent
+                    spacing: 1
+                    Text {
+                        text: {
+                            const z = root.pendingZone
+                            const p = root.pendingPreview || {}
+                            const abbr = p.abbr || ""
+                            const hours = (p.offsetHours !== undefined) ? p.offsetHours : (z ? z.offsetHours : 0)
+                            const utc = root.utcLabel(hours)
+                            return abbr ? (abbr + "  (" + utc + ")") : utc
+                        }
+                        color: "#f4f6fa"
+                        font.pixelSize: 11
+                        font.bold: true
+                        font.family: root.fontFamily
+                    }
+                    Text {
+                        text: {
+                            const z = root.pendingZone
+                            if (!z)
+                                return ""
+                            return z.comment ? (z.city + ", " + z.comment) : (z.city + ", " + z.region)
+                        }
+                        color: "#c8d0dc"
+                        font.pixelSize: 10
+                        font.family: root.fontFamily
+                    }
+                    Text {
+                        visible: !!(root.pendingPreview && root.pendingPreview.local)
+                        text: (root.pendingPreview && root.pendingPreview.local) ? root.pendingPreview.local : ""
+                        color: "#f4f6fa"
+                        font.pixelSize: 12
+                        font.bold: true
+                        font.family: root.fontMono
+                    }
+                }
+            }
+
+            // GNOME-style pin for the selected city
+            Item {
+                visible: !!root.pendingZone
+                width: 18
+                height: 22
+                z: 6
+                x: root.pendingZone ? root.lonToX(root.pendingZone.lon, mapCanvas.width) - 9 : 0
+                y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 20 : 0
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 14
+                    height: 14
+                    radius: 7
+                    color: "#e24b4b"
+                    border.width: 2
+                    border.color: "#ffffff"
+                    y: 0
+                }
+                Canvas {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 10
+                    width: 10
+                    height: 10
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.reset()
+                        ctx.fillStyle = "#e24b4b"
                         ctx.beginPath()
-                        ctx.arc(x, y, 1.6, 0, 6.283)
+                        ctx.moveTo(1, 0)
+                        ctx.lineTo(9, 0)
+                        ctx.lineTo(5, 10)
+                        ctx.closePath()
                         ctx.fill()
                     }
                 }
             }
 
-            Rectangle {
-                visible: root.hoverId.length && root.hoverId !== root.pendingId && !!root.findZone(root.hoverId)
-                width: 8
-                height: 8
-                radius: 4
-                color: Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.85)
-                x: {
-                    const z = root.findZone(root.hoverId)
-                    return z ? root.lonToX(z.lon, mapCanvas.width) - 4 : 0
+            TextField {
+                id: tzSearch
+                anchors.top: parent.top
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.topMargin: 10
+                width: Math.min(parent.width - 24, 460)
+                height: 32
+                z: 7
+                placeholderText: "Search for a city"
+                color: "#1a1d22"
+                placeholderTextColor: "#667084"
+                font.pixelSize: 13
+                font.family: root.fontFamily
+                background: Rectangle {
+                    radius: 6
+                    color: "#f7f8fa"
+                    border.width: 1
+                    border.color: tzSearch.activeFocus ? root.accentColor : "#c5ccd6"
                 }
-                y: {
-                    const z = root.findZone(root.hoverId)
-                    return z ? root.latToY(z.lat, mapCanvas.height) - 4 : 0
+                onPressed: {
+                    if (typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
                 }
-            }
-
-            Rectangle {
-                visible: !!root.pendingZone
-                width: 16
-                height: 16
-                radius: 8
-                color: "transparent"
-                border.width: 2
-                border.color: Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.45)
-                x: root.pendingZone ? root.lonToX(root.pendingZone.lon, mapCanvas.width) - 8 : 0
-                y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 8 : 0
-            }
-            Rectangle {
-                visible: !!root.pendingZone
-                width: 8
-                height: 8
-                radius: 4
-                color: root.accentColor
-                border.width: 1
-                border.color: "#ffffff"
-                x: root.pendingZone ? root.lonToX(root.pendingZone.lon, mapCanvas.width) - 4 : 0
-                y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 4 : 0
-            }
-
-            Rectangle {
-                visible: root.hoverId.length > 0 && !!root.findZone(root.hoverId)
-                x: Math.min(mapCanvas.width - width - 8, Math.max(8, mapMa.mouseX + 12))
-                y: Math.min(mapCanvas.height - height - 8, Math.max(8, mapMa.mouseY + 12))
-                width: hoverLbl.implicitWidth + 12
-                height: hoverLbl.implicitHeight + 8
-                radius: 4
-                color: Qt.rgba(0.06, 0.08, 0.12, 0.92)
-                border.width: 1
-                border.color: root.pillBorder
-                z: 4
-                Text {
-                    id: hoverLbl
-                    anchors.centerIn: parent
-                    text: {
-                        const z = root.findZone(root.hoverId)
-                        return z ? (z.city + "  " + z.id) : ""
-                    }
-                    color: root.textColor
-                    font.pixelSize: 10
-                    font.family: root.fontFamily
+                onActiveFocusChanged: {
+                    if (activeFocus && typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
                 }
+                onTextChanged: root.searchText = text
             }
 
             MouseArea {
                 id: mapMa
+                z: 1
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -538,37 +771,11 @@ Item {
             }
         }
 
-        TextField {
-            id: tzSearch
-            Layout.fillWidth: true
-            Layout.preferredHeight: 30
-            placeholderText: "Search city or region…"
-            color: root.textColor
-            placeholderTextColor: root.subtextColor
-            font.pixelSize: 12
-            font.family: root.fontFamily
-            background: Rectangle {
-                radius: root.chipR
-                color: parent.activeFocus ? root.fieldBgFocus : root.fieldBg
-                border.width: 1
-                border.color: tzSearch.activeFocus ? root.accentColor : root.pillBorder
-            }
-            onPressed: {
-                if (typeof root.keyboardGrab === "function")
-                    root.keyboardGrab()
-            }
-            onActiveFocusChanged: {
-                if (activeFocus && typeof root.keyboardGrab === "function")
-                    root.keyboardGrab()
-            }
-            onTextChanged: root.searchText = text
-        }
-
         Rectangle {
             Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.preferredHeight: 148
-            Layout.minimumHeight: 96
+            Layout.preferredHeight: 100
+            Layout.maximumHeight: 120
+            Layout.minimumHeight: 72
             radius: root.chipR
             color: Qt.rgba(0.08, 0.09, 0.12, 0.55)
             border.width: 1

@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Region map timezone bands
+
+- **Region & Clock:** the world map stretches to fill the panel, includes Antarctica, tints land by timezone, and highlights the whole offset band when you click a city (GNOME Date & Time style).
+
 ## 2026-09 — Control-bar scrollbar gutter
 
 - Wallpaper, Widgets, Options, Launch, and Autostart leave a 22px lane for the body scrollbar so thumbs and row controls are no longer under the bar.

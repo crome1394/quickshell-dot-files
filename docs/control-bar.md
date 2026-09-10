@@ -98,7 +98,7 @@ Toolbar button **Region & Clock**. Two tabs (MIME-style chips); **Region** is th
 
 | Control | Behavior |
 |---------|----------|
-| **Region tab** | Equirectangular world map. Click snaps to the nearest city in `/usr/share/zoneinfo/zone1970.tab`. Search filters the city list. |
+| **Region tab** | Stretched equirectangular map (includes Antarctica). Timezone bands are tinted; click highlights the whole offset region (GNOME Date & Time style). Search overlays the map; city list stays below. |
 | **Apply region** | Closes the control strip first (so a polkit password prompt is not covered), then runs `timedatectl set-timezone` (pkexec if the session call is denied). |
 | **Clock tab** | Format presets (Full / Date / Time / Short / 12h / US) plus a **Custom** `Qt.formatDateTime` field. Preview updates as you type; **Set** or Enter saves to `bar-layout.json`. |
 
