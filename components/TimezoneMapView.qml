@@ -503,32 +503,21 @@ Item {
         anchors.fill: parent
         spacing: 8
 
-        RowLayout {
+        Text {
             Layout.fillWidth: true
-            spacing: 8
-            Text {
-                text: "Region"
-                color: root.textColor
-                font.pixelSize: 13
-                font.bold: true
-                font.family: root.fontFamily
+            horizontalAlignment: Text.AlignRight
+            text: {
+                const z = root.currentZone
+                const p = root.pendingPreview || {}
+                const abbr = p.abbr ? (" · " + p.abbr) : ""
+                if (z)
+                    return z.id + abbr
+                return root.currentId || "Detecting…"
             }
-            Item { Layout.fillWidth: true }
-            Text {
-                text: {
-                    const z = root.currentZone
-                    const p = root.pendingPreview || {}
-                    const abbr = p.abbr ? (" · " + p.abbr) : ""
-                    if (z)
-                        return z.id + abbr
-                    return root.currentId || "Detecting…"
-                }
-                color: root.subtextColor
-                font.pixelSize: 11
-                font.family: root.fontMono
-                elide: Text.ElideMiddle
-                Layout.maximumWidth: 280
-            }
+            color: root.subtextColor
+            font.pixelSize: 11
+            font.family: root.fontMono
+            elide: Text.ElideMiddle
         }
 
         Rectangle {
@@ -698,18 +687,7 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                propagateComposedEvents: true
-                function overSearch(mx, my) {
-                    const p = mapToItem(tzSearch, mx, my)
-                    return p.x >= 0 && p.y >= 0 && p.x <= tzSearch.width && p.y <= tzSearch.height
-                }
-                onPressed: (mouse) => {
-                    if (overSearch(mouse.x, mouse.y))
-                        mouse.accepted = false
-                }
                 onPositionChanged: (mouse) => {
-                    if (overSearch(mouse.x, mouse.y))
-                        return
                     const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
                     root.hoverId = z ? z.id : ""
                     const b = z ? root.zoneBucket(z) : -1
@@ -721,50 +699,42 @@ Item {
                     root.hoverBucket = -1
                 }
                 onClicked: (mouse) => {
-                    if (overSearch(mouse.x, mouse.y)) {
-                        mouse.accepted = false
-                        return
-                    }
                     const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
                     if (z)
                         root.selectZone(z.id, false)
                 }
             }
+        }
 
-            TextField {
-                id: tzSearch
-                anchors.top: parent.top
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.topMargin: 10
-                width: Math.min(parent.width - 24, 460)
-                height: 32
-                z: 8
-                placeholderText: "Search for a city"
-                color: "#1a1d22"
-                placeholderTextColor: "#667084"
-                font.pixelSize: 13
-                font.family: root.fontFamily
-                background: Rectangle {
-                    radius: 6
-                    color: "#f7f8fa"
-                    border.width: 1
-                    border.color: tzSearch.activeFocus ? root.accentColor : "#c5ccd6"
-                }
-                onPressed: {
-                    if (typeof root.keyboardGrab === "function")
-                        root.keyboardGrab()
-                    Qt.callLater(function() { tzSearch.forceActiveFocus() })
-                }
-                onActiveFocusChanged: {
-                    if (activeFocus && typeof root.keyboardGrab === "function")
-                        root.keyboardGrab()
-                }
-                onTextChanged: root.searchText = text
-                Keys.onPressed: (event) => {
-                    if (typeof root.keyboardGrab === "function")
-                        root.keyboardGrab()
-                    event.accepted = false
-                }
+        TextField {
+            id: tzSearch
+            Layout.fillWidth: true
+            Layout.preferredHeight: 32
+            placeholderText: "Search for a city"
+            color: root.textColor
+            placeholderTextColor: root.subtextColor
+            font.pixelSize: 13
+            font.family: root.fontFamily
+            background: Rectangle {
+                radius: root.chipR
+                color: tzSearch.activeFocus ? root.fieldBgFocus : root.fieldBg
+                border.width: 1
+                border.color: tzSearch.activeFocus ? root.accentColor : root.pillBorder
+            }
+            onPressed: {
+                if (typeof root.keyboardGrab === "function")
+                    root.keyboardGrab()
+                Qt.callLater(function() { tzSearch.forceActiveFocus() })
+            }
+            onActiveFocusChanged: {
+                if (activeFocus && typeof root.keyboardGrab === "function")
+                    root.keyboardGrab()
+            }
+            onTextChanged: root.searchText = text
+            Keys.onPressed: (event) => {
+                if (typeof root.keyboardGrab === "function")
+                    root.keyboardGrab()
+                event.accepted = false
             }
         }
 
