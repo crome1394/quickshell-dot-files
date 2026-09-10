@@ -1654,6 +1654,9 @@ QtObject {
     // Gap between the bar and the screen edge (top and/or bottom). 0 = flush.
     // Writable: Options / Position sliders + bar-layout.json (0–48 px).
     property int barEdgeMargin: 0
+    // When true, shrink the exclusive zone by Hyprland gaps_out so tiled windows
+    // sit against the bar instead of leaving a wallpaper strip. Position / Options.
+    property bool flushWindowsToBar: false
     readonly property int popupBarGap:        sp(4)     // Space between bar and pill popups (flips with barPosition)
     // Extra thickness for the bar chrome + pills on top of uiScale. 1.0 = design default.
     // Writable: Options / Position sliders + bar-layout.json (0.80–1.40).

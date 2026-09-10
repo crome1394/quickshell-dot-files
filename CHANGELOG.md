@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Last octet toggle + flush windows to bar
+
+- **Network pill:** Options → **Last octet on bar** (`showNetworkLastOctet`, default on). Turn it off to hide the last IPv4 octet (full IP still wins when enabled). Combines with **Device name on bar**.
+- **Position** and **Options → Bar / UI:** **Flush windows to bar** (`flushWindowsToBar`) shrinks the exclusive zone by Hyprland `gaps_out` so tiled windows sit against the bar. IPC: `setFlushWindowsToBar`.
+
 ## 2026-09 — Network device name on bar
 
 - **Network pill:** Options → **Device name on bar** shows the adapter name (`enp10s0`, `wlan0`) next to the IP (`showNetworkDeviceName` in `bar-layout.json`). Combines with **Full IP on bar**.

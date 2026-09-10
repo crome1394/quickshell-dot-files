@@ -16,7 +16,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 - Liquid-glass bar: **Classic** (one bar, left / center / right) or **Dual** (top + bottom, centered)
 - **Control strip** (gear or right-click chrome): Position (layout + edge), Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, **Region & Clock**
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
-- **Network** — per-adapter on/off + Enable after disconnect; Options for full IP and device name on the bar
+- **Network** — per-adapter on/off + Enable after disconnect; Options for full IP, last octet, and device name on the bar
 - **Themes** — colors, opacity, fonts (UI / mono / Main / Secondary / Bar roles), thresholds, liquid + solid presets
 - Net · BT · Audio (combined pill), workspaces, sys stats, tray, notifications (history, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
@@ -72,6 +72,7 @@ qs ipc call shell setBarPosition bottom
 qs ipc call shell setBarLayoutMode dual
 qs ipc call shell setBarEdgeMargin 8
 qs ipc call shell setBarSizeScale 1.1
+qs ipc call shell setFlushWindowsToBar true
 qs ipc call shell setUiScale 0.85
 qs ipc call networkPill togglePopup
 qs ipc call notificationBell toggleDoNotDisturb

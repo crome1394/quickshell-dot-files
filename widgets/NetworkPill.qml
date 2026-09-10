@@ -1024,15 +1024,22 @@ Rectangle {
                 Text {
                     visible: {
                         void (bar ? bar.showNetworkDeviceName : false)
+                        void (bar ? bar.showNetworkFullIp : false)
+                        void (bar ? bar.showNetworkLastOctet : true)
                         if (!net.anyConnected)
                             return false
                         if (bar && bar.showNetworkDeviceName && net.primaryIface.length)
                             return true
-                        return net.primaryIp.length > 0
+                        if (bar && bar.showNetworkFullIp && net.primaryIp.length)
+                            return true
+                        if (bar && bar.showNetworkLastOctet !== false && net.primaryIp.length)
+                            return true
+                        return false
                     }
                     anchors.verticalCenter: parent.verticalCenter
                     text: {
                         void (bar ? bar.showNetworkFullIp : false)
+                        void (bar ? bar.showNetworkLastOctet : true)
                         void (bar ? bar.showNetworkDeviceName : false)
                         var ip = net.primaryIp
                         var slash = ip.indexOf("/")
@@ -1040,7 +1047,7 @@ Rectangle {
                         var ipText = ""
                         if (bar && bar.showNetworkFullIp)
                             ipText = ip
-                        else {
+                        else if (bar && bar.showNetworkLastOctet !== false) {
                             var parts = ip.split(".")
                             if (parts.length === 4) ipText = parts[3]
                         }

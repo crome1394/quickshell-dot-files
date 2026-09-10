@@ -69,6 +69,7 @@
 //   - UI scale: auto from screen width (Config.uiDesignWidth); override with
 //     qs ipc call shell setUiScale 0.8 | setUiScaleManual 0.85 | setUiScaleAuto
 //   - barEdgeMargin: gap from the screen edge
+//   - flushWindowsToBar: pull tiled windows against the bar (skip Hyprland gaps_out)
 //
 // =============================================================================
 // BAR LAYOUT — classic (left / center / right) or dual (top / bottom, centered)
@@ -149,6 +150,8 @@ ShellRoot {
     property bool showNetTrafficGraph: true
     // Network pill face: last IPv4 octet (false) vs full address (true)
     property bool showNetworkFullIp: false
+    // Network pill face: show last IPv4 octet when full IP is off (default on)
+    property bool showNetworkLastOctet: true
     // Network pill face: show adapter name (enp10s0, wlan0) next to the IP
     property bool showNetworkDeviceName: false
     // Hide Echo cancel block in Audio popup / control-bar Audio panel when false (Options)
@@ -288,6 +291,8 @@ ShellRoot {
         anchors.bottom: root.barLayoutMode !== "dual" && bar.barPosition === "bottom"
         margins.top: (root.barLayoutMode === "dual" || bar.barPosition === "top") ? bar.barEdgeMargin : 0
         margins.bottom: (root.barLayoutMode !== "dual" && bar.barPosition === "bottom") ? bar.barEdgeMargin : 0
+        exclusionMode: ExclusionMode.Normal
+        exclusiveZone: bar.edgeExclusiveZone
 
         // --- Config (single source of truth — see Config.qml) ---
         Config { id: cfg }
@@ -453,6 +458,15 @@ ShellRoot {
             barGeomPersistTimer.restart()
         }
 
+        function setFlushWindowsToBar(enabled) {
+            var on = !!enabled
+            if (cfg.flushWindowsToBar === on)
+                return
+            cfg.flushWindowsToBar = on
+            bar.refreshHyprGapsOut()
+            barGeomPersistTimer.restart()
+        }
+
         // Persist bar layout prefs (edge, scale, widgets, clock, order/zones).
         // Guard: our own writeAdapter() must not re-enter onLoaded (that reparented
         // widgets and dismissed the control bar via focus loss).
@@ -482,6 +496,8 @@ ShellRoot {
                     cfg.barEdgeMargin = Math.max(0, Math.min(48, Math.round(barLayoutAdapter.barEdgeMargin)))
                 if (barLayoutAdapter.barSizeScale > 0)
                     cfg.barSizeScale = Math.max(0.8, Math.min(1.4, Number(barLayoutAdapter.barSizeScale)))
+                if (barLayoutAdapter.flushWindowsToBar !== undefined)
+                    cfg.flushWindowsToBar = !!barLayoutAdapter.flushWindowsToBar
                 if (barLayoutAdapter.clockFormat && barLayoutAdapter.clockFormat.length)
                     root.clockFormat = barLayoutAdapter.clockFormat
                 // Visibility (only apply keys that exist in the adapter defaults)
@@ -512,6 +528,8 @@ ShellRoot {
                     root.showNetTrafficGraph = barLayoutAdapter.showNetTrafficGraph
                     if (barLayoutAdapter.showNetworkFullIp !== undefined)
                         root.showNetworkFullIp = barLayoutAdapter.showNetworkFullIp
+                    if (barLayoutAdapter.showNetworkLastOctet !== undefined)
+                        root.showNetworkLastOctet = barLayoutAdapter.showNetworkLastOctet
                     if (barLayoutAdapter.showNetworkDeviceName !== undefined)
                         root.showNetworkDeviceName = barLayoutAdapter.showNetworkDeviceName
                 }
@@ -574,6 +592,7 @@ ShellRoot {
                 property real uiScaleManual: 0
                 property int barEdgeMargin: 0
                 property real barSizeScale: 1.0
+                property bool flushWindowsToBar: false
                 property string clockFormat: ""
                 property string widgetLayoutJson: ""
                 property string widgetLayoutClassicJson: ""
@@ -618,6 +637,7 @@ ShellRoot {
                 property bool showStatMenuGraphs: true
                 property bool showNetTrafficGraph: true
                 property bool showNetworkFullIp: false
+                property bool showNetworkLastOctet: true
                 property bool showNetworkDeviceName: false
                 // Audio popup / control-bar Audio panel sections
                 property bool hasAudioMenuPrefs: false
@@ -1000,6 +1020,7 @@ ShellRoot {
             barLayoutAdapter.uiScaleManual = cfg.uiScaleManual
             barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
             barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
+            barLayoutAdapter.flushWindowsToBar = !!cfg.flushWindowsToBar
             barLayoutAdapter.clockFormat = root.clockFormat
             try {
                 const json = JSON.stringify(root.widgetLayout || [])
@@ -1056,6 +1077,7 @@ ShellRoot {
             barLayoutAdapter.showStatMenuGraphs = root.showStatMenuGraphs
             barLayoutAdapter.showNetTrafficGraph = root.showNetTrafficGraph
             barLayoutAdapter.showNetworkFullIp = root.showNetworkFullIp
+            barLayoutAdapter.showNetworkLastOctet = root.showNetworkLastOctet
             barLayoutAdapter.showNetworkDeviceName = root.showNetworkDeviceName
             barLayoutAdapter.hasAudioMenuPrefs = true
             barLayoutAdapter.showEchoCancelInMenu = root.showEchoCancelInMenu
@@ -1110,6 +1132,10 @@ ShellRoot {
         }
         function setShowNetworkFullIp(enabled) {
             root.showNetworkFullIp = !!enabled
+            persistBarLayout()
+        }
+        function setShowNetworkLastOctet(enabled) {
+            root.showNetworkLastOctet = !!enabled
             persistBarLayout()
         }
         function setShowNetworkDeviceName(enabled) {
@@ -1930,8 +1956,73 @@ ShellRoot {
         readonly property alias clockFormatPresets: cfg.clockFormatPresets
         property alias barEdgeMargin: cfg.barEdgeMargin
         property alias barSizeScale: cfg.barSizeScale
+        property alias flushWindowsToBar: cfg.flushWindowsToBar
         readonly property alias popupBarGap: cfg.popupBarGap
         readonly property alias barHeight: cfg.barHeight
+        // Hyprland general:gaps_out (top / bottom). Used to pull windows against the bar.
+        property int hyprGapsOutTop: 14
+        property int hyprGapsOutBottom: 14
+        // Exclusive zone for this window: Auto-equivalent, or flush (minus gaps_out + inner pad).
+        readonly property int edgeExclusiveZone: {
+            void flushWindowsToBar
+            void barEdgeMargin
+            void barHeight
+            void barContentVMargin
+            void hyprGapsOutTop
+            void hyprGapsOutBottom
+            void barIsTopEdge
+            return exclusiveZoneFor(barIsTopEdge)
+        }
+        function exclusiveZoneFor(isTop) {
+            var h = cfg.barHeight
+            var edge = cfg.barEdgeMargin || 0
+            var inner = cfg.barContentVMargin || 0
+            var hypr = isTop ? hyprGapsOutTop : hyprGapsOutBottom
+            if (!(hypr >= 0))
+                hypr = 14
+            var base = h + edge
+            if (!cfg.flushWindowsToBar)
+                return base
+            return Math.max(0, base - inner - hypr)
+        }
+        function parseHyprGapsOut(text) {
+            try {
+                var j = JSON.parse(text)
+                var raw = (j && j.css !== undefined) ? String(j.css) : ""
+                var css = raw.trim().split(/\s+/)
+                var nums = []
+                for (var i = 0; i < css.length; i++) {
+                    var n = parseInt(css[i], 10)
+                    if (!isNaN(n))
+                        nums.push(n)
+                }
+                if (nums.length >= 4) {
+                    hyprGapsOutTop = nums[0]
+                    hyprGapsOutBottom = nums[2]
+                } else if (nums.length === 1) {
+                    hyprGapsOutTop = nums[0]
+                    hyprGapsOutBottom = nums[0]
+                } else if (j && j.int !== undefined) {
+                    var v = Number(j.int)
+                    if (v >= 0) {
+                        hyprGapsOutTop = v
+                        hyprGapsOutBottom = v
+                    }
+                }
+            } catch (e) {}
+        }
+        function refreshHyprGapsOut() {
+            hyprGapsOutProc.running = false
+            hyprGapsOutProc.running = true
+        }
+        Io.Process {
+            id: hyprGapsOutProc
+            command: ["hyprctl", "getoption", "general:gaps_out", "-j"]
+            running: true
+            stdout: Io.StdioCollector {
+                onStreamFinished: bar.parseHyprGapsOut(text)
+            }
+        }
         // This window sits on the top edge in dual mode, or when classic is pinned top.
         readonly property bool barIsTopEdge: root.barLayoutMode === "dual" || barPosition === "top"
         // Screen-edge gap is only barEdgeMargin (window margin). Do not add barContentVMargin
@@ -2318,6 +2409,7 @@ ShellRoot {
         property alias showStatMenuGraphs: root.showStatMenuGraphs
         property alias showNetTrafficGraph: root.showNetTrafficGraph
         property alias showNetworkFullIp: root.showNetworkFullIp
+        property alias showNetworkLastOctet: root.showNetworkLastOctet
         property alias showNetworkDeviceName: root.showNetworkDeviceName
         property alias showEchoCancelInMenu: root.showEchoCancelInMenu
         property alias showAudioSummary: root.showAudioSummary
@@ -3071,7 +3163,15 @@ ShellRoot {
         color: "transparent"
         implicitHeight: bar.barHeight
         screen: bar.screen
-        exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Auto : ExclusionMode.Ignore
+        exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Normal : ExclusionMode.Ignore
+        exclusiveZone: {
+            void (bar.flushWindowsToBar)
+            void (bar.barEdgeMargin)
+            void (bar.barHeight)
+            void (bar.barContentVMargin)
+            void (bar.hyprGapsOutBottom)
+            return bar.exclusiveZoneFor(false)
+        }
         mask: Region { item: bottomBarBg }
         anchors.left: true
         anchors.right: true
@@ -3264,6 +3364,9 @@ ShellRoot {
         }
         function setBarSizeScale(scale: string): void {
             bar.setBarSizeScale(scale)
+        }
+        function setFlushWindowsToBar(enabled: bool): void {
+            bar.setFlushWindowsToBar(enabled)
         }
         function setShowKillTargetPill(enabled: bool): void {
             bar.setWidgetVisible("killTarget", enabled)

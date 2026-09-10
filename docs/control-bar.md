@@ -6,7 +6,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 
 | Panel | What it does |
 |-------|----------------|
-| **Position** | Layout **Classic** (one bar, L/C/R) or **Dual** (top + bottom, centered) · classic edge top/bottom · **Gap from edge** (0–48px) · **Bar size** (80–140%) → `state/bar-layout.json` |
+| **Position** | Layout **Classic** (one bar, L/C/R) or **Dual** (top + bottom, centered) · classic edge top/bottom · **Gap from edge** (0–48px) · **Flush windows to bar** · **Bar size** (80–140%) → `state/bar-layout.json` |
 | **Display** | Monitor resolution / refresh / bit depth + adapter stats from `hyprctl` (see Display subsection) |
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
 | **Widgets** | **A–Z list**; each row is three columns: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
@@ -108,10 +108,10 @@ The bar clock itself still uses local time, so after a successful region apply i
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|
-| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Bar size** · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
+| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
 | **Workspaces** | Magic pill · only-active · min pills · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
-| **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Device name on bar** | XDG / `bar-layout.json` |
+| **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
