@@ -768,9 +768,7 @@ Item {
                     if (typeof root.keyboardGrab === "function")
                         root.keyboardGrab()
                     tzSearch.forceActiveFocus()
-                }
-                onClicked: {
-                    tzSearch.forceActiveFocus()
+                    mouse.accepted = true
                 }
             }
         }

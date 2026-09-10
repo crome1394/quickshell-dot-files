@@ -1592,6 +1592,17 @@ Item {
     // exists leaves hover dead until the user clicks the panel.
     property bool _armingGrab: false
 
+    function ensureControlFocusGrab() {
+        if (!controlPopup.visible)
+            return
+        if (typeof controlFocusGrab === "undefined" || !controlFocusGrab)
+            return
+        if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
+            return
+        if (!controlFocusGrab.active)
+            controlFocusGrab.active = true
+    }
+
     function armControlFocusGrab() {
         if (!controlPopup.visible)
             return
@@ -1613,10 +1624,6 @@ Item {
             if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
                 return
             controlFocusGrab.active = true
-            if (controlChrome) {
-                controlChrome.focus = true
-                controlChrome.forceActiveFocus()
-            }
             grabRetryTimer.restart()
         })
     }
@@ -11328,7 +11335,7 @@ Item {
                                     Layout.fillHeight: visible
                                     Layout.minimumHeight: visible ? 200 : 0
                                     active: visible && clockPanel.visible && controlPopup.visible
-                                    keyboardGrab: function() { root.armControlFocusGrab() }
+                                    keyboardGrab: function() { root.ensureControlFocusGrab() }
                                     beforeApply: function() { root.hide() }
                                     textColor: bar.text
                                     subtextColor: bar.subtext
