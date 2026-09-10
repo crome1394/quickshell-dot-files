@@ -81,6 +81,9 @@ Item {
         // panelMaxH minus title/hint/tabs chrome inside the Themes column
         return Math.max(180, root.panelMaxH - 150)
     }
+    // Inner-panel scrollbar lane (Wallpaper / Widgets / Options / Launch / Autostart)
+    readonly property int bodyScrollBarW: 10
+    readonly property int bodyScrollGutter: 22
     // Options panel: fixed right slot — toggles & fields share the same vertical center line
     readonly property int optControlColW: 40
     readonly property int optToggleW: 28
@@ -4319,18 +4322,24 @@ Item {
                                         ScrollBar.vertical: ScrollBar {
                                             policy: wpBodyFlick.contentHeight > wpBodyFlick.height + 4
                                                     ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                            width: 8
+                                            width: root.bodyScrollBarW
+                                            padding: 2
                                             contentItem: Rectangle {
                                                 implicitWidth: 6
                                                 radius: 3
                                                 color: bar.accent
                                                 opacity: 0.5
                                             }
+                                            background: Rectangle {
+                                                implicitWidth: root.bodyScrollBarW
+                                                radius: 4
+                                                color: Qt.rgba(1, 1, 1, 0.06)
+                                            }
                                         }
 
                                     ColumnLayout {
                                         id: wpGridCol
-                                        width: wpBodyFlick.width
+                                        width: Math.max(1, wpBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 8
 
                                     Item {
@@ -4593,17 +4602,23 @@ Item {
                                     ScrollBar.vertical: ScrollBar {
                                         policy: widgetsBodyFlick.contentHeight > widgetsBodyFlick.height + 4
                                                 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: 8
+                                        width: root.bodyScrollBarW
+                                        padding: 2
                                         contentItem: Rectangle {
                                             implicitWidth: 6
                                             radius: 3
                                             color: bar.accent
                                             opacity: 0.5
                                         }
+                                        background: Rectangle {
+                                            implicitWidth: root.bodyScrollBarW
+                                            radius: 4
+                                            color: Qt.rgba(1, 1, 1, 0.06)
+                                        }
                                     }
                                     ColumnLayout {
                                         id: widgetsBodyCol
-                                        width: widgetsBodyFlick.width
+                                        width: Math.max(1, widgetsBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 7
 
                                 Repeater {
@@ -4992,17 +5007,23 @@ Item {
                                     ScrollBar.vertical: ScrollBar {
                                         policy: launchBodyFlick.contentHeight > launchBodyFlick.height + 4
                                                 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: 8
+                                        width: root.bodyScrollBarW
+                                        padding: 2
                                         contentItem: Rectangle {
                                             implicitWidth: 6
                                             radius: 3
                                             color: bar.accent
                                             opacity: 0.5
                                         }
+                                        background: Rectangle {
+                                            implicitWidth: root.bodyScrollBarW
+                                            radius: 4
+                                            color: Qt.rgba(1, 1, 1, 0.06)
+                                        }
                                     }
                                     ColumnLayout {
                                         id: launchBodyCol
-                                        width: launchBodyFlick.width
+                                        width: Math.max(1, launchBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 6
 
                                 // Current pins
@@ -5433,17 +5454,23 @@ Item {
                                     ScrollBar.vertical: ScrollBar {
                                         policy: autostartBodyFlick.contentHeight > autostartBodyFlick.height + 4
                                                 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: 8
+                                        width: root.bodyScrollBarW
+                                        padding: 2
                                         contentItem: Rectangle {
                                             implicitWidth: 6
                                             radius: 3
                                             color: bar.accent
                                             opacity: 0.5
                                         }
+                                        background: Rectangle {
+                                            implicitWidth: root.bodyScrollBarW
+                                            radius: 4
+                                            color: Qt.rgba(1, 1, 1, 0.06)
+                                        }
                                     }
                                     ColumnLayout {
                                         id: autostartBodyCol
-                                        width: autostartBodyFlick.width
+                                        width: Math.max(1, autostartBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 6
 
                                 RowLayout {
@@ -5731,7 +5758,7 @@ Item {
 
                                     Column {
                                         id: asAppCol
-                                        width: asAppFlick.width - 8
+                                        width: Math.max(1, asAppFlick.width - 14)
                                         spacing: 2
 
                                         Repeater {
@@ -5863,17 +5890,23 @@ Item {
                                     ScrollBar.vertical: ScrollBar {
                                         policy: optionsBodyFlick.contentHeight > optionsBodyFlick.height + 4
                                                 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: 8
+                                        width: root.bodyScrollBarW
+                                        padding: 2
                                         contentItem: Rectangle {
                                             implicitWidth: 6
                                             radius: 3
                                             color: bar.accent
                                             opacity: 0.5
                                         }
+                                        background: Rectangle {
+                                            implicitWidth: root.bodyScrollBarW
+                                            radius: 4
+                                            color: Qt.rgba(1, 1, 1, 0.06)
+                                        }
                                     }
                                     ColumnLayout {
                                         id: optionsBodyCol
-                                        width: optionsBodyFlick.width
+                                        width: Math.max(1, optionsBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 8
 
 

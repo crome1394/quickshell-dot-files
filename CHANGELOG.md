@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control-bar scrollbar gutter
+
+- Wallpaper, Widgets, Options, Launch, and Autostart leave a 22px lane for the body scrollbar so thumbs and row controls are no longer under the bar.
+
 ## 2026-09 — Last octet toggle + flush windows to bar
 
 - **Network pill:** Options → **Last octet on bar** (`showNetworkLastOctet`, default on). Turn it off to hide the last IPv4 octet (full IP still wins when enabled). Combines with **Device name on bar**.
