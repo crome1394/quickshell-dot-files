@@ -706,35 +706,72 @@ Item {
             }
         }
 
-        TextField {
-            id: tzSearch
+        Item {
+            id: searchWrap
             Layout.fillWidth: true
-            Layout.preferredHeight: 32
-            placeholderText: "Search for a city"
-            color: root.textColor
-            placeholderTextColor: root.subtextColor
-            font.pixelSize: 13
-            font.family: root.fontFamily
-            background: Rectangle {
+            Layout.preferredHeight: 34
+            Layout.minimumHeight: 34
+            Layout.maximumHeight: 34
+            Layout.fillHeight: false
+            z: 20
+
+            Rectangle {
+                anchors.fill: parent
                 radius: root.chipR
                 color: tzSearch.activeFocus ? root.fieldBgFocus : root.fieldBg
                 border.width: 1
                 border.color: tzSearch.activeFocus ? root.accentColor : root.pillBorder
             }
-            onPressed: {
-                if (typeof root.keyboardGrab === "function")
-                    root.keyboardGrab()
-                Qt.callLater(function() { tzSearch.forceActiveFocus() })
+
+            Text {
+                visible: tzSearch.text.length === 0
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                text: "Search for a city"
+                color: root.subtextColor
+                font.pixelSize: 13
+                font.family: root.fontFamily
             }
-            onActiveFocusChanged: {
-                if (activeFocus && typeof root.keyboardGrab === "function")
-                    root.keyboardGrab()
+
+            TextInput {
+                id: tzSearch
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                verticalAlignment: TextInput.AlignVCenter
+                color: root.textColor
+                font.pixelSize: 13
+                font.family: root.fontFamily
+                clip: true
+                selectByMouse: true
+                activeFocusOnPress: true
+                onTextChanged: root.searchText = text
+                onActiveFocusChanged: {
+                    if (activeFocus && typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
+                }
+                Keys.onPressed: (event) => {
+                    if (typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
+                    event.accepted = false
+                }
             }
-            onTextChanged: root.searchText = text
-            Keys.onPressed: (event) => {
-                if (typeof root.keyboardGrab === "function")
-                    root.keyboardGrab()
-                event.accepted = false
+
+            MouseArea {
+                anchors.fill: parent
+                z: 2
+                hoverEnabled: true
+                cursorShape: Qt.IBeamCursor
+                preventStealing: true
+                onPressed: (mouse) => {
+                    if (typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
+                    tzSearch.forceActiveFocus()
+                }
+                onClicked: {
+                    tzSearch.forceActiveFocus()
+                }
             }
         }
 
