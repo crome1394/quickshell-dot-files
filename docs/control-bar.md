@@ -98,7 +98,7 @@ Toolbar button **Region & Clock**. Two tabs (MIME-style chips); **Region** is th
 
 | Control | Behavior |
 |---------|----------|
-| **Region tab** | Stretched equirectangular map (includes Antarctica). Timezone bands are tinted; hover or click highlights the whole offset region (GNOME Date & Time style). Search overlays the map; city list stays below. |
+| **Region tab** | Stretched equirectangular map (includes Antarctica). Hovering a city (or its waters) lights the whole offset band — land and ocean — like GNOME Date & Time. Search overlays the map; city list stays below. |
 | **Apply region** | Closes the control strip first (so a polkit password prompt is not covered), then runs `timedatectl set-timezone` (pkexec if the session call is denied). |
 | **Clock tab** | Format presets (Full / Date / Time / Short / 12h / US) plus a **Custom** `Qt.formatDateTime` field. **Clock face font** (family + size). Preview updates as you type; **Set** or Enter saves to `bar-layout.json`. |
 

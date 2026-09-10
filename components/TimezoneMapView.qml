@@ -561,6 +561,7 @@ Item {
 
                     const selB = root.zoneBucket(root.pendingZone)
                     const hovB = root.hoverBucket
+                    const activeB = (hovB >= 0) ? hovB : selB
                     const rw = root.tzRasterW
                     const rh = root.tzRasterH
                     const raster = root.tzRaster
@@ -569,20 +570,25 @@ Item {
                             const img = ctx.getImageData(0, 0, w, h)
                             const px = img.data
                             const n = px.length
+                            const hR = Math.round(root.highlightColor.r * 255)
+                            const hG = Math.round(root.highlightColor.g * 255)
+                            const hB = Math.round(root.highlightColor.b * 255)
                             for (let i = 0; i < n; i += 4) {
-                                if (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
-                                    continue
                                 const p = i / 4
                                 const x = p % w
                                 const y = (p - x) / w
                                 const b = root.sampleRaster(root.xToLon(x + 0.5, w), root.yToLat(y + 0.5, h))
-                                let col
-                                if (selB >= 0 && b === selB)
-                                    col = root.highlightColor
-                                else if (hovB >= 0 && b === hovB)
-                                    col = root.bandColor(b, false, true)
-                                else
-                                    col = root.bandColor(b, false, false)
+                                const isOcean = (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
+                                const lit = activeB >= 0 && b === activeB
+                                if (isOcean) {
+                                    if (!lit)
+                                        continue
+                                    px[i] = hR
+                                    px[i + 1] = hG
+                                    px[i + 2] = hB
+                                    continue
+                                }
+                                const col = lit ? root.highlightColor : root.bandColor(b, false, false)
                                 px[i] = Math.round(col.r * 255)
                                 px[i + 1] = Math.round(col.g * 255)
                                 px[i + 2] = Math.round(col.b * 255)
@@ -784,9 +790,13 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onPositionChanged: (mouse) => {
-                    const z = root.nearestZone(root.yToLat(mouse.y, height), root.xToLon(mouse.x, width))
+                    const lat = root.yToLat(mouse.y, height)
+                    const lon = root.xToLon(mouse.x, width)
+                    const z = root.nearestZone(lat, lon)
                     root.hoverId = z ? z.id : ""
-                    const b = z ? root.zoneBucket(z) : -1
+                    const rb = root.sampleRaster(lon, lat)
+                    const zb = z ? root.zoneBucket(z) : -1
+                    const b = (rb > 0) ? rb : zb
                     if (root.hoverBucket !== b) {
                         root.hoverBucket = b
                         mapCanvas.requestPaint()
