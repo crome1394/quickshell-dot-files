@@ -63,20 +63,7 @@ Item {
     onAccentColorChanged: root.schedulePaint()
     onPendingIdChanged: root.refreshSelectedBucket()
 
-    function schedulePaint() {
-        if (mapCanvas)
-            mapCanvas.requestPaint()
-        paintRetry.restart()
-    }
-    Timer {
-        id: paintRetry
-        interval: 90
-        repeat: false
-        onTriggered: {
-            if (mapCanvas)
-                mapCanvas.requestPaint()
-        }
-    }
+    function schedulePaint() { }
 
     function scriptPath() {
         const u = Qt.resolvedUrl("../scripts/timezone-control.sh").toString()
@@ -93,35 +80,69 @@ Item {
         return null
     }
 
+    // GNOME Date & Time map (cc-timezone-map.c): Miller-like Y, lon shifted -6°.
     function lonToX(lon, w) {
-        return ((Number(lon) + 180) / 360) * w
+        const xdegOffset = -6
+        return (w * (180.0 + Number(lon)) / 360.0) + (w * xdegOffset / 180.0)
     }
     function latToY(lat, h) {
-        return ((90 - Number(lat)) / 180) * h
-    }
-    function xToLon(x, w) {
-        return (x / Math.max(1, w)) * 360 - 180
-    }
-    function yToLat(y, h) {
-        return 90 - (y / Math.max(1, h)) * 180
+        const bottomLat = -59
+        const topLat = 81
+        const rad = function (d) { return (d / 360.0) * Math.PI * 2 }
+        const topPer = topLat / 180.0
+        let y = 1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * rad(Number(lat))))
+        const fullRange = 4.6068250867599998
+        const topOffset = fullRange * topPer
+        const mapRange = Math.abs(1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * rad(bottomLat))) - topOffset)
+        y = Math.abs(y - topOffset)
+        y = y / mapRange
+        return y * h
     }
 
-    function nearestZone(lat, lon) {
+    function overlayKey(hours) {
+        const h = Number(hours)
+        if (isNaN(h))
+            return ""
+        const known = ["-11", "-10", "-9.5", "-9", "-8", "-7", "-6", "-5", "-4",
+                       "-3.5", "-3", "-2", "-1", "0", "1", "2", "3", "3.5", "4",
+                       "4.5", "5", "5.5", "5.75", "6", "6.5", "7", "8", "9",
+                       "9.5", "10", "10.5", "11", "11.5", "12", "12.75", "13", "14"]
+        let best = "0"
+        let bestD = 99
+        for (let i = 0; i < known.length; i++) {
+            const d = Math.abs(Number(known[i]) - h)
+            if (d < bestD) {
+                bestD = d
+                best = known[i]
+            }
+        }
+        return best
+    }
+
+    readonly property url mapBgSource: Qt.resolvedUrl("../assets/gnome-tz/bg.png")
+    readonly property url mapPinSource: Qt.resolvedUrl("../assets/gnome-tz/pin.png")
+    readonly property url mapOverlaySource: {
+        const h = (root.hoverBucket >= 0) ? root.hoverBucket : root.selectedBucket
+        if (h < 0)
+            return ""
+        const hours = (h / 4.0) - 14.0
+        const key = root.overlayKey(hours)
+        if (!key.length)
+            return ""
+        return Qt.resolvedUrl("../assets/gnome-tz/timezone_" + key + ".png")
+    }
+
+    function nearestZoneAt(px, py, w, h) {
         const list = root.zones || []
         let best = null
         let bestD = 1e15
-        const cos = Math.cos(lat * Math.PI / 180)
         for (let i = 0; i < list.length; i++) {
             const z = list[i]
             if (!z)
                 continue
-            const dLat = Number(z.lat) - lat
-            let dLon = Number(z.lon) - lon
-            if (dLon > 180)
-                dLon -= 360
-            if (dLon < -180)
-                dLon += 360
-            const d = dLat * dLat + (dLon * cos) * (dLon * cos)
+            const dx = root.lonToX(z.lon, w) - px
+            const dy = root.latToY(z.lat, h) - py
+            const d = dx * dx + dy * dy
             if (d < bestD) {
                 bestD = d
                 best = z
@@ -263,8 +284,6 @@ Item {
     function refreshAll() {
         root.loadStatus()
         root.loadList()
-        root.loadLand()
-        root.loadRaster()
     }
 
     function loadStatus() {
@@ -517,106 +536,25 @@ Item {
             border.color: root.pillBorder
             clip: true
 
-            Canvas {
+            Item {
                 id: mapCanvas
                 anchors.fill: parent
-                antialiasing: true
-                renderTarget: Canvas.Image
-                renderStrategy: Canvas.Immediate
-                onWidthChanged: root.schedulePaint()
-                onHeightChanged: root.schedulePaint()
-                visible: true
-                onVisibleChanged: if (visible) root.schedulePaint()
-                onPaint: {
-                    const ctx = getContext("2d")
-                    const w = Math.floor(width)
-                    const h = Math.floor(height)
-                    if (w < 8 || h < 8)
-                        return
-                    ctx.reset()
-                    const ocean = root.oceanColor
-                    const oR = Math.round(ocean.r * 255)
-                    const oG = Math.round(ocean.g * 255)
-                    const oB = Math.round(ocean.b * 255)
-                    ctx.fillStyle = root.cssColor(ocean)
-                    ctx.fillRect(0, 0, w, h)
-
-                    ctx.strokeStyle = "rgba(255,255,255,0.16)"
-                    ctx.lineWidth = 1
-                    for (let lon = -180; lon <= 180; lon += 15) {
-                        const x = root.lonToX(lon, w)
-                        ctx.beginPath()
-                        ctx.moveTo(x, 0)
-                        ctx.lineTo(x, h)
-                        ctx.stroke()
-                    }
-
-                    const rings = root.landRings || []
-                    ctx.fillStyle = root.cssColor(root.landColor)
-                    for (let r = 0; r < rings.length; r++) {
-                        const ring = rings[r]
-                        if (!ring || ring.length < 3)
-                            continue
-                        ctx.beginPath()
-                        for (let i = 0; i < ring.length; i++) {
-                            const p = ring[i]
-                            const x = root.lonToX(p[0], w)
-                            const y = root.latToY(p[1], h)
-                            if (i === 0)
-                                ctx.moveTo(x, y)
-                            else
-                                ctx.lineTo(x, y)
-                        }
-                        ctx.closePath()
-                        ctx.fill()
-                    }
-
-                    const selB = root.selectedBucket
-                    const hovB = root.hoverBucket
-                    const activeB = (hovB >= 0) ? hovB : selB
-                    const rw = root.tzRasterW
-                    const rh = root.tzRasterH
-                    const raster = root.tzRaster
-                    if (rw > 0 && rh > 0 && raster && raster.length >= rw * rh) {
-                        try {
-                            const img = ctx.getImageData(0, 0, w, h)
-                            const px = img.data
-                            const n = px.length
-                            for (let i = 0; i < n; i += 4) {
-                                const isOcean = (px[i] === oR && px[i + 1] === oG && px[i + 2] === oB)
-                                if (isOcean)
-                                    continue
-                                const p = i / 4
-                                const x = p % w
-                                const y = (p - x) / w
-                                const b = root.sampleRaster(root.xToLon(x + 0.5, w), root.yToLat(y + 0.5, h))
-                                const col = root.bandColor(b, false, false)
-                                px[i] = Math.round(col.r * 255)
-                                px[i + 1] = Math.round(col.g * 255)
-                                px[i + 2] = Math.round(col.b * 255)
-                            }
-                            ctx.putImageData(img, 0, 0)
-                        } catch (e) {}
-                        if (activeB >= 0) {
-                            ctx.fillStyle = root.cssColor(root.highlightColor, 0.92)
-                            const cellW = w / rw
-                            const cellH = h / rh
-                            for (let y = 0; y < rh; y++) {
-                                let run = -1
-                                const row = y * rw
-                                for (let x = 0; x <= rw; x++) {
-                                    const on = x < rw && raster[row + x] === activeB
-                                    if (on) {
-                                        if (run < 0)
-                                            run = x
-                                    } else if (run >= 0) {
-                                        ctx.fillRect(run * cellW, y * cellH, (x - run) * cellW, cellH)
-                                        run = -1
-                                    }
-                                }
-                            }
-                        }
-                    }
+                Image {
+                    anchors.fill: parent
+                    source: root.mapBgSource
+                    fillMode: Image.Stretch
+                    asynchronous: true
+                    cache: true
+                    smooth: true
+                }
+                Image {
+                    anchors.fill: parent
+                    source: root.mapOverlaySource
+                    fillMode: Image.Stretch
+                    asynchronous: true
+                    cache: true
+                    smooth: true
+                    visible: String(source || "").length > 0
                 }
             }
 
@@ -737,41 +675,14 @@ Item {
                 }
             }
 
-            // GNOME-style pin for the selected city
-            Item {
+            Image {
                 visible: !!root.pendingZone
-                width: 18
-                height: 22
                 z: 6
-                x: root.pendingZone ? root.lonToX(root.pendingZone.lon, mapCanvas.width) - 9 : 0
-                y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 20 : 0
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 14
-                    height: 14
-                    radius: 7
-                    color: "#e24b4b"
-                    border.width: 2
-                    border.color: "#ffffff"
-                    y: 0
-                }
-                Canvas {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 10
-                    width: 10
-                    height: 10
-                    onPaint: {
-                        const ctx = getContext("2d")
-                        ctx.reset()
-                        ctx.fillStyle = "#e24b4b"
-                        ctx.beginPath()
-                        ctx.moveTo(1, 0)
-                        ctx.lineTo(9, 0)
-                        ctx.lineTo(5, 10)
-                        ctx.closePath()
-                        ctx.fill()
-                    }
-                }
+                width: 16
+                height: 16
+                source: root.mapPinSource
+                x: root.pendingZone ? root.lonToX(root.pendingZone.lon, mapCanvas.width) - 8 : 0
+                y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 15 : 0
             }
 
             TextField {
@@ -811,25 +722,18 @@ Item {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onPositionChanged: (mouse) => {
-                    const lat = root.yToLat(mouse.y, height)
-                    const lon = root.xToLon(mouse.x, width)
-                    const z = root.nearestZone(lat, lon)
+                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
                     root.hoverId = z ? z.id : ""
                     const b = z ? root.zoneBucket(z) : -1
-                    if (root.hoverBucket !== b) {
+                    if (root.hoverBucket !== b)
                         root.hoverBucket = b
-                        mapCanvas.requestPaint()
-                    }
                 }
                 onExited: {
                     root.hoverId = ""
-                    if (root.hoverBucket !== -1) {
-                        root.hoverBucket = -1
-                        mapCanvas.requestPaint()
-                    }
+                    root.hoverBucket = -1
                 }
                 onClicked: (mouse) => {
-                    const z = root.nearestZone(root.yToLat(mouse.y, height), root.xToLon(mouse.x, width))
+                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
                     if (z)
                         root.selectZone(z.id, false)
                 }

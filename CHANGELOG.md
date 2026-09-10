@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — GNOME timezone overlays
+
+- Region map uses GNOME Initial Setup assets (`bg.png` + `timezone_*.png`) and the same Miller projection (`cc-timezone-map.c`: 81°N–59°S, −6° longitude shift). Hover/click highlight is the official offset mask, not a city Voronoi.
+
 ## 2026-09 — Region map zone alignment
 
 - Hover/click highlight follows the **city's UTC offset**, not the ocean pixel under the cursor (Los Angeles no longer lights random Pacific blobs).
