@@ -40,6 +40,7 @@ Item {
     property string currentId: ""
     property string pendingId: ""
     property string hoverId: ""
+    property int hoverBucket: -1
     property string searchText: ""
     property string statusMsg: ""
     property string errorMsg: ""
@@ -324,6 +325,7 @@ Item {
             root.schedulePaint()
         } else {
             root.hoverId = ""
+            root.hoverBucket = -1
             root.statusMsg = ""
             root.errorMsg = ""
         }
@@ -558,6 +560,7 @@ Item {
                     }
 
                     const selB = root.zoneBucket(root.pendingZone)
+                    const hovB = root.hoverBucket
                     const rw = root.tzRasterW
                     const rh = root.tzRasterH
                     const raster = root.tzRaster
@@ -573,9 +576,13 @@ Item {
                                 const x = p % w
                                 const y = (p - x) / w
                                 const b = root.sampleRaster(root.xToLon(x + 0.5, w), root.yToLat(y + 0.5, h))
-                                const col = (selB >= 0 && b === selB)
-                                            ? root.highlightColor
-                                            : root.bandColor(b, false, false)
+                                let col
+                                if (selB >= 0 && b === selB)
+                                    col = root.highlightColor
+                                else if (hovB >= 0 && b === hovB)
+                                    col = root.bandColor(b, false, true)
+                                else
+                                    col = root.bandColor(b, false, false)
                                 px[i] = Math.round(col.r * 255)
                                 px[i + 1] = Math.round(col.g * 255)
                                 px[i + 2] = Math.round(col.b * 255)
@@ -779,8 +786,19 @@ Item {
                 onPositionChanged: (mouse) => {
                     const z = root.nearestZone(root.yToLat(mouse.y, height), root.xToLon(mouse.x, width))
                     root.hoverId = z ? z.id : ""
+                    const b = z ? root.zoneBucket(z) : -1
+                    if (root.hoverBucket !== b) {
+                        root.hoverBucket = b
+                        mapCanvas.requestPaint()
+                    }
                 }
-                onExited: root.hoverId = ""
+                onExited: {
+                    root.hoverId = ""
+                    if (root.hoverBucket !== -1) {
+                        root.hoverBucket = -1
+                        mapCanvas.requestPaint()
+                    }
+                }
                 onClicked: (mouse) => {
                     const z = root.nearestZone(root.yToLat(mouse.y, height), root.xToLon(mouse.x, width))
                     if (z)

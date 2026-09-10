@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Region map hover highlight
+
+- **Region & Clock:** hovering a timezone lights the whole offset band (same green as click). Repaint only when the hovered band changes.
+
 ## 2026-09 — Hover height, clock font, widget dividers
 
 - Hover chips on Clock / Network / Bluetooth / Audio match workspace pill height.
