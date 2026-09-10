@@ -153,6 +153,7 @@ Item {
 
     function filteredZones() {
         void root.dataVersion
+        void root.searchText
         const q = String(root.searchText || "").trim().toLowerCase()
         const list = root.zones || []
         if (!q.length)
@@ -167,6 +168,12 @@ Item {
                 out.push(z)
         }
         return out
+    }
+
+    readonly property var cityModel: {
+        void root.dataVersion
+        void root.searchText
+        return root.filteredZones()
     }
 
     function zoneLabel(z) {
@@ -685,6 +692,45 @@ Item {
                 y: root.pendingZone ? root.latToY(root.pendingZone.lat, mapCanvas.height) - 15 : 0
             }
 
+            MouseArea {
+                id: mapMa
+                z: 1
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                propagateComposedEvents: true
+                function overSearch(mx, my) {
+                    const p = mapToItem(tzSearch, mx, my)
+                    return p.x >= 0 && p.y >= 0 && p.x <= tzSearch.width && p.y <= tzSearch.height
+                }
+                onPressed: (mouse) => {
+                    if (overSearch(mouse.x, mouse.y))
+                        mouse.accepted = false
+                }
+                onPositionChanged: (mouse) => {
+                    if (overSearch(mouse.x, mouse.y))
+                        return
+                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
+                    root.hoverId = z ? z.id : ""
+                    const b = z ? root.zoneBucket(z) : -1
+                    if (root.hoverBucket !== b)
+                        root.hoverBucket = b
+                }
+                onExited: {
+                    root.hoverId = ""
+                    root.hoverBucket = -1
+                }
+                onClicked: (mouse) => {
+                    if (overSearch(mouse.x, mouse.y)) {
+                        mouse.accepted = false
+                        return
+                    }
+                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
+                    if (z)
+                        root.selectZone(z.id, false)
+                }
+            }
+
             TextField {
                 id: tzSearch
                 anchors.top: parent.top
@@ -692,7 +738,7 @@ Item {
                 anchors.topMargin: 10
                 width: Math.min(parent.width - 24, 460)
                 height: 32
-                z: 7
+                z: 8
                 placeholderText: "Search for a city"
                 color: "#1a1d22"
                 placeholderTextColor: "#667084"
@@ -707,35 +753,17 @@ Item {
                 onPressed: {
                     if (typeof root.keyboardGrab === "function")
                         root.keyboardGrab()
+                    Qt.callLater(function() { tzSearch.forceActiveFocus() })
                 }
                 onActiveFocusChanged: {
                     if (activeFocus && typeof root.keyboardGrab === "function")
                         root.keyboardGrab()
                 }
                 onTextChanged: root.searchText = text
-            }
-
-            MouseArea {
-                id: mapMa
-                z: 1
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onPositionChanged: (mouse) => {
-                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
-                    root.hoverId = z ? z.id : ""
-                    const b = z ? root.zoneBucket(z) : -1
-                    if (root.hoverBucket !== b)
-                        root.hoverBucket = b
-                }
-                onExited: {
-                    root.hoverId = ""
-                    root.hoverBucket = -1
-                }
-                onClicked: (mouse) => {
-                    const z = root.nearestZoneAt(mouse.x, mouse.y, width, height)
-                    if (z)
-                        root.selectZone(z.id, false)
+                Keys.onPressed: (event) => {
+                    if (typeof root.keyboardGrab === "function")
+                        root.keyboardGrab()
+                    event.accepted = false
                 }
             }
         }
@@ -757,7 +785,7 @@ Item {
                 anchors.margins: 4
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
-                model: root.filteredZones()
+                model: root.cityModel
                 spacing: 2
                 ScrollBar.vertical: ScrollBar {
                     policy: tzList.contentHeight > tzList.height + 4 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
@@ -822,7 +850,7 @@ Item {
             }
 
             Text {
-                visible: !root.loading && root.filteredZones().length === 0
+                visible: !root.loading && root.cityModel.length === 0
                 anchors.centerIn: parent
                 text: root.loading ? "Loading…" : "No matching cities"
                 color: root.subtextColor
