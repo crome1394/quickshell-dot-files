@@ -79,25 +79,35 @@ def pretty_region(tz_id: str) -> str:
     return "Other"
 
 
+def _offset_at(year: int, month: int, day: int) -> float:
+    t = time.mktime((year, month, day, 12, 0, 0, 0, 0, 0))
+    off = time.strftime("%z", time.localtime(t))
+    sign = 1 if off[0] != "-" else -1
+    return sign * (int(off[1:3]) + int(off[3:5]) / 60.0)
+
+
 def standard_offset_hours(tz_id: str) -> float:
-    """Non-DST UTC offset in hours (mid-January), matching GNOME's map grouping."""
+    """Non-DST UTC offset for GNOME timezone_<offset>.png masks.
+
+    January is DST in the southern hemisphere (Sydney AEDT = UTC+11), so we
+    take min(January, July) — same as cc-timezone-map.c:
+    utc_offset/3600 + (daylight ? -1 : 0).
+    """
     old = os.environ.get("TZ")
     os.environ["TZ"] = tz_id
     time.tzset()
     try:
-        t = time.mktime((2024, 1, 15, 12, 0, 0, 0, 0, 0))
-        off = time.strftime("%z", time.localtime(t))
+        jan = _offset_at(2024, 1, 15)
+        jul = _offset_at(2024, 7, 15)
+    except Exception:
+        jan = jul = 0.0
     finally:
         if old is None:
             os.environ.pop("TZ", None)
         else:
             os.environ["TZ"] = old
         time.tzset()
-    try:
-        sign = 1 if off[0] != "-" else -1
-        return sign * (int(off[1:3]) + int(off[3:5]) / 60.0)
-    except Exception:
-        return 0.0
+    return jan if jan <= jul else jul
 
 
 def offset_bucket(hours: float) -> int:

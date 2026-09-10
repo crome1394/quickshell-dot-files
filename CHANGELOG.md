@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — GNOME overlay standard offset
+
+- Overlay masks use the **non-DST** offset (`min(January, July)`), matching `cc-timezone-map.c`. Sydney (AEST +10) no longer lights UTC+11 Siberia.
+
 ## 2026-09 — GNOME timezone overlays
 
 - Region map uses GNOME Initial Setup assets (`bg.png` + `timezone_*.png`) and the same Miller projection (`cc-timezone-map.c`: 81°N–59°S, −6° longitude shift). Hover/click highlight is the official offset mask, not a city Voronoi.
