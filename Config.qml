@@ -2250,7 +2250,7 @@ QtObject {
     ]
 
     // Misc common
-    readonly property string iconLauncher:      "󰀻"   // Launcher pill glyph (shell.qml)
+    readonly property string iconLauncher:      "󰀻"   // Unused on the bar (launcher is a drawn 3×3 in shell.qml)
     readonly property string iconBell:          "󱅫"
     readonly property string iconBellDnd:       "󰂠"
     readonly property string iconBellEmpty:     "󰂜"

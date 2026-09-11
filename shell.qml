@@ -2802,24 +2802,38 @@ ShellRoot {
                 border.width: bar.controlBorderWidth
                 border.color: launcherMouse.containsMouse ? bar.accent : bar.pillBorder
 
-                Text {
-                    // Nerd-font 󰀻 has empty em-square padding above the grid. A 0 top
-                    // margin lines the *visual* glyph up with Quick Launch images
-                    // (those sit ~3px down and fill their box).
+                // Drawn 3×3 grid (same idea as 󰀻) so it fills the box like Quick
+                // Launch images — nerd-font glyphs keep empty em-square padding.
+                Item {
+                    id: launcherGlyph
+                    readonly property int _sz: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
+                    readonly property int _gap: Math.max(2, Math.round(_sz * 0.15))
+                    readonly property int _cell: Math.max(2, Math.floor((_sz - 2 * _gap) / 3))
+                    readonly property color _c: launcherMouse.containsMouse
+                        ? bar.accent
+                        : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
+
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
-                    anchors.topMargin: 0
-                    width: parent.width
-                    height: font.pixelSize
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignTop
-                    text: bar.iconLauncher
-                    // Scale the glyph with the launcher Sizes slider, not the pill width.
-                    font.pixelSize: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
-                    font.family: bar.fontFamily
-                    color: launcherMouse.containsMouse
-                           ? bar.accent
-                           : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
+                    anchors.topMargin: 2
+                    width: _sz
+                    height: _sz
+
+                    Grid {
+                        anchors.centerIn: parent
+                        columns: 3
+                        spacing: launcherGlyph._gap
+                        Repeater {
+                            model: 9
+                            Rectangle {
+                                width: launcherGlyph._cell
+                                height: launcherGlyph._cell
+                                radius: Math.max(1, Math.round(launcherGlyph._cell * 0.28))
+                                color: launcherGlyph._c
+                                Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
+                            }
+                        }
+                    }
                 }
 
                 MouseArea {
