@@ -2126,6 +2126,7 @@ ShellRoot {
         readonly property alias clockFontResolved: cfg.clockFontResolved
         readonly property alias clockFontFace: cfg.clockFontFace
         readonly property alias pillChipInset: cfg.pillChipInset
+        readonly property alias pillFaceTopPad: cfg.pillFaceTopPad
         property alias barEdgeMargin: cfg.barEdgeMargin
         property alias barSizeScale: cfg.barSizeScale
         property alias flushWindowsToBar: cfg.flushWindowsToBar
@@ -2801,7 +2802,9 @@ ShellRoot {
                 border.color: launcherMouse.containsMouse ? bar.accent : bar.pillBorder
 
                 Text {
-                    anchors.centerIn: parent
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: bar.pillFaceTopPad
                     text: bar.iconLauncher
                     font.pixelSize: bar.widgetW("launcher", bar.iconSizePillLarge)
                     font.family: bar.fontFamily
@@ -2894,7 +2897,9 @@ ShellRoot {
 
                 Row {
                     id: connectivityRow
-                    anchors.centerIn: parent
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: bar.pillFaceTopPad
                     spacing: Math.max(2, bar.widgetW("connectivity", 4))
 
                     NetworkPill {
@@ -3024,7 +3029,9 @@ ShellRoot {
                               ? bar.accent : bar.pillBorder
 
                 Text {
-                    anchors.centerIn: parent
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: bar.pillFaceTopPad
                     text: bar.iconControlBar
                     font.pixelSize: bar.widgetW("controlBar", bar.iconSizePillLarge)
                     font.family: bar.fontFamily

@@ -740,9 +740,13 @@ Rectangle {
 
         Item {
             id: btContent
-            anchors.centerIn: parent
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: embedded ? 0 : (bar.pillFaceTopPad !== undefined ? bar.pillFaceTopPad : 3)
             implicitWidth: pillRow.implicitWidth
             implicitHeight: pillRow.implicitHeight
+            width: implicitWidth
+            height: implicitHeight
 
             Row {
                 id: pillRow
