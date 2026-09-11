@@ -2343,6 +2343,7 @@ ShellRoot {
         readonly property alias audioDualPercentWidth: cfg.audioDualPercentWidth
         readonly property alias iconSizePill: cfg.iconSizePill
         readonly property alias iconSizePillLarge: cfg.iconSizePillLarge
+        readonly property alias iconSizeLauncher: cfg.iconSizeLauncher
         readonly property alias iconSizePopup: cfg.iconSizePopup
         readonly property alias iconSizePower: cfg.iconSizePower
         readonly property alias iconSizeMediaArt: cfg.iconSizeMediaArt
@@ -2805,8 +2806,11 @@ ShellRoot {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     anchors.topMargin: bar.pillFaceTopPad
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
                     text: bar.iconLauncher
-                    font.pixelSize: bar.widgetW("launcher", bar.iconSizePillLarge)
+                    // Scale the glyph with the launcher Sizes slider, not the pill width.
+                    font.pixelSize: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
                     font.family: bar.fontFamily
                     color: launcherMouse.containsMouse
                            ? bar.accent

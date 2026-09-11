@@ -1683,7 +1683,10 @@ QtObject {
     // Icon sizes (nerd font glyphs and tray icons)
     readonly property int iconSizeTray:        sp(18)   // System tray — reference size for bar icons
     readonly property int iconSizePill:        iconSizeTray   // Audio, bell, media glyphs in pills
-    readonly property int iconSizePillLarge:   iconSizeTray   // Launcher, power menu icon
+    readonly property int iconSizePillLarge:   iconSizeTray   // Power / inspector / control-bar glyphs
+    // Launcher pill glyph only. Wider than iconSizePillLarge so it matches Quick
+    // Launch artwork; pill chrome width stays sp(42) (shell.qml launcherPill).
+    readonly property int iconSizeLauncher:    sp(26)
     readonly property int iconSizePopup:       sp(17)   // Icons inside popups (audio controls row)
     readonly property int iconSizePower:       sp(32)   // Big icons in the power menu grid
     readonly property int iconSizeMediaArt:    sp(42)   // Placeholder music note when no album art
