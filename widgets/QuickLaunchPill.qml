@@ -274,9 +274,10 @@ Rectangle {
                 readonly property bool isRunning: root.entryIsRunning(modelData, root.toplevelTick)
                 readonly property bool isFocused: root.entryIsFocused(modelData, root.toplevelTick)
 
-                // Keep cells square so icons never squash into each other
-                width: root._icon + 8
-                height: root._icon + 8
+                // Keep cells square so icons never squash into each other.
+                // Extra 2px vs the old +8 leaves a gap for the thicker running dash.
+                width: root._icon + 10
+                height: root._icon + 10
                 radius: bar.workspaceRadius
                 color: isFocused ? (bar.wsActiveBg !== undefined ? bar.wsActiveBg : bar.iconHoverBg) : (launchClick.containsMouse ? bar.iconHoverBg : "transparent")
                 border.width: (isFocused || launchClick.containsMouse) ? bar.controlBorderWidth : 0
@@ -321,15 +322,39 @@ Rectangle {
                     color: launchClick.containsMouse || isFocused ? bar.accent : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
                 }
 
+                // Soft bloom so the dash reads as a light without covering the icon.
+                Rectangle {
+                    visible: isRunning
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: 1
+                    width: isFocused ? 16 : 14
+                    height: 5
+                    radius: 2.5
+                    color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, isFocused ? 0.40 : 0.28)
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 140
+                            easing.type: Easing.OutQuad
+                        }
+                    }
+                    Behavior on width {
+                        NumberAnimation {
+                            duration: 140
+                            easing.type: Easing.OutQuad
+                        }
+                    }
+                }
+
                 Rectangle {
                     visible: isRunning
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 2
-                    width: isFocused ? 10 : 8
-                    height: 2
-                    radius: 1
-                    color: isFocused ? bar.accent : Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.55)
+                    width: isFocused ? 12 : 10
+                    height: 3
+                    radius: 1.5
+                    color: isFocused ? bar.accent : Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.92)
                     Behavior on color {
                         ColorAnimation {
                             duration: 140
