@@ -1758,12 +1758,27 @@ ShellRoot {
                     : (command.length > 0)
                 if (!hasCmd && !(e.tooltip || e.icon || e.glyph))
                     continue
-                out.push({
+                const matchClass = []
+                if (typeof e.matchClass === "string") {
+                    const s = e.matchClass.trim()
+                    if (s.length)
+                        matchClass.push(s)
+                } else if (e.matchClass && e.matchClass.length !== undefined) {
+                    for (let j = 0; j < e.matchClass.length; j++) {
+                        const s = String(e.matchClass[j] || "").trim()
+                        if (s.length)
+                            matchClass.push(s)
+                    }
+                }
+                const item = {
                     icon: e.icon ? String(e.icon) : "",
                     glyph: e.glyph ? String(e.glyph) : "",
                     command: command,
                     tooltip: e.tooltip ? String(e.tooltip) : ""
-                })
+                }
+                if (matchClass.length)
+                    item.matchClass = matchClass.length === 1 ? matchClass[0] : matchClass
+                out.push(item)
             }
             return out
         }

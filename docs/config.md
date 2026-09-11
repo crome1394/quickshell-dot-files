@@ -103,6 +103,9 @@ Search for **QUICK LAUNCH**. Edit the `quickLaunchApps` list — one object per 
 | `glyph` | Optional nerd-font character (use instead of `icon` if `icon` is empty) |
 | `command` | Launch command as a **list** `["gtk-launch", "firefox"]` (preferred) or shell string `"gtk-launch firefox"`. Use the list form for `gtk-launch` and full paths. |
 | `tooltip` | Hover label |
+| `matchClass` | Optional WM class / app-id (string or list) when the running indicator cannot match from `command` |
+
+Open windows light a small accent dash under the matching icon (any workspace, including magic). The focused window also gets the same teal glass fill as an active workspace pill (`wsActiveBg`). Matching uses `matchClass` if set, otherwise the `gtk-launch` id or the command’s binary name against Hyprland `class` / `initialClass` / Wayland `appId`. `steam_app_*` windows do not count as Steam.
 
 Also tune `quickLaunchIcon` (size), `quickLaunchSpacing`, and `quickLaunchPaddingH`.
 

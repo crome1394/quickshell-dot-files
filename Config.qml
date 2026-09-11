@@ -1693,13 +1693,19 @@ QtObject {
     // =========================================================================
     // Add, remove, or reorder entries in quickLaunchApps. Each entry is one icon.
     //
-    //   icon    — path to a PNG/SVG image file shown on the bar
-    //   glyph   — optional nerd-font character instead of icon (leave icon "" to use)
-    //   command — how to start the app when clicked:
-    //               • list (recommended): ["gtk-launch", "firefox"] or ["/path/to/AppImage"]
-    //               • string: "gtk-launch firefox" (runs through the shell)
-    //             Note: Config list commands are QML lists, not JavaScript arrays.
-    //   tooltip — hover label (optional)
+    //   icon       — path to a PNG/SVG image file shown on the bar
+    //   glyph      — optional nerd-font character instead of icon (leave icon "" to use)
+    //   command    — how to start the app when clicked:
+    //                  • list (recommended): ["gtk-launch", "firefox"] or ["/path/to/AppImage"]
+    //                  • string: "gtk-launch firefox" (runs through the shell)
+    //                Note: Config list commands are QML lists, not JavaScript arrays.
+    //   tooltip    — hover label (optional)
+    //   matchClass — optional WM class / app-id override when the running-dash
+    //                heuristic (gtk-launch id or binary name) does not match.
+    //                String or list; persisted through bar-layout.json.
+    //
+    // Running windows light a small accent dash under the icon (any workspace,
+    // including magic). The focused window also uses wsActiveBg on the cell.
 
     readonly property var quickLaunchApps: [
         {
