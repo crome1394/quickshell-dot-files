@@ -2803,11 +2803,16 @@ ShellRoot {
                 border.color: launcherMouse.containsMouse ? bar.accent : bar.pillBorder
 
                 Text {
+                    // Nerd-font 󰀻 has empty em-square padding above the grid. A 0 top
+                    // margin lines the *visual* glyph up with Quick Launch images
+                    // (those sit ~3px down and fill their box).
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
-                    anchors.topMargin: bar.pillFaceTopPad
+                    anchors.topMargin: 0
                     width: parent.width
+                    height: font.pixelSize
                     horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignTop
                     text: bar.iconLauncher
                     // Scale the glyph with the launcher Sizes slider, not the pill width.
                     font.pixelSize: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
