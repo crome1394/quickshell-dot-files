@@ -67,12 +67,16 @@ umask 077
 BASE_URL="${BASE_URL//$'\n'/}"
 USER="${USER//$'\n'/}"
 PASSWORD="${PASSWORD//$'\n'/}"
+# Quote so $, !, and spaces survive `source` in the API script.
+q_base=$(printf '%q' "$BASE_URL")
+q_user=$(printf '%q' "$USER")
+q_pass=$(printf '%q' "$PASSWORD")
 cat > "$OUT_FILE" <<ENV
 # FreshRSS client secrets (outside quickshell git tree — never commit)
 # API password = Profile → API password, not web form password.
-FRESHRSS_BASE_URL=${BASE_URL}
-FRESHRSS_USER=${USER}
-FRESHRSS_API_PASSWORD=${PASSWORD}
+FRESHRSS_BASE_URL=${q_base}
+FRESHRSS_USER=${q_user}
+FRESHRSS_API_PASSWORD=${q_pass}
 ENV
 chmod 600 "$OUT_FILE"
 

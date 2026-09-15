@@ -453,8 +453,11 @@ print(json.dumps({
 PY
             return 0
         fi
-        # fall through to RSS if fever auth failed
-        printf '%s\n' "$(parse_rss_items 1 | jq -c '. + {fever_auth_failed:true}')"
+        # Password is set but Fever returned auth=0 (wrong API password, or
+        # the web login password was saved instead of Profile → API password).
+        parse_rss_items 1 | jq -c --arg err \
+            "Fever rejected the API password (auth=0). Use FreshRSS Profile → API password, not the web login password. Then Options → FreshRSS → Save server." \
+            '. + {fever_auth_failed:true, has_password:true, error:$err}'
         return 0
     fi
     # RSS-only status (lightweight) — count from HTML title / feed size
@@ -824,6 +827,12 @@ cmd_items() {
         resp="$(fever_post "api")"
         local auth
         auth="$(printf '%s' "$resp" | jq -r '.auth // 0')"
+        if [[ "$auth" != "1" ]]; then
+            parse_rss_items "$limit" "$max_days" | jq -c --arg err \
+                "Fever rejected the API password (auth=0). Use FreshRSS Profile → API password, not the web login password. Then Options → FreshRSS → Save server." \
+                '. + {fever_auth_failed:true, has_password:true, error:$err}'
+            return 0
+        fi
         if [[ "$auth" == "1" ]]; then
             # all/read: per-feed Google Reader stream so quiet channels still appear
             if [[ "$scope" == "all" || "$scope" == "read" ]]; then

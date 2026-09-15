@@ -1074,9 +1074,13 @@ Rectangle {
                         root.unreadCount = Math.max(0, Number(j.count) || 0)
                     if (j.mode)
                         root.mode = j.mode
-                    if (j.mode === "rss")
-                        root.errorMsg = "API password missing — this is public RSS, not your feed list. Options → FreshRSS → set Profile → API password to see CachyOS, Dark Journalist, It’s FOSS, …"
-                    else if (root.errorMsg && root.errorMsg.indexOf("API password missing") === 0)
+                    if (j.error)
+                        root.errorMsg = j.error
+                    else if (j.mode === "rss" && j.has_password)
+                        root.errorMsg = "Fever rejected the API password. Use Profile → API password, not the web login password."
+                    else if (j.mode === "rss")
+                        root.errorMsg = "API password missing — this is public RSS, not your feed list. Options → FreshRSS → set Profile → API password."
+                    else
                         root.errorMsg = ""
                     if (j.writable !== undefined)
                         root.writable = !!j.writable
@@ -1145,9 +1149,11 @@ Rectangle {
                     } else if (list.length > 0) {
                         root.selectedIndex = 0
                     }
-                    root.errorMsg = (!root.writable || root.mode === "rss")
-                        ? "API password missing — public RSS, not your feed list. Options → FreshRSS → Profile API password."
-                        : ""
+                    root.errorMsg = j.error
+                        ? j.error
+                        : ((!root.writable || root.mode === "rss")
+                            ? "Fever rejected the API password or it is missing. Use FreshRSS Profile → API password, not the web login password."
+                            : "")
                 } catch (e) {
                     root.errorMsg = "parse error"
                 }
@@ -2496,7 +2502,7 @@ Rectangle {
                             Text {
                                 Layout.fillWidth: true
                                 visible: !root.writable
-                                text: "Read-only public RSS (API password is empty). Folders like News / Youtube Feeds and feeds like CachyOS won’t appear until you set FreshRSS Profile → API password in Options → FreshRSS."
+                                text: "Read-only public RSS. The server rejected the API password (auth=0). In FreshRSS open Profile → API password, generate/copy that value (not your login password), then Options → FreshRSS → paste → Save server."
                                 color: bar.subtext
                                 font.pixelSize: 11
                                 wrapMode: Text.WordWrap
