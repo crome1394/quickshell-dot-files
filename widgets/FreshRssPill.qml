@@ -85,6 +85,8 @@ Rectangle {
 
     // Collapsed category titles → true. Reassign whole object + bump version so listRows rebinds.
     property var collapsedCategories: ({})
+    // FreshRSS folders (News, Youtube Feeds, …)
+    property var collapsedGroups: ({})
     property int collapseVersion: 0
     // After each successful fetch, re-collapse categories (fresh session start behavior).
     property bool autoCollapseOnLoad: true
@@ -251,47 +253,89 @@ Rectangle {
         return String(cat) + "\x1f" + String(dateKey)
     }
 
-    // Sectioned rows: feed header → (when open) date subheaders → articles
+    // Sectioned rows: FreshRSS folder → feed → date → articles
     readonly property var listRows: {
         const _tick = collapseVersion  // dependency for collapse toggles
         const _counts = countsVersion  // rebind when FreshRSS unread maps update
         const list = filteredItems
         const collapsed = collapsedCategories || ({})
+        const collapsedGrp = collapsedGroups || ({})
         const collapsedDt = collapsedDates || ({})
-        const byCat = ({})
+
+        const groups = ({})
+        const groupOrder = []
+        function ensureFeed(group, feed, fid) {
+            if (!groups[group]) {
+                groups[group] = ({})
+                groupOrder.push(group)
+            }
+            const gg = groups[group]
+            if (!gg[feed])
+                gg[feed] = { items: [], feed_id: fid || "" }
+            else if (fid && !gg[feed].feed_id)
+                gg[feed].feed_id = fid
+            return gg[feed]
+        }
+
         for (let i = 0; i < list.length; i++) {
             const it = list[i]
-            const cat = (it.category || it.feed_title || "Other").toString()
-            if (!byCat[cat])
-                byCat[cat] = []
-            byCat[cat].push(it)
+            const feed = (it.feed_title || it.category || "Other").toString()
+            const group = (it.group_title || "Other Feeds").toString()
+            ensureFeed(group, feed, it.feed_id).items.push(it)
         }
-        const cats = Object.keys(byCat)
-        // Category headers A–Z
-        cats.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+
+        groupOrder.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
         const rows = []
-        for (let c = 0; c < cats.length; c++) {
-            const cat = cats[c]
-            const itemsIn = byCat[cat]
-            const isCollapsed = !!collapsed[cat]
-            const sampleFid = itemsIn[0] ? itemsIn[0].feed_id : ""
-            const srvUnread = serverUnreadForCategory(cat, sampleFid)
-            const loadedUnread = loadedUnreadInList(itemsIn)
-            const loadedRead = itemsIn.length - loadedUnread
+        for (let gi = 0; gi < groupOrder.length; gi++) {
+            const g = groupOrder[gi]
+            const feedsMap = groups[g]
+            const feedNames = Object.keys(feedsMap)
+            feedNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+            let groupUnread = 0
+            let groupShown = 0
+            for (let fi = 0; fi < feedNames.length; fi++) {
+                const itemsIn = feedsMap[feedNames[fi]].items
+                const sampleFid = feedsMap[feedNames[fi]].feed_id
+                const srv = serverUnreadForCategory(feedNames[fi], sampleFid)
+                const loadedUnread = loadedUnreadInList(itemsIn)
+                groupUnread += srv >= 0 ? srv : loadedUnread
+                groupShown += itemsIn.length
+            }
+            const gCollapsed = !!collapsedGrp[g]
             rows.push({
-                kind: "header",
-                category: cat,
-                feed_id: sampleFid,
-                // FreshRSS-style unread (server); fall back to loaded unread
-                unread: srvUnread >= 0 ? srvUnread : loadedUnread,
-                read: loadedRead,
-                shown: itemsIn.length,
-                count: srvUnread >= 0 ? srvUnread : loadedUnread,
-                collapsed: isCollapsed,
-                id: "hdr:" + cat
+                kind: "group",
+                group: g,
+                category: g,
+                unread: groupUnread,
+                shown: groupShown,
+                collapsed: gCollapsed,
+                id: "grp:" + g
             })
-            if (isCollapsed)
+            if (gCollapsed)
                 continue
+
+            for (let fi = 0; fi < feedNames.length; fi++) {
+                const cat = feedNames[fi]
+                const itemsIn = feedsMap[cat].items
+                const isCollapsed = !!collapsed[cat]
+                const sampleFid = feedsMap[cat].feed_id
+                const srvUnread = serverUnreadForCategory(cat, sampleFid)
+                const loadedUnread = loadedUnreadInList(itemsIn)
+                const loadedRead = itemsIn.length - loadedUnread
+                rows.push({
+                    kind: "header",
+                    category: cat,
+                    group: g,
+                    feed_id: sampleFid,
+                    unread: srvUnread >= 0 ? srvUnread : loadedUnread,
+                    read: loadedRead,
+                    shown: itemsIn.length,
+                    count: srvUnread >= 0 ? srvUnread : loadedUnread,
+                    collapsed: isCollapsed,
+                    id: "hdr:" + g + "\x1f" + cat
+                })
+                if (isCollapsed)
+                    continue
 
             // Sub-group by calendar date (newest dates first)
             const byDate = ({})
@@ -347,7 +391,8 @@ Rectangle {
                     })
                 }
             }
-        }
+            } // feeds
+        } // groups
         return rows
     }
 
@@ -371,6 +416,22 @@ Rectangle {
         collapseVersion++
     }
 
+    function toggleGroup(group) {
+        if (!group)
+            return
+        const next = ({})
+        const cur = collapsedGroups || ({})
+        const keys = Object.keys(cur)
+        for (let i = 0; i < keys.length; i++)
+            next[keys[i]] = cur[keys[i]]
+        if (next[group])
+            delete next[group]
+        else
+            next[group] = true
+        collapsedGroups = next
+        collapseVersion++
+    }
+
     function toggleDateGroup(cat, dateKey) {
         if (!cat || !dateKey)
             return
@@ -390,21 +451,21 @@ Rectangle {
 
     function expandAllCategories() {
         collapsedCategories = ({})
+        collapsedGroups = ({})
         collapsedDates = ({})
         collapseVersion++
     }
 
     function collapseAllCategories() {
-        // Collapse every category present in the current item set (pre-date-filter),
-        // so headers still show even when "Today" hides some feeds' rows until expanded.
+        // Collapse feeds (not folders) so News / Youtube Feeds still show CachyOS, etc.
         const list = items.length ? items : filteredItems
         const next = ({})
         for (let i = 0; i < list.length; i++) {
-            const cat = (list[i].category || list[i].feed_title || "Other").toString()
+            const cat = (list[i].feed_title || list[i].category || "Other").toString()
             next[cat] = true
         }
         collapsedCategories = next
-        // leave date collapse state; irrelevant while feeds are closed
+        collapsedGroups = ({})
         collapseVersion++
     }
 
@@ -704,9 +765,13 @@ Rectangle {
         const row = rows[listCursor]
         if (!row)
             return
-        if (row.kind === "header") {
+        if (row.kind === "group") {
+            toggleGroup(row.group || row.category || "Other Feeds")
+            listCursorId = row.id
+            scheduleRestoreListCursor()
+        } else if (row.kind === "header") {
             toggleCategory(row.category || "Other")
-            listCursorId = "hdr:" + (row.category || "Other")
+            listCursorId = row.id || ("hdr:" + (row.category || "Other"))
             scheduleRestoreListCursor()
         } else if (row.kind === "date") {
             toggleDateGroup(row.category, row.dateKey)
@@ -733,9 +798,13 @@ Rectangle {
         if (row.kind === "item" && row.item) {
             selectItemById(row.item.id)
             listCursorId = row.id || ("item:" + row.item.id)
+        } else if (row.kind === "group") {
+            toggleGroup(row.group || row.category || "Other Feeds")
+            listCursorId = row.id
+            scheduleRestoreListCursor()
         } else if (row.kind === "header") {
             toggleCategory(row.category || "Other")
-            listCursorId = "hdr:" + (row.category || "Other")
+            listCursorId = row.id || ("hdr:" + (row.category || "Other"))
             scheduleRestoreListCursor()
         } else if (row.kind === "date") {
             toggleDateGroup(row.category, row.dateKey)
@@ -1005,6 +1074,10 @@ Rectangle {
                         root.unreadCount = Math.max(0, Number(j.count) || 0)
                     if (j.mode)
                         root.mode = j.mode
+                    if (j.mode === "rss")
+                        root.errorMsg = "API password missing — this is public RSS, not your feed list. Options → FreshRSS → set Profile → API password to see CachyOS, Dark Journalist, It’s FOSS, …"
+                    else if (root.errorMsg && root.errorMsg.indexOf("API password missing") === 0)
+                        root.errorMsg = ""
                     if (j.writable !== undefined)
                         root.writable = !!j.writable
                     // Per-feed / per-title unread (FreshRSS sidebar).
@@ -1072,7 +1145,9 @@ Rectangle {
                     } else if (list.length > 0) {
                         root.selectedIndex = 0
                     }
-                    root.errorMsg = ""
+                    root.errorMsg = (!root.writable || root.mode === "rss")
+                        ? "API password missing — public RSS, not your feed list. Options → FreshRSS → Profile API password."
+                        : ""
                 } catch (e) {
                     root.errorMsg = "parse error"
                 }
@@ -1956,18 +2031,21 @@ Rectangle {
                                 required property var modelData
                                 required property int index
                                 width: listView.width
+                                readonly property bool isGroup: modelData.kind === "group"
                                 readonly property bool isHeader: modelData.kind === "header"
                                 readonly property bool isDate: modelData.kind === "date"
                                 readonly property bool isItem: modelData.kind === "item"
                                 readonly property var art: isItem ? (modelData.item || null) : null
-                                height: isHeader ? 28 : (isDate ? 24 : (titleCol.implicitHeight + 14))
-                                radius: isHeader ? 4 : (isDate ? 3 : 6)
+                                height: isGroup ? 30 : (isHeader ? 26 : (isDate ? 24 : (titleCol.implicitHeight + 14)))
+                                radius: isGroup ? 6 : (isHeader ? 4 : (isDate ? 3 : 6))
                                 readonly property bool isCursor: index === root.listCursor
                                 color: {
                                     if (isCursor)
                                         return Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.28)
+                                    if (isGroup)
+                                        return Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.16)
                                     if (isHeader)
-                                        return Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.12)
+                                        return Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.10)
                                     if (isDate)
                                         return Qt.rgba(1, 1, 1, 0.04)
                                     const sel = root.selectedItem && art && String(root.selectedItem.id) === String(art.id)
@@ -1978,11 +2056,41 @@ Rectangle {
                                 border.width: isCursor || (isItem && root.selectedItem && art && String(root.selectedItem.id) === String(art.id)) ? 1 : 0
                                 border.color: isCursor ? bar.accent : bar.accent
 
-                                // Feed category header (click to collapse / expand)
+                                RowLayout {
+                                    visible: rowDelegate.isGroup
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+                                    Text {
+                                        text: modelData.collapsed ? "▸" : "▾"
+                                        color: bar.accent
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        Layout.preferredWidth: 14
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.group || modelData.category || "Other Feeds"
+                                        color: bar.text
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+                                    Text {
+                                        text: String(Number(modelData.unread || 0))
+                                        color: Number(modelData.unread || 0) > 0 ? bar.accent : bar.subtext
+                                        font.pixelSize: 11
+                                        font.bold: Number(modelData.unread || 0) > 0
+                                        font.family: bar.fontMono
+                                    }
+                                }
+
+                                // Feed header (subscription name)
                                 RowLayout {
                                     visible: rowDelegate.isHeader
                                     anchors.fill: parent
-                                    anchors.leftMargin: 8
+                                    anchors.leftMargin: 22
                                     anchors.rightMargin: 8
                                     spacing: 6
                                     Text {
@@ -2015,6 +2123,19 @@ Rectangle {
                                         color: bar.subtext
                                         font.pixelSize: 10
                                         font.family: bar.fontMono
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    visible: rowDelegate.isGroup
+                                    enabled: rowDelegate.isGroup
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        root.listCursor = index
+                                        root.listCursorId = modelData.id || ("grp:" + (modelData.group || ""))
+                                        root.toggleGroup(modelData.group || modelData.category || "Other Feeds")
                                     }
                                 }
 
@@ -2375,7 +2496,7 @@ Rectangle {
                             Text {
                                 Layout.fillWidth: true
                                 visible: !root.writable
-                                text: "Read-only (anonymous RSS). To mark read/star: log into FreshRSS → Profile → set API password, then put it in secrets/freshrss.env as FRESHRSS_API_PASSWORD."
+                                text: "Read-only public RSS (API password is empty). Folders like News / Youtube Feeds and feeds like CachyOS won’t appear until you set FreshRSS Profile → API password in Options → FreshRSS."
                                 color: bar.subtext
                                 font.pixelSize: 11
                                 wrapMode: Text.WordWrap

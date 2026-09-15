@@ -247,12 +247,12 @@ for item in channel.findall("item")[:_take]:
     link = findtext_any(item, ["link"]) or ""
     guid = findtext_any(item, ["guid"]) or link or title
     author = findtext_any(item, ["author", "dc:creator", "{http://purl.org/dc/elements/1.1/}creator"]) or ""
-    # categories / feed name
-    cats = []
-    for c in item.findall("category"):
-        if c.text:
-            cats.append(c.text.strip())
-    feed_title = cats[0] if cats else ""
+    # Never use RSS <category> (publisher tags like "U.S. News", "r/cachyos")
+    # as a FreshRSS feed name. Public /i/?a=rss is one combined stream and
+    # does not include subscription titles — callers should set an API password.
+    src = item.find("source")
+    src_title = (src.text or "").strip() if src is not None else ""
+    feed_title = src_title
     pub = findtext_any(item, ["pubDate"]) or ""
     # body: content:encoded preferred
     html = ""
@@ -268,14 +268,14 @@ for item in channel.findall("item")[:_take]:
     id_hash = hashlib.sha1(id_str.encode("utf-8", "replace")).hexdigest()[:16]
     plain = strip_html(html)
     summary = plain[:220] + ("…" if len(plain) > 220 else "")
-    cat = feed_title or "Other"
+    cat = feed_title or "Public RSS"
     items_out.append({
         "id": id_str,
         "id_hash": id_hash,
         "feed_id": feed_title,
-        "feed_title": feed_title,
+        "feed_title": cat,
         "group_id": 0,
-        "group_title": "",
+        "group_title": "Set API password to see your feeds",
         "category": cat,
         "title": title,
         "author": author,
@@ -643,12 +643,19 @@ def fetch_feed(sub):
         return [], None
     ftitle = sub.get("title") or ""
     site = (sub.get("htmlUrl") or sub.get("url") or "")
-    labels = []
+    # FreshRSS folders are GReader labels on the *subscription*, not item tags.
+    group_title = "Other Feeds"
     for c in sub.get("categories") or []:
-        lab = c.get("label") or c.get("id") or ""
+        cid = str(c.get("id") or "")
+        lab = (c.get("label") or "").strip()
+        if "/state/" in cid:
+            continue
         if lab:
-            labels.append(lab)
-    group_title = labels[0] if labels else ""
+            group_title = lab
+            break
+        if "/label/" in cid:
+            group_title = urllib.parse.unquote(cid.split("/label/", 1)[-1].replace("+", " "))
+            break
     fid = 0
     m = re.match(r"feed/(\d+)$", stream)
     if m:
@@ -702,14 +709,11 @@ def fetch_feed(sub):
                     html = html[:HTML_MAX] + "…"
                 if len(plain) > TEXT_MAX:
                     plain = plain[:TEXT_MAX] + "…"
-                origin = it.get("origin") or {}
-                feed_title = origin.get("title") or ftitle
+                # Subscription title is the FreshRSS feed name (CachyOS, Dark Journalist).
+                # origin.title and item categories are publisher tags ("U.S. News").
+                feed_title = ftitle or "Other"
                 gtitle = group_title
-                for c in cats:
-                    if "/label/" in c:
-                        gtitle = urllib.parse.unquote(c.split("/label/", 1)[-1].replace("+", " "))
-                        break
-                category = feed_title or gtitle or "Other"
+                category = feed_title
                 summary = plain[:SUMMARY_MAX] + ("…" if len(plain) > SUMMARY_MAX else "")
                 rows.append({
                     "id": iid,
@@ -980,9 +984,9 @@ for it in items_blob.get("items") or []:
         plain = plain[:1200] + "…"
     gid = feed_to_group.get(fid)
     gtitle = group_title.get(gid, "") if gid is not None else ""
-    ftitle = fmeta.get("title") or ""
-    # Category for UI sections: feed title (channel / source name)
-    category = ftitle or gtitle or "Other"
+    ftitle = (fmeta.get("title") or "").strip() or "Other"
+    # FreshRSS folder (group), not RSS <category> publisher tags
+    category = ftitle
     out.append({
         "id": str(it.get("id")),
         "id_hash": str(it.get("id")),
