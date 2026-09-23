@@ -1889,7 +1889,7 @@ QtObject {
     // Glyphs for bar position toggle in BarControlBar (right-click empty bar chrome)
     readonly property string barPositionIconTop:    "󰁝"  // shown when bar is on bottom (click → move to top)
     readonly property string barPositionIconBottom: "󰁅"  // shown when bar is on top (click → move to bottom)
-    readonly property string iconHyprInsp:          "󰒓"  // Hyprland Config Inspector bar pill
+    readonly property string iconHyprInsp:          "󰓙"  // Hyprland Config Inspector (spotlight, not cog)
     readonly property string iconControlBar:        "󰢻"  // Bar control / config menu pill
 
     // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)

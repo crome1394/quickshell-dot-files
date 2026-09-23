@@ -45,8 +45,11 @@ Rectangle {
     readonly property real _ws: (bar.widgetScale ? bar.widgetScale("tray") : 1.0)
     readonly property int _icon: Math.max(12, Math.round(bar.iconSizeTray * _ws))
     readonly property int _gap: Math.max(2, Math.round(4 * _ws))
+    // Same chip height as WorkspacesPill so tray icons sit on the bar midline.
+    readonly property int _cell: Math.max(_icon + 8, Math.round((bar.wsButtonHeight !== undefined ? bar.wsButtonHeight : 32) * _ws))
     Layout.preferredWidth: visible ? (trayContent.implicitWidth + Math.round(14 * _ws)) : 0
     Layout.preferredHeight: bar.pillHeight
+    Layout.alignment: Qt.AlignVCenter
     radius: bar.pillRadius
     // Outer chrome is stable; each tray icon highlights on its own.
     color: bar.pillBg
@@ -71,8 +74,8 @@ Rectangle {
                 delegate: Rectangle {
                     id: trayIconItem
                     required property var modelData
-                    width: root._icon + 8
-                    height: root._icon + 8
+                    width: root._cell
+                    height: root._cell
                     radius: bar.workspaceRadius
                     color: trayIconMa.containsMouse ? bar.iconHoverBg : "transparent"
                     border.width: trayIconMa.containsMouse ? bar.controlBorderWidth : 0
