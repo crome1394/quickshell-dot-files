@@ -149,9 +149,9 @@ if new != text:
     bak = path + ".bak-screensaver"
     pathlib.Path(bak).write_text(pathlib.Path(path).read_text())
     pathlib.Path(path).write_text(new)
-    print("patched")
+    print("patched", file=sys.stderr)
 else:
-    print("unchanged")
+    print("unchanged", file=sys.stderr)
 PY
 }
 
