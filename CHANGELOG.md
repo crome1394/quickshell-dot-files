@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Docs catch-up
+
+- README covers Dock, Quick Launch dots, per-metric stats colors, **Save setup**, and screensaver (idle mpv, no DPMS).
+- New [docs/screensaver.md](docs/screensaver.md). Control-bar / Config tokens match the current Options and Themes panels.
+
 ## 2026-09 — Screensaver DDC dim / exit brightness
 
 - Options → Screensaver **Dim on start** (0–100%) uses `ddcutil` VCP 10 (G9 has no sysfs backlight; not DPMS). Captures the current level first.

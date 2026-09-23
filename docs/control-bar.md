@@ -11,7 +11,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
 | **Widgets** | Dual layout: **Top bar** and **Bottom bar** sections (classic: Left / Center / Right). Order inside a section is left-to-right on that bar. Each row: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
 | **Options** | Behavior prefs (not layout) — **tabs** per section (table below); only the active tab scrolls |
-| **Themes** | Live colors/opacity, text roles, **Fonts** (UI·Mono·Main·Secondary·Bar + sizes), thresholds, liquid presets (see Themes subsection) |
+| **Themes** | Live colors/opacity, text roles, **Fonts**, per-metric thresholds, liquid presets; **Save as preset** (colors) and **Save setup** (colors + layout) — see Themes subsection |
 | **Launch** | Quick Launch pins (installed apps or custom) |
 | **Autostart** | XDG `~/.config/autostart` (see Autostart subsection) |
 | **MIME** | Preferred applications / file-type defaults (see MIME subsection) |
@@ -132,8 +132,8 @@ Title and sub-tabs (**Theming** · **Thresholds** · **Presets**) stay fixed at 
 
 | Tab | Contents |
 |-----|----------|
-| **Theming** | Collapsible **Colors** · **Text** · **Special / Effects** (left) and **Opacity** (right). **Main text** = menu headers; **Secondary text** = menu body; **Bar widget text** = face labels on the bar |
-| **Thresholds** | Output/input volume + Sys Stats load/temperature (left); color picker (right) |
+| **Theming** | Collapsible **Colors** · **Text** · **Special / Effects** (left) and **Opacity** (right). Includes **Running app dot**. **Main text** = menu headers; **Secondary text** = menu body; **Bar widget text** = face labels on the bar |
+| **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU** color ramps; temperature (left); color picker (right) |
 | **Fonts** | Two columns: **typeface** left · **size %** right. Rows: **UI**, **Monospace**, **Main**, **Secondary**, **Bar widget**. Preview shows all five |
 | **Presets** | Liquid glass family (mint/violet/rose/amber/ice/aurora) + solid/soft/nordic/… — hide from **Options → Color presets section** |
 

@@ -10,7 +10,8 @@ Edit `Config.qml` to change:
 - **Theme editor API** (`themeUiRows`, `themeEditableKeys`, `getThemeColor` / `setThemeColor`, font role setters) — control strip **Themes** panel
 - Bar position and size (`barPosition`, `barLayoutMode` classic/dual, `barHeight`, `barEdgeMargin`, `flushWindowsToBar`)
 - Bar pill visibility defaults (`showLauncherPill`, `showAudioPill`, etc.) and launcher command (`launcherCommand`)
-- **Quick Launch** apps (`quickLaunchApps`)
+- **Quick Launch** apps (`quickLaunchApps`) and dock hover defaults (`dockEffect`, `dockScope`, `qlRunningDot`)
+- Sys Stats per-metric load colors (`statCpuTier*`, `statMemTier*`, `statGpuTier*`)
 - **Notification bell** daemon commands (`notification*`)
 - **Power menu** session commands (`power*Command`, `powerMenuActions`)
 - **Kill Target** pill (`killTargetIcon`, `showKillTargetPill`, etc.)
@@ -107,7 +108,7 @@ Search for **QUICK LAUNCH**. Edit the `quickLaunchApps` list — one object per 
 
 Open windows light a Mac-dock-style accent **dot** on the pill’s bottom edge (any workspace, including magic). Focused is the same size dot, brighter — icons stay center-aligned with the rest of the bar. Matching uses `matchClass` if set, otherwise the `gtk-launch` id or the command’s binary name against Hyprland `class` / `initialClass` / Wayland `appId`. `steam_app_*` windows do not count as Steam.
 
-Also tune `quickLaunchIcon` (size), `quickLaunchSpacing`, and `quickLaunchPaddingH`.
+Also tune `quickLaunchIcon` (size), `quickLaunchSpacing`, and `quickLaunchPaddingH`. Running-dot color is `qlRunningDot` (Themes → Theming / Options → Dock). Dock hover: Options → Dock (`dockEffect` off/magnify/jump/both, `dockScope` quicklaunch/icons).
 
 ## Kill Target pill (`Config.qml`)
 

@@ -116,6 +116,8 @@ qs ipc call killTargetPill activatePickMode
 
 Metrics-popup IPC pauses sparklines, gauges, and process lists in the right-click dropdowns — not the compact CPU/Memory/GPU stats on the bar pill. Takes effect immediately while a popup is open; otherwise the paused state applies the next time you open that section. When `popupStatsPersistPause` is `true` in `Config.qml`, the choice is saved to `state/popup-stats.json`.
 
+**Dock** (magnify/jump/scope) and **screensaver** (idle mpv, DDC dim) are Options UI + files (`bar-layout.json`, `~/.config/hypr/screensaver.conf`), not IPC. See [control-bar.md](control-bar.md) and [screensaver.md](screensaver.md).
+
 **Hyprland keybind examples** (in `~/.config/hypr/config/keybindings.lua`):
 
 ```
