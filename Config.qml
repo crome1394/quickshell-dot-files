@@ -1697,10 +1697,12 @@ QtObject {
     // =========================================================================
     // QUICK LAUNCH DOCK HOVER (runtime: shell.qml / Options → Dock)
     // =========================================================================
-    // dockEffect: "off" | "magnify" | "jump" | "both"  — Quick Launch icons only
+    // dockEffect: "off" | "magnify" | "jump" | "both"
+    // dockScope: "icons" (default, all icon widgets) | "quicklaunch"
     // dockMaxScale: 1.05–1.8  (hovered icon)
-    // dockRadius: px influence for neighbor magnification
+    // dockRadius: px influence for neighbor magnification (QL / tray / workspaces)
     // dockJumpPx: bounce height on click
+    // Stats gauges and the volume meter stay still.
     readonly property string dockEffectDefault: "both"
     readonly property real   dockMaxScaleDefault: 1.28
     readonly property int    dockRadiusDefault: 72

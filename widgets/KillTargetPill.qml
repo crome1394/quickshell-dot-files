@@ -150,6 +150,22 @@ Item {
     Rectangle {
         id: pill
         anchors.fill: parent
+        clip: false
+        DockFace {
+            id: dockFx
+            bar: root.bar
+            host: pill
+            hovered: pickMouse.containsMouse
+        }
+        transform: [
+            Scale {
+                xScale: dockFx.mag
+                yScale: dockFx.mag
+                origin.x: pill.width / 2
+                origin.y: dockFx.growUp ? pill.height : 0
+            },
+            Translate { y: dockFx.jumpY }
+        ]
         radius: bar.pillRadius
         color: pickMouse.containsMouse || root.pickActive ? bar.glassHover : bar.pillBg
         border.width: bar.controlBorderWidth
@@ -168,7 +184,10 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.activatePickMode()
+            onClicked: {
+                dockFx.jump()
+                root.activatePickMode()
+            }
 
             BarToolTip {
                 bar: root.bar

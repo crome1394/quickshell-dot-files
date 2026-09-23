@@ -167,11 +167,13 @@ ShellRoot {
     property bool audioDefaultsExpanded: true
     // FreshRSS reader: Filters section open on window start (Options + bar-layout.json)
     property bool freshRssFiltersExpanded: true
-    // Quick Launch dock-style hover (Options → Dock). off | magnify | jump | both
+    // Dock-style hover (Options → Dock). off | magnify | jump | both
+    // dockScope: "icons" (all icon widgets) | "quicklaunch"
     property string dockEffect: "both"
     property real dockMaxScale: 1.28
     property int dockRadius: 72
     property int dockJumpPx: 8
+    property string dockScope: "icons"
 
     // Clock format string (Qt.formatDateTime); Config default, persisted override.
     property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
@@ -609,6 +611,8 @@ ShellRoot {
                     root.dockMaxScale = Math.max(1.05, Math.min(1.8, Number(barLayoutAdapter.dockMaxScale) || 1.28))
                     root.dockRadius = Math.max(32, Math.min(160, Math.round(barLayoutAdapter.dockRadius || 72)))
                     root.dockJumpPx = Math.max(4, Math.min(20, Math.round(barLayoutAdapter.dockJumpPx || 8)))
+                    const ds = String(barLayoutAdapter.dockScope || "icons")
+                    root.dockScope = (ds === "quicklaunch") ? "quicklaunch" : "icons"
                 }
                 // Layout JSON (normalize with the active mode so zones stay valid)
                 if (barLayoutAdapter.widgetLayoutJson && barLayoutAdapter.widgetLayoutJson.length > 2) {
@@ -725,6 +729,7 @@ ShellRoot {
                 property real dockMaxScale: 1.28
                 property int dockRadius: 72
                 property int dockJumpPx: 8
+                property string dockScope: "icons"
             }
         }
 
@@ -1177,6 +1182,7 @@ ShellRoot {
             barLayoutAdapter.dockMaxScale = Math.max(1.05, Math.min(1.8, Number(root.dockMaxScale) || 1.28))
             barLayoutAdapter.dockRadius = Math.max(32, Math.min(160, Math.round(root.dockRadius || 72)))
             barLayoutAdapter.dockJumpPx = Math.max(4, Math.min(20, Math.round(root.dockJumpPx || 8)))
+            barLayoutAdapter.dockScope = root.dockScope === "quicklaunch" ? "quicklaunch" : "icons"
             barLayoutFile.writeAdapter()
             // Clear guard after filesystem watcher has had a chance to fire.
             Qt.callLater(function() {
@@ -1247,6 +1253,39 @@ ShellRoot {
         function setDockJumpPx(v) {
             root.dockJumpPx = Math.max(4, Math.min(20, Math.round(Number(v) || 8)))
             persistBarLayout()
+        }
+        function setDockScope(mode) {
+            root.dockScope = String(mode) === "quicklaunch" ? "quicklaunch" : "icons"
+            persistBarLayout()
+        }
+        function dockMagnifyOn() {
+            const e = String(root.dockEffect || "off")
+            return e === "magnify" || e === "both"
+        }
+        function dockJumpOn() {
+            const e = String(root.dockEffect || "off")
+            return e === "jump" || e === "both"
+        }
+        function dockScopeAll() {
+            return String(root.dockScope || "icons") !== "quicklaunch"
+        }
+        function dockSelfMag(hovered) {
+            void root.dockEffect
+            void root.dockScope
+            void root.dockMaxScale
+            if (!hovered || !bar.dockMagnifyOn() || !bar.dockScopeAll())
+                return 1
+            return Math.max(1.05, Math.min(1.8, Number(root.dockMaxScale) || 1.28))
+        }
+        function dockGrowUpFor(item) {
+            try {
+                if (bar.isDualLayout())
+                    return bar.edgeForItem(item) === "bottom"
+            } catch (e) {}
+            return bar.barPosition === "bottom"
+        }
+        function dockJumpPixels() {
+            return Math.max(4, Math.min(20, Math.round(root.dockJumpPx || 8)))
         }
         function setShowEchoCancelInMenu(enabled) {
             root.showEchoCancelInMenu = !!enabled
@@ -2628,6 +2667,7 @@ ShellRoot {
         property alias dockMaxScale: root.dockMaxScale
         property alias dockRadius: root.dockRadius
         property alias dockJumpPx: root.dockJumpPx
+        property alias dockScope: root.dockScope
         property alias showEchoCancelInMenu: root.showEchoCancelInMenu
         property alias showAudioSummary: root.showAudioSummary
         property alias showAudioDefaults: root.showAudioDefaults
@@ -2725,6 +2765,7 @@ ShellRoot {
             color: bar.glassBg
             border.width: Math.max(1, bar.controlBorderWidth)
             border.color: bar.glassBorder
+            clip: false
 
             Rectangle {
                 anchors.top: parent.top
@@ -2840,6 +2881,22 @@ ShellRoot {
                 Layout.preferredWidth: bar.widgetW("launcher", bar.sp(42))
                 Layout.preferredHeight: bar.pillHeight
                 Layout.alignment: Qt.AlignVCenter
+                clip: false
+                DockFace {
+                    id: launcherDock
+                    bar: bar
+                    host: launcherPill
+                    hovered: launcherMouse.containsMouse
+                }
+                transform: [
+                    Scale {
+                        xScale: launcherDock.mag
+                        yScale: launcherDock.mag
+                        origin.x: launcherPill.width / 2
+                        origin.y: launcherDock.growUp ? launcherPill.height : 0
+                    },
+                    Translate { y: launcherDock.jumpY }
+                ]
                 radius: bar.pillRadius
                 color: launcherMouse.containsMouse ? bar.glassHover : bar.pillBg
                 border.width: bar.controlBorderWidth
@@ -2882,7 +2939,10 @@ ShellRoot {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: Quickshell.execDetached(["sh", "-c", bar.launcherCommand])
+                    onClicked: {
+                        launcherDock.jump()
+                        Quickshell.execDetached(["sh", "-c", bar.launcherCommand])
+                    }
                 }
 
                 BarToolTip {
@@ -2954,6 +3014,7 @@ ShellRoot {
                 Layout.preferredHeight: bar.pillHeight
                 Layout.preferredWidth: connectivityRow.implicitWidth + 10
                 Layout.alignment: Qt.AlignVCenter
+                clip: false
                 radius: bar.pillRadius
                 color: bar.pillBg
                 border.width: bar.controlBorderWidth
@@ -3043,6 +3104,22 @@ ShellRoot {
                 Layout.preferredWidth: bar.widgetW("hyprInsp", bar.sp(42))
                 Layout.preferredHeight: bar.pillHeight
                 Layout.alignment: Qt.AlignVCenter
+                clip: false
+                DockFace {
+                    id: hyprInspDock
+                    bar: bar
+                    host: hyprInspPill
+                    hovered: hyprInspMouse.containsMouse
+                }
+                transform: [
+                    Scale {
+                        xScale: hyprInspDock.mag
+                        yScale: hyprInspDock.mag
+                        origin.x: hyprInspPill.width / 2
+                        origin.y: hyprInspDock.growUp ? hyprInspPill.height : 0
+                    },
+                    Translate { y: hyprInspDock.jumpY }
+                ]
                 radius: bar.pillRadius
                 color: hyprInspMouse.containsMouse ? bar.glassHover : bar.pillBg
                 border.width: bar.controlBorderWidth
@@ -3062,6 +3139,7 @@ ShellRoot {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
+                        hyprInspDock.jump()
                         if (hyprConfigInsp && hyprConfigInsp.toggle)
                             hyprConfigInsp.toggle()
                     }
@@ -3083,6 +3161,22 @@ ShellRoot {
                 Layout.preferredWidth: bar.widgetW("controlBar", bar.sp(42))
                 Layout.preferredHeight: bar.pillHeight
                 Layout.alignment: Qt.AlignVCenter
+                clip: false
+                DockFace {
+                    id: controlBarDock
+                    bar: bar
+                    host: controlBarPill
+                    hovered: controlBarMouse.containsMouse
+                }
+                transform: [
+                    Scale {
+                        xScale: controlBarDock.mag
+                        yScale: controlBarDock.mag
+                        origin.x: controlBarPill.width / 2
+                        origin.y: controlBarDock.growUp ? controlBarPill.height : 0
+                    },
+                    Translate { y: controlBarDock.jumpY }
+                ]
                 radius: bar.pillRadius
                 color: controlBarMouse.containsMouse || (barControlBar && barControlBar.open)
                        ? bar.glassHover : bar.pillBg
@@ -3105,6 +3199,7 @@ ShellRoot {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
+                        controlBarDock.jump()
                         if (barControlBar && barControlBar.toggle)
                             barControlBar.toggle()
                     }
@@ -3468,6 +3563,7 @@ ShellRoot {
             color: bar.glassBg
             border.width: Math.max(1, bar.controlBorderWidth)
             border.color: bar.glassBorder
+            clip: false
 
             Rectangle {
                 anchors.top: parent.top

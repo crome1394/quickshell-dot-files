@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import "../components"
+import "../components/dockFx.js" as DockFx
 
 // =============================================================================
 // WorkspacesPill.qml — Dynamic workspace pills
@@ -49,7 +51,50 @@ Rectangle {
     Layout.alignment: Qt.AlignVCenter
     implicitWidth: Layout.preferredWidth
     implicitHeight: Layout.preferredHeight
-    clip: true
+    clip: false
+    property real dockHoverX: -1
+
+    HoverHandler {
+        id: dockLeaveGuard
+        enabled: {
+            void bar.dockEffect
+            void bar.dockScope
+            return bar && typeof bar.dockMagnifyOn === "function" && bar.dockMagnifyOn()
+                && typeof bar.dockScopeAll === "function" && bar.dockScopeAll()
+        }
+        onHoveredChanged: {
+            if (!hovered)
+                root.dockHoverX = -1
+        }
+        onPointChanged: {
+            const p = point.position
+            if (!hovered || p.x < 0 || p.x > root.width || p.y < 0 || p.y > root.height) {
+                root.dockHoverX = -1
+                return
+            }
+            root.dockHoverX = root.mapToItem(wsRow, p.x, p.y).x
+        }
+    }
+    Timer {
+        interval: 50
+        running: dockLeaveGuard.enabled && root.dockHoverX >= 0
+        repeat: true
+        onTriggered: {
+            if (!root.dockPointerInPill())
+                root.dockHoverX = -1
+        }
+    }
+
+    function dockPointerInPill() {
+        if (!dockLeaveGuard.hovered)
+            return false
+        try {
+            const p = dockLeaveGuard.point.position
+            return p.x >= 0 && p.x <= root.width && p.y >= 0 && p.y <= root.height
+        } catch (e) {
+            return false
+        }
+    }
 
     // === Appearance via config (bar aliases) ===
     // Outer chrome is stable; per-workspace buttons handle their own hover highlight.
@@ -415,6 +460,25 @@ Rectangle {
                 border.width: (isActive || isHovered) ? bar.controlBorderWidth : 0
                 border.color: isActive ? bar.wsActiveBorder
                               : (isHovered ? bar.accent : bar.dividerStrong)
+                clip: false
+                DockFace {
+                    id: dockFx
+                    bar: root.bar
+                    host: wsBtn
+                    hovered: root.dockPointerInPill()
+                    useNeighbor: true
+                    neighborScale: DockFx.neighborMag(root.bar, root.dockHoverX, wsBtn, root.dockPointerInPill(), true)
+                }
+                z: Math.round((dockFx.mag - 1) * 24)
+                transform: [
+                    Scale {
+                        xScale: dockFx.mag
+                        yScale: dockFx.mag
+                        origin.x: wsBtn.width / 2
+                        origin.y: dockFx.growUp ? wsBtn.height : 0
+                    },
+                    Translate { y: dockFx.jumpY }
+                }
 
                 Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
                 Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
@@ -424,7 +488,20 @@ Rectangle {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.activateEntry(modelData)
+                    onClicked: {
+                        dockFx.jump()
+                        root.activateEntry(modelData)
+                    }
+                    onPositionChanged: (mouse) => {
+                        if (!dockLeaveGuard.enabled || !root.dockPointerInPill())
+                            return
+                        const p = mapToItem(wsRow, mouse.x, mouse.y)
+                        root.dockHoverX = p.x
+                    }
+                    onContainsMouseChanged: {
+                        if (!containsMouse && !root.dockPointerInPill())
+                            root.dockHoverX = -1
+                    }
                 }
 
                 Row {

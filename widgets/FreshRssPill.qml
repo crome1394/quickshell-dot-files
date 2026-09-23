@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io as Io
 import ".."
+import "../components"
 
 // =============================================================================
 // FreshRssPill.qml — FreshRSS reader (bar pill + FloatingWindow)
@@ -473,6 +474,22 @@ Rectangle {
     Layout.preferredWidth: Math.round(Math.max(42, pillInner.implicitWidth + 16) * _ws)
     Layout.preferredHeight: bar.pillHeight
     Layout.alignment: Qt.AlignVCenter
+    clip: false
+    DockFace {
+        id: dockFx
+        bar: root.bar
+        host: root
+        hovered: pillMouse.containsMouse
+    }
+    transform: [
+        Scale {
+            xScale: dockFx.mag
+            yScale: dockFx.mag
+            origin.x: root.width / 2
+            origin.y: dockFx.growUp ? root.height : 0
+        },
+        Translate { y: dockFx.jumpY }
+    ]
 
     radius: bar.pillRadius
     color: pillMouse.containsMouse || readerWindow.visible ? bar.glassHover : bar.pillBg
@@ -1040,7 +1057,10 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.toggle()
+        onClicked: {
+            dockFx.jump()
+            root.toggle()
+        }
     }
 
     // Background status poll (badge)

@@ -99,6 +99,22 @@ Rectangle {
     Layout.preferredWidth: implicitWidth
     Layout.preferredHeight: implicitHeight
     Layout.alignment: Qt.AlignVCenter
+    clip: false
+    DockFace {
+        id: dockFx
+        bar: root.bar
+        host: root
+        hovered: root.netHovered
+    }
+    transform: [
+        Scale {
+            xScale: dockFx.mag
+            yScale: dockFx.mag
+            origin.x: root.width / 2
+            origin.y: dockFx.growUp ? root.height : 0
+        },
+        Translate { y: dockFx.jumpY }
+    ]
 
     HoverHandler {
         id: netHoverVis
@@ -1103,6 +1119,7 @@ Rectangle {
         }
 
         onClicked: {
+            dockFx.jump()
             if (netPopup.visible)
                 closePopup()
             else

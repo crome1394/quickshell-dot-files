@@ -1,5 +1,6 @@
 import QtQuick
 import "../components"
+import "../components/dockFx.js" as DockFx
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
@@ -50,29 +51,21 @@ Rectangle {
 
     readonly property string _dockEffect: String(bar.dockEffect || "off")
     readonly property bool _dockMagnify: _dockEffect === "magnify" || _dockEffect === "both"
-    readonly property bool _dockJump: _dockEffect === "jump" || _dockEffect === "both"
-    readonly property real _dockMax: Math.max(1.05, Math.min(1.8, Number(bar.dockMaxScale) || 1.28))
-    readonly property int _dockRadius: Math.max(32, Math.min(160, Math.round(bar.dockRadius || 72)))
-    readonly property int _dockJumpPx: Math.max(4, Math.min(20, Math.round(bar.dockJumpPx || 8)))
-    readonly property bool _dockGrowUp: {
-        try {
-            if (bar.isDualLayout && bar.isDualLayout())
-                return bar.edgeForItem(root) === "bottom"
-        } catch (e) {}
-        return bar.barPosition === "bottom"
-    }
     property real dockHoverX: -1
 
+    function dockPointerInPill() {
+        if (!dockLeaveGuard.hovered)
+            return false
+        try {
+            const p = dockLeaveGuard.point.position
+            return p.x >= 0 && p.x <= root.width && p.y >= 0 && p.y <= root.height
+        } catch (e) {
+            return false
+        }
+    }
+
     function dockScaleFor(cell) {
-        if (!root._dockMagnify || root.dockHoverX < 0 || !cell)
-            return 1
-        const cx = cell.x + cell.width / 2
-        const dist = Math.abs(root.dockHoverX - cx)
-        const r = root._dockRadius
-        if (dist >= r)
-            return 1
-        const t = Math.cos((dist / r) * Math.PI / 2)
-        return 1 + (root._dockMax - 1) * t
+        return DockFx.neighborMag(bar, root.dockHoverX, cell, root.dockPointerInPill(), false)
     }
 
     radius: bar.pillRadius
@@ -286,20 +279,38 @@ Rectangle {
         root.bumpToplevels();
     }
 
+    HoverHandler {
+        id: dockLeaveGuard
+        enabled: root._dockMagnify
+        onHoveredChanged: {
+            if (!hovered)
+                root.dockHoverX = -1
+        }
+        onPointChanged: {
+            const p = point.position
+            if (!hovered || p.x < 0 || p.x > root.width || p.y < 0 || p.y > root.height) {
+                root.dockHoverX = -1
+                return
+            }
+            root.dockHoverX = root.mapToItem(appsRow, p.x, p.y).x
+        }
+    }
+
+    // Scaled last-icon hit boxes can miss the leave event; poll the unscaled pill.
+    Timer {
+        interval: 50
+        running: root._dockMagnify && root.dockHoverX >= 0
+        repeat: true
+        onTriggered: {
+            if (!root.dockPointerInPill())
+                root.dockHoverX = -1
+        }
+    }
+
     Row {
         id: appsRow
         anchors.centerIn: parent
         spacing: root._gap
-
-        HoverHandler {
-            id: dockHover
-            enabled: root._dockMagnify
-            onPointChanged: root.dockHoverX = point.position.x
-            onHoveredChanged: {
-                if (!hovered)
-                    root.dockHoverX = -1
-            }
-        }
 
         Repeater {
             model: root.appsModel
@@ -312,41 +323,25 @@ Rectangle {
 
                 readonly property bool isRunning: root.entryIsRunning(modelData, root.toplevelTick)
                 readonly property bool isFocused: root.entryIsFocused(modelData, root.toplevelTick)
-                property real jumpY: 0
-                property real mag: root.dockScaleFor(dockCell)
-                z: Math.round((mag - 1) * 24)
-
-                Behavior on mag {
-                    NumberAnimation { duration: 90; easing.type: Easing.OutQuad }
+                DockFace {
+                    id: dockFx
+                    bar: root.bar
+                    host: dockCell
+                    hovered: root.dockPointerInPill()
+                    useNeighbor: true
+                    neighborScale: root.dockScaleFor(dockCell)
+                    respectScope: false
                 }
-
+                z: Math.round((dockFx.mag - 1) * 24)
                 transform: [
                     Scale {
-                        xScale: dockCell.mag
-                        yScale: dockCell.mag
+                        xScale: dockFx.mag
+                        yScale: dockFx.mag
                         origin.x: dockCell.width / 2
-                        origin.y: root._dockGrowUp ? dockCell.height : 0
+                        origin.y: dockFx.growUp ? dockCell.height : 0
                     },
-                    Translate { y: dockCell.jumpY }
+                    Translate { y: dockFx.jumpY }
                 ]
-
-                SequentialAnimation {
-                    id: jumpAnim
-                    NumberAnimation {
-                        target: dockCell
-                        property: "jumpY"
-                        to: root._dockGrowUp ? -root._dockJumpPx : root._dockJumpPx
-                        duration: 90
-                        easing.type: Easing.OutQuad
-                    }
-                    NumberAnimation {
-                        target: dockCell
-                        property: "jumpY"
-                        to: 0
-                        duration: 220
-                        easing.type: Easing.OutBounce
-                    }
-                }
 
                 // Keep cells square so icons never squash into each other.
                 // Extra 2px vs the old +8 leaves a gap for the thicker running dash.
@@ -447,15 +442,18 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        if (root._dockJump)
-                            jumpAnim.restart()
+                        dockFx.jump()
                         root.launchEntry(modelData)
                     }
                     onPositionChanged: (mouse) => {
-                        if (!root._dockMagnify)
+                        if (!root._dockMagnify || !root.dockPointerInPill())
                             return
                         const p = mapToItem(appsRow, mouse.x, mouse.y)
                         root.dockHoverX = p.x
+                    }
+                    onContainsMouseChanged: {
+                        if (!containsMouse && !root.dockPointerInPill())
+                            root.dockHoverX = -1
                     }
 
                     BarToolTip {

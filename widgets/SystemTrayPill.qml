@@ -3,6 +3,8 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
+import "../components"
+import "../components/dockFx.js" as DockFx
 
 // =============================================================================
 // SystemTrayPill.qml — System tray with styled menus
@@ -55,7 +57,50 @@ Rectangle {
     color: bar.pillBg
     border.width: bar.controlBorderWidth
     border.color: bar.pillBorder
-    clip: true
+    clip: false
+    property real dockHoverX: -1
+
+    HoverHandler {
+        id: dockLeaveGuard
+        enabled: {
+            void bar.dockEffect
+            void bar.dockScope
+            return bar && typeof bar.dockMagnifyOn === "function" && bar.dockMagnifyOn()
+                && typeof bar.dockScopeAll === "function" && bar.dockScopeAll()
+        }
+        onHoveredChanged: {
+            if (!hovered)
+                root.dockHoverX = -1
+        }
+        onPointChanged: {
+            const p = point.position
+            if (!hovered || p.x < 0 || p.x > root.width || p.y < 0 || p.y > root.height) {
+                root.dockHoverX = -1
+                return
+            }
+            root.dockHoverX = root.mapToItem(trayIconsRow, p.x, p.y).x
+        }
+    }
+    Timer {
+        interval: 50
+        running: dockLeaveGuard.enabled && root.dockHoverX >= 0
+        repeat: true
+        onTriggered: {
+            if (!root.dockPointerInPill())
+                root.dockHoverX = -1
+        }
+    }
+
+    function dockPointerInPill() {
+        if (!dockLeaveGuard.hovered)
+            return false
+        try {
+            const p = dockLeaveGuard.point.position
+            return p.x >= 0 && p.x <= root.width && p.y >= 0 && p.y <= root.height
+        } catch (e) {
+            return false
+        }
+    }
 
     Item {
         id: trayContent
@@ -80,6 +125,25 @@ Rectangle {
                     color: trayIconMa.containsMouse ? bar.iconHoverBg : "transparent"
                     border.width: trayIconMa.containsMouse ? bar.controlBorderWidth : 0
                     border.color: trayIconMa.containsMouse ? bar.accent : "transparent"
+                    clip: false
+                    DockFace {
+                        id: dockFx
+                        bar: root.bar
+                        host: trayIconItem
+                        hovered: root.dockPointerInPill()
+                        useNeighbor: true
+                        neighborScale: DockFx.neighborMag(root.bar, root.dockHoverX, trayIconItem, root.dockPointerInPill(), true)
+                    }
+                    z: Math.round((dockFx.mag - 1) * 24)
+                    transform: [
+                        Scale {
+                            xScale: dockFx.mag
+                            yScale: dockFx.mag
+                            origin.x: trayIconItem.width / 2
+                            origin.y: dockFx.growUp ? trayIconItem.height : 0
+                        },
+                        Translate { y: dockFx.jumpY }
+                    }
 
                     Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
                     Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
@@ -98,6 +162,7 @@ Rectangle {
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
+                            dockFx.jump()
                             if (!modelData) return
                             // Always use our styled menu when available (native Blueman menus look wrong on Hyprland)
                             if (modelData.hasMenu) {
@@ -105,6 +170,16 @@ Rectangle {
                             } else {
                                 modelData.activate()
                             }
+                        }
+                        onPositionChanged: (mouse) => {
+                            if (!dockLeaveGuard.enabled || !root.dockPointerInPill())
+                                return
+                            const p = mapToItem(trayIconsRow, mouse.x, mouse.y)
+                            root.dockHoverX = p.x
+                        }
+                        onContainsMouseChanged: {
+                            if (!containsMouse && !root.dockPointerInPill())
+                                root.dockHoverX = -1
                         }
                     }
                 }

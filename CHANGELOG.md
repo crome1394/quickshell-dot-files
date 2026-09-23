@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Dock hover on all icons + last-icon unstick
+
+- Options → **Dock → Apply to**: **Quick Launch** or **All icons** (default). Magnify/jump apply to launcher, tray, workspaces, FreshRSS, net/BT chips, bell, kill, inspector, config, and power. CPU/Memory/GPU and the volume meter stay still.
+- Quick Launch no longer leaves the last icon magnified after the pointer leaves the pill (hover is gated on the unscaled row).
+
 ## 2026-09 — GNOME overlay standard offset
 
 - Overlay masks use the **non-DST** offset (`min(January, July)`), matching `cc-timezone-map.c`. Sydney (AEST +10) no longer lights UTC+11 Siberia.

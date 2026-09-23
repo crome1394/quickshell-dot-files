@@ -8499,10 +8499,56 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Mac-style hover on Quick Launch icons only (not stats, volume, or workspaces)."
+                                    text: "Mac-style hover. Stats and volume meters stay still. All icons includes launcher, tray, workspaces, FreshRSS, net/BT, bell, kill, inspector, config, and power."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
+                                }
+                                Text {
+                                    text: "Apply to"
+                                    color: bar.subtext
+                                    font.pixelSize: 11
+                                    font.family: bar.fontFamily
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "quicklaunch", label: "Quick Launch" },
+                                            { id: "icons", label: "All icons" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: String(bar.dockScope || "icons") === modelData.id
+                                            width: Math.max(72, dockScLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, dockScMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, dockScMa.containsMouse)
+                                            Text {
+                                                id: dockScLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, dockScMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: dockScMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setDockScope === "function")
+                                                        bar.setDockScope(modelData.id)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 Text {
                                     text: "Effect"

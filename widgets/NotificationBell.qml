@@ -34,6 +34,22 @@ Rectangle {
     Layout.preferredWidth: Math.round(42 * _ws)
     Layout.preferredHeight: bar.pillHeight
     Layout.alignment: Qt.AlignVCenter
+    clip: false
+    DockFace {
+        id: dockFx
+        bar: root.bar
+        host: root
+        hovered: bellMouse.containsMouse
+    }
+    transform: [
+        Scale {
+            xScale: dockFx.mag
+            yScale: dockFx.mag
+            origin.x: root.width / 2
+            origin.y: dockFx.growUp ? root.height : 0
+        },
+        Translate { y: dockFx.jumpY }
+    ]
 
     radius: bar.pillRadius
     color: dnd
@@ -474,6 +490,7 @@ Rectangle {
         }
 
         onClicked: (mouse) => {
+            dockFx.jump()
             if (mouse.button === Qt.RightButton) {
                 root.toggleDoNotDisturb()
             } else {
