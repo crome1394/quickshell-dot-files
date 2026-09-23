@@ -1444,6 +1444,7 @@ Item {
                 out.push({
                     id: e.id,
                     zone: e.zone,
+                    index: i,
                     label: div ? ("|  Divider " + String(e.id).replace("divider", "")) : (labels[e.id] || e.id),
                     on: root.isWidgetOn(e.id),
                     divider: div
@@ -1454,12 +1455,14 @@ Item {
                 out.push({
                     id: cat[i].id,
                     zone: (bar.barLayoutMode === "dual") ? "bottom" : "right",
+                    index: i,
                     label: cat[i].label,
                     on: root.isWidgetOn(cat[i].id)
                 })
             }
         }
-        // Sort: classic L → C → R, dual T → B, then alphabetical by label
+        // Zone groups (T→B or L→C→R), then live bar order inside the zone
+        // (same sequence as applyWidgetLayout — not A–Z).
         out.sort(function (a, b) {
             const dual = bar.barLayoutMode === "dual"
             const zoneOrder = dual
@@ -1469,13 +1472,9 @@ Item {
             const zb = zoneOrder[b.zone] !== undefined ? zoneOrder[b.zone] : 9
             if (za !== zb)
                 return za - zb
-            const la = String(a.label || a.id).toLowerCase()
-            const lb = String(b.label || b.id).toLowerCase()
-            if (la < lb)
-                return -1
-            if (la > lb)
-                return 1
-            return 0
+            const ia = (a.index !== undefined) ? a.index : 0
+            const ib = (b.index !== undefined) ? b.index : 0
+            return ia - ib
         })
         return out
     }
@@ -4930,8 +4929,8 @@ Item {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
                                     text: (bar.barLayoutMode === "dual")
-                                          ? "T→B then A–Z · ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
-                                          : "L→C→R then A–Z · ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
+                                          ? "T then B, in bar order · ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
+                                          : "L then C then R, in bar order · ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
