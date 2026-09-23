@@ -1538,6 +1538,30 @@ Item {
         return out
     }
 
+    function widgetZoneSections() {
+        void root.menuTick
+        if (bar && bar.barLayoutMode === "dual")
+            return [
+                { id: "top", title: "Top bar", hint: "Upper strip, left to right" },
+                { id: "bottom", title: "Bottom bar", hint: "Lower strip, left to right" }
+            ]
+        return [
+            { id: "left", title: "Left", hint: "Left side of the bar, left to right" },
+            { id: "center", title: "Center", hint: "Middle of the bar, left to right" },
+            { id: "right", title: "Right", hint: "Right side of the bar, left to right" }
+        ]
+    }
+
+    function widgetEntriesInZone(zone) {
+        const all = root.widgetEntries()
+        const out = []
+        for (let i = 0; i < all.length; i++) {
+            if (all[i].zone === zone)
+                out.push(all[i])
+        }
+        return out
+    }
+
     function zoneChoices() {
         void root.menuTick
         if (bar && bar.barLayoutMode === "dual")
@@ -4988,8 +5012,8 @@ Item {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
                                     text: (bar.barLayoutMode === "dual")
-                                          ? "T then B, in bar order · ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
-                                          : "L then C then R, in bar order · ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
+                                          ? "Grouped by bar. ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
+                                          : "Grouped by side. ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
@@ -5025,11 +5049,11 @@ Item {
                                     ColumnLayout {
                                         id: widgetsBodyCol
                                         width: Math.max(1, widgetsBodyFlick.width - root.bodyScrollGutter)
-                                        spacing: 7
+                                        spacing: 14
 
-                                Repeater {
-                                    model: root.widgetEntries()
-                                    delegate: Rectangle {
+                                Component {
+                                    id: widgetRowCard
+                                    Rectangle {
                                         id: widgetRow
                                         required property var modelData
                                         readonly property string widgetId: modelData.id
@@ -5302,6 +5326,107 @@ Item {
                                                     text: "%"
                                                     color: bar.subtext
                                                     font.pixelSize: 10
+                                                    font.family: bar.fontFamily
+                                                }
+                                            }
+                                        }
+                                    }
+                                } // widgetRowCard
+
+                                Repeater {
+                                    model: root.widgetZoneSections()
+                                    delegate: ColumnLayout {
+                                        required property var modelData
+                                        required property int index
+                                        readonly property var zoneWidgets: {
+                                            void root.menuTick
+                                            return root.widgetEntriesInZone(modelData.id)
+                                        }
+                                        Layout.fillWidth: true
+                                        spacing: 8
+
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 10
+
+                                            Rectangle {
+                                                Layout.preferredWidth: 3
+                                                Layout.preferredHeight: 28
+                                                radius: 2
+                                                color: bar.accent
+                                            }
+
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 1
+                                                Text {
+                                                    text: modelData.title
+                                                    color: bar.text
+                                                    font.pixelSize: 13
+                                                    font.bold: true
+                                                    font.family: bar.fontFamily
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: modelData.hint
+                                                    color: bar.subtext
+                                                    font.pixelSize: 10
+                                                    font.family: bar.fontFamily
+                                                    wrapMode: Text.WordWrap
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                Layout.preferredHeight: 22
+                                                Layout.preferredWidth: Math.max(28, zoneCountLbl.implicitWidth + 12)
+                                                radius: 11
+                                                color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.14)
+                                                border.width: 1
+                                                border.color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.28)
+                                                Text {
+                                                    id: zoneCountLbl
+                                                    anchors.centerIn: parent
+                                                    text: String(zoneWidgets.length)
+                                                    color: bar.accent
+                                                    font.pixelSize: 11
+                                                    font.bold: true
+                                                    font.family: bar.fontFamily
+                                                }
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            implicitHeight: zoneInner.implicitHeight + 16
+                                            radius: 10
+                                            color: Qt.rgba(1, 1, 1, 0.035)
+                                            border.width: 1
+                                            border.color: Qt.rgba(1, 1, 1, 0.08)
+
+                                            ColumnLayout {
+                                                id: zoneInner
+                                                x: 8
+                                                y: 8
+                                                width: parent.width - 16
+                                                spacing: 6
+
+                                                Repeater {
+                                                    model: zoneWidgets
+                                                    delegate: widgetRowCard
+                                                }
+
+                                                Text {
+                                                    visible: zoneWidgets.length === 0
+                                                    Layout.fillWidth: true
+                                                    Layout.preferredHeight: 36
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    wrapMode: Text.WordWrap
+                                                    text: (bar.barLayoutMode === "dual")
+                                                          ? "Nothing here yet — use T/B on a widget to move it."
+                                                          : "Nothing here yet — use L/C/R on a widget to move it."
+                                                    color: bar.subtext
+                                                    font.pixelSize: 11
                                                     font.family: bar.fontFamily
                                                 }
                                             }

@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Widgets panel Top / Bottom sections
+
+- **Widgets** lists dual-layout pills in **Top bar** and **Bottom bar** cards (classic: Left / Center / Right). Empty sections stay visible so you can move a widget in with T/B.
+
 ## 2026-09 — Per-metric stats colors, running-dot color, saved setups
 
 - **Themes → Theming:** **Running app dot** (`qlRunningDot`, default vivid cyan `#00F5FF`). Same swatch on **Options → Dock**.
