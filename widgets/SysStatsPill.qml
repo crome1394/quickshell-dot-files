@@ -444,7 +444,7 @@ Rectangle {
                         width: Math.max(2, Math.min(parent.width, parent.width * (root.cpuUtil / 100)))
                         height: root._gaugeH
                         radius: bar.statGaugeRadius
-                        color: bar.statUtilColor(root.cpuUtil)
+                        color: bar.statUtilColor(root.cpuUtil, "cpu")
 
                         Behavior on width {
                             NumberAnimation { duration: 110; easing.type: Easing.OutQuad }
@@ -461,7 +461,7 @@ Rectangle {
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
-                        color: bar.statUtilColor(root.cpuUtil)
+                        color: bar.statUtilColor(root.cpuUtil, "cpu")
                     }
                     Text {
                         text: "|"
@@ -564,7 +564,7 @@ Rectangle {
                         width: Math.max(2, Math.min(parent.width, parent.width * (root.memUtil / 100)))
                         height: root._gaugeH
                         radius: bar.statGaugeRadius
-                        color: bar.statUtilColor(root.memUtil)
+                        color: bar.statUtilColor(root.memUtil, "mem")
 
                         Behavior on width {
                             NumberAnimation { duration: 110; easing.type: Easing.OutQuad }
@@ -581,7 +581,7 @@ Rectangle {
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
-                        color: bar.statUtilColor(root.memUtil)
+                        color: bar.statUtilColor(root.memUtil, "mem")
                     }
                     Text {
                         text: "|"
@@ -683,7 +683,7 @@ Rectangle {
                         width: Math.max(2, Math.min(parent.width, parent.width * (root.gpuUtil / 100)))
                         height: root._gaugeH
                         radius: bar.statGaugeRadius
-                        color: bar.statUtilColor(root.gpuUtil)
+                        color: bar.statUtilColor(root.gpuUtil, "gpu")
 
                         Behavior on width {
                             NumberAnimation { duration: 110; easing.type: Easing.OutQuad }
@@ -700,7 +700,7 @@ Rectangle {
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
-                        color: bar.statUtilColor(root.gpuUtil)
+                        color: bar.statUtilColor(root.gpuUtil, "gpu")
                     }
                     Text {
                         text: "|"
@@ -874,7 +874,7 @@ Rectangle {
                     showGraphs: root.graphsEffective(root.cpuGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
-                    accentColor: bar.accent
+                    accentColor: bar.statCpuTier2
                     surfaceColor: bar.surface
                     overlayColor: bar.overlay
                 }
@@ -1042,12 +1042,12 @@ Rectangle {
                     showGraphs: root.graphsEffective(root.memGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
-                    accentColor: bar.accent
+                    accentColor: bar.statMemTier2
                     surfaceColor: bar.surface
                     overlayColor: bar.overlay
-                    gaugeLowColor: bar.gaugeLow
-                    gaugeMidColor: bar.gaugeMid
-                    gaugeHighColor: bar.gaugeHigh
+                    gaugeLowColor: bar.statMemTier1
+                    gaugeMidColor: bar.statMemTier2
+                    gaugeHighColor: bar.statMemTier4
                 }
             }
         }
@@ -1213,12 +1213,12 @@ Rectangle {
                     showGraphs: root.graphsEffective(root.gpuGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
-                    accentColor: bar.accent
+                    accentColor: bar.statGpuTier2
                     surfaceColor: bar.surface
                     overlayColor: bar.overlay
-                    gaugeLowColor: bar.gaugeLow
-                    gaugeMidColor: bar.gaugeMid
-                    gaugeHighColor: bar.gaugeHigh
+                    gaugeLowColor: bar.statGpuTier1
+                    gaugeMidColor: bar.statGpuTier2
+                    gaugeHighColor: bar.statGpuTier4
                 }
             }
         }

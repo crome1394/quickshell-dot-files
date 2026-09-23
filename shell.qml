@@ -359,7 +359,11 @@ ShellRoot {
             themeColorsFile.reload()
             bar.applyUiScale()
             Qt.callLater(function() { bar.applyWidgetLayout() })
-            Qt.callLater(function() { bar.refreshThemeSavedList() })
+            Qt.callLater(function() {
+                bar.refreshThemeSavedList()
+                if (typeof bar.refreshSetupSavedList === "function")
+                    bar.refreshSetupSavedList()
+            })
 
             // Start optional startup focus only after config is applied (avoids
             // racing the property default before cfg loads). No-op when 0.
@@ -533,6 +537,85 @@ ShellRoot {
             onLoaded: {
                 if (bar._barLayoutWriteGuard)
                     return
+                bar.applyBarLayoutFromAdapter()
+            }
+            onLoadFailed: {
+                // No saved preference yet — keep Config / current value.
+            }
+            Io.JsonAdapter {
+                id: barLayoutAdapter
+                property string barPosition: "top"
+                property string barLayoutMode: "classic"
+                property real uiScaleManual: 0
+                property int barEdgeMargin: 0
+                property real barSizeScale: 1.0
+                property bool flushWindowsToBar: false
+                property int tooltipDelay: 1550
+                property string tooltipAlignJson: ""
+                property string clockFormat: ""
+                property string clockFont: ""
+                property real clockFontScale: 1.0
+                property string widgetLayoutJson: ""
+                property string widgetLayoutClassicJson: ""
+                property string widgetLayoutDualJson: ""
+                property string quickLaunchAppsJson: ""
+                property string wallpaperDir: ""
+                property string wallpaperCurrent: ""
+                property int wallpaperTileSize: 148
+                property string widgetScalesJson: ""
+                property bool showLauncherPill: true
+                property bool showQuickLaunchPill: true
+                property bool showMediaWidget: false
+                property bool showWorkspacesPill: true
+                property bool showStatsWidget: true
+                property bool showTrayPill: true
+                property bool showNetworkPill: true
+                property bool showBluetoothPill: true
+                property bool showAudioPill: true
+                property bool showClockPill: true
+                property bool showNotificationPill: true
+                property bool showPowerPill: true
+                property bool showKillTargetPill: false
+                property bool showFreshRssPill: true
+                property bool showHyprInspPill: false
+                property bool showControlBarPill: true
+                property bool hasColorPresetPrefs: false
+                property bool showColorPresets: true
+                property bool hasWorkspacePrefs: false
+                property bool showMagicWorkspacePill: true
+                property int  wsMinimumShown: 3
+                property bool wsShowOnlyActive: false
+                property int  wsStartupWorkspace: 0
+                property bool wsStartupCloseMagic: false
+                property bool hasStatPrefs: false
+                property bool showStatCpu: true
+                property bool showStatMem: true
+                property bool showStatGpu: true
+                property bool showStatGauges: true
+                property bool showStatMenuGraphs: true
+                property bool showNetTrafficGraph: true
+                property bool showNetworkFullIp: false
+                property bool showNetworkLastOctet: true
+                property bool showNetworkDeviceName: false
+                property bool hasAudioMenuPrefs: false
+                property bool showEchoCancelInMenu: true
+                property bool showAudioSummary: true
+                property bool showAudioDefaults: true
+                property bool showAudioLevelMeters: true
+                property bool audioSummaryExpanded: true
+                property bool audioDefaultsExpanded: true
+                property bool hasFreshRssPrefs: false
+                property bool freshRssFiltersExpanded: true
+                property bool hasDockPrefs: false
+                property string dockEffect: "both"
+                property real dockMaxScale: 1.28
+                property int dockRadius: 72
+                property int dockJumpPx: 8
+                property string dockScope: "icons"
+            }
+        }
+
+        function applyBarLayoutFromAdapter() {
                 const p = barLayoutAdapter.barPosition
                 if (p === "top" || p === "bottom")
                     bar.barPosition = p
@@ -652,85 +735,6 @@ ShellRoot {
                 }
                 bar.applyUiScale()
                 Qt.callLater(function() { bar.applyWidgetLayout() })
-            }
-            onLoadFailed: {
-                // No saved preference yet — keep Config / current value.
-            }
-            Io.JsonAdapter {
-                id: barLayoutAdapter
-                property string barPosition: "top"
-                property string barLayoutMode: "classic"
-                property real uiScaleManual: 0
-                property int barEdgeMargin: 0
-                property real barSizeScale: 1.0
-                property bool flushWindowsToBar: false
-                property int tooltipDelay: 1550
-                property string tooltipAlignJson: ""
-                property string clockFormat: ""
-                property string clockFont: ""
-                property real clockFontScale: 1.0
-                property string widgetLayoutJson: ""
-                property string widgetLayoutClassicJson: ""
-                property string widgetLayoutDualJson: ""
-                property string quickLaunchAppsJson: ""
-                property string wallpaperDir: ""
-                property string wallpaperCurrent: ""
-                property int wallpaperTileSize: 148
-                property string widgetScalesJson: ""
-                property bool showLauncherPill: true
-                property bool showQuickLaunchPill: true
-                property bool showMediaWidget: false
-                property bool showWorkspacesPill: true
-                property bool showStatsWidget: true
-                property bool showTrayPill: true
-                property bool showNetworkPill: true
-                property bool showBluetoothPill: true
-                property bool showAudioPill: true
-                property bool showClockPill: true
-                property bool showNotificationPill: true
-                property bool showPowerPill: true
-                property bool showKillTargetPill: false
-                property bool showFreshRssPill: true
-                property bool showHyprInspPill: false
-                property bool showControlBarPill: true
-                // Colors panel presets section (BarControlBar → Options)
-                property bool hasColorPresetPrefs: false
-                property bool showColorPresets: true
-                // Workspace Options (BarControlBar → Options)
-                property bool hasWorkspacePrefs: false
-                property bool showMagicWorkspacePill: true
-                property int  wsMinimumShown: 3
-                property bool wsShowOnlyActive: false
-                property int  wsStartupWorkspace: 0
-                property bool wsStartupCloseMagic: false
-                // Sys stats section visibility
-                property bool hasStatPrefs: false
-                property bool showStatCpu: true
-                property bool showStatMem: true
-                property bool showStatGpu: true
-                property bool showStatGauges: true
-                property bool showStatMenuGraphs: true
-                property bool showNetTrafficGraph: true
-                property bool showNetworkFullIp: false
-                property bool showNetworkLastOctet: true
-                property bool showNetworkDeviceName: false
-                // Audio popup / control-bar Audio panel sections
-                property bool hasAudioMenuPrefs: false
-                property bool showEchoCancelInMenu: true
-                property bool showAudioSummary: true
-                property bool showAudioDefaults: true
-                property bool showAudioLevelMeters: true
-                property bool audioSummaryExpanded: true
-                property bool audioDefaultsExpanded: true
-                property bool hasFreshRssPrefs: false
-                property bool freshRssFiltersExpanded: true
-                property bool hasDockPrefs: false
-                property string dockEffect: "both"
-                property real dockMaxScale: 1.28
-                property int dockRadius: 72
-                property int dockJumpPx: 8
-                property string dockScope: "icons"
-            }
         }
 
         // =====================================================================
@@ -1076,6 +1080,173 @@ ShellRoot {
                 id: themeDeleteStderr
                 onStreamFinished: {
                     const err = (themeDeleteStderr.text || "").trim()
+                    if (err.length)
+                        bar.themeStatus = err
+                }
+            }
+        }
+
+        function refreshSetupSavedList() {
+            setupListProc.running = false
+            setupListProc.command = [bar.profileIoScript, "list"]
+            setupListProc.running = true
+        }
+
+        Io.Process {
+            id: setupListProc
+            running: false
+            stdout: Io.StdioCollector {
+                id: setupListStdout
+                onStreamFinished: {
+                    try {
+                        const raw = (setupListStdout.text || "").trim()
+                        if (!raw.length) {
+                            bar.setupSavedList = []
+                            return
+                        }
+                        const arr = JSON.parse(raw)
+                        bar.setupSavedList = Array.isArray(arr) ? arr : []
+                    } catch (e) {
+                        bar.setupSavedList = []
+                    }
+                }
+            }
+        }
+
+        property string _setupExportName: ""
+        property string _setupImportTarget: ""
+        property string _setupDeleteTarget: ""
+
+        function saveSetup(name) {
+            const n = (name || "").trim()
+            if (!n.length) {
+                bar.themeStatus = "Enter a name for the setup"
+                return false
+            }
+            bar.persistBarLayout()
+            bar.persistThemeColors()
+            bar._setupExportName = n
+            setupExportProc.running = false
+            setupExportProc.command = [bar.profileIoScript, "export", n]
+            setupExportProc.running = true
+            bar.themeStatus = "Saving setup…"
+            return true
+        }
+
+        Io.Process {
+            id: setupExportProc
+            running: false
+            stdout: Io.StdioCollector {
+                id: setupExportStdout
+                onStreamFinished: {
+                    const path = (setupExportStdout.text || "").trim()
+                    if (path.length)
+                        bar.themeStatus = "Saved setup: " + (bar._setupExportName || path)
+                    else
+                        bar.themeStatus = "Setup saved"
+                    bar.refreshSetupSavedList()
+                }
+            }
+            stderr: Io.StdioCollector {
+                id: setupExportStderr
+                onStreamFinished: {
+                    const err = (setupExportStderr.text || "").trim()
+                    if (err.length)
+                        bar.themeStatus = err
+                }
+            }
+        }
+
+        function applyLayoutSnapshot(layout) {
+            if (!layout || typeof layout !== "object")
+                return false
+            const keys = Object.keys(layout)
+            for (let i = 0; i < keys.length; i++) {
+                const k = keys[i]
+                try {
+                    if (barLayoutAdapter[k] !== undefined)
+                        barLayoutAdapter[k] = layout[k]
+                } catch (e) {}
+            }
+            bar.applyBarLayoutFromAdapter()
+            bar.persistBarLayout()
+            return true
+        }
+
+        function loadSetup(nameOrPath) {
+            const t = (nameOrPath || "").trim()
+            if (!t.length) {
+                bar.themeStatus = "Pick a setup to load"
+                return false
+            }
+            bar._setupImportTarget = t
+            setupImportProc.running = false
+            setupImportProc.command = [bar.profileIoScript, "import", t]
+            setupImportProc.running = true
+            return true
+        }
+
+        Io.Process {
+            id: setupImportProc
+            running: false
+            stdout: Io.StdioCollector {
+                id: setupImportStdout
+                onStreamFinished: {
+                    const raw = (setupImportStdout.text || "").trim()
+                    if (!raw.length) {
+                        bar.themeStatus = "Load setup failed (empty)"
+                        return
+                    }
+                    try {
+                        const obj = JSON.parse(raw)
+                        if (obj.theme)
+                            bar.applyThemeObject(obj.theme)
+                        if (obj.layout)
+                            bar.applyLayoutSnapshot(obj.layout)
+                        bar.themeStatus = "Loaded setup " + (obj.name || bar._setupImportTarget)
+                    } catch (e) {
+                        bar.themeStatus = "Load setup failed (bad JSON)"
+                    }
+                }
+            }
+            stderr: Io.StdioCollector {
+                id: setupImportStderr
+                onStreamFinished: {
+                    const err = (setupImportStderr.text || "").trim()
+                    if (err.length)
+                        bar.themeStatus = err
+                }
+            }
+        }
+
+        function deleteSetup(nameOrPath) {
+            const t = (nameOrPath || "").trim()
+            if (!t.length) {
+                bar.themeStatus = "Nothing to remove"
+                return false
+            }
+            bar._setupDeleteTarget = t
+            setupDeleteProc.running = false
+            setupDeleteProc.command = [bar.profileIoScript, "delete", t]
+            setupDeleteProc.running = true
+            return true
+        }
+
+        Io.Process {
+            id: setupDeleteProc
+            running: false
+            stdout: Io.StdioCollector {
+                id: setupDeleteStdout
+                onStreamFinished: {
+                    const msg = (setupDeleteStdout.text || "").trim()
+                    bar.themeStatus = msg.length ? msg.replace(/^deleted /, "Removed ") : "Setup removed"
+                    bar.refreshSetupSavedList()
+                }
+            }
+            stderr: Io.StdioCollector {
+                id: setupDeleteStderr
+                onStreamFinished: {
+                    const err = (setupDeleteStderr.text || "").trim()
                     if (err.length)
                         bar.themeStatus = err
                 }
@@ -2156,11 +2327,16 @@ ShellRoot {
         readonly property alias themeVolumeTierUiRows: cfg.themeVolumeTierUiRows
         readonly property alias themeMicVolumeTierUiRows: cfg.themeMicVolumeTierUiRows
         readonly property alias themeStatUtilTierUiRows: cfg.themeStatUtilTierUiRows
+        readonly property alias themeStatCpuTierUiRows: cfg.themeStatCpuTierUiRows
+        readonly property alias themeStatMemTierUiRows: cfg.themeStatMemTierUiRows
+        readonly property alias themeStatGpuTierUiRows: cfg.themeStatGpuTierUiRows
         readonly property alias themeStatTempUiRows: cfg.themeStatTempUiRows
         readonly property alias themeEditableNumbers: cfg.themeEditableNumbers
         readonly property string themeIoScript: "/home/crome/.config/quickshell/scripts/theme-io.sh"
+        readonly property string profileIoScript: "/home/crome/.config/quickshell/scripts/profile-io.sh"
         property string themeStatus: ""
         property var themeSavedList: []
+        property var setupSavedList: []
         property bool _themeWriteGuard: false
         property bool _themePersistScheduled: false
 
@@ -2697,12 +2873,25 @@ ShellRoot {
         property alias statUtilTier2: cfg.statUtilTier2
         property alias statUtilTier3: cfg.statUtilTier3
         property alias statUtilTier4: cfg.statUtilTier4
+        property alias statCpuTier1: cfg.statCpuTier1
+        property alias statCpuTier2: cfg.statCpuTier2
+        property alias statCpuTier3: cfg.statCpuTier3
+        property alias statCpuTier4: cfg.statCpuTier4
+        property alias statMemTier1: cfg.statMemTier1
+        property alias statMemTier2: cfg.statMemTier2
+        property alias statMemTier3: cfg.statMemTier3
+        property alias statMemTier4: cfg.statMemTier4
+        property alias statGpuTier1: cfg.statGpuTier1
+        property alias statGpuTier2: cfg.statGpuTier2
+        property alias statGpuTier3: cfg.statGpuTier3
+        property alias statGpuTier4: cfg.statGpuTier4
+        property alias qlRunningDot: cfg.qlRunningDot
         property alias statUtilThreshold1: cfg.statUtilThreshold1
         property alias statUtilThreshold2: cfg.statUtilThreshold2
         property alias statUtilThreshold3: cfg.statUtilThreshold3
         property alias statTempWarmAt: cfg.statTempWarmAt
         property alias statTempHotAt: cfg.statTempHotAt
-        function statUtilColor(util) { return cfg.statUtilColor(util) }
+        function statUtilColor(util, metric) { return cfg.statUtilColor(util, metric) }
         function statTempColor(temp) { return cfg.statTempColor(temp) }
 
         // --- Cava visualizer

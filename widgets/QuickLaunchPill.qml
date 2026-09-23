@@ -400,9 +400,10 @@ Rectangle {
                     width: dockCell._dot
                     height: dockCell._dot
                     radius: dockCell._dot / 2
-                    color: isFocused
-                           ? bar.accent
-                           : Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.72)
+                    color: {
+                        const c = (bar.qlRunningDot !== undefined) ? bar.qlRunningDot : bar.accent
+                        return isFocused ? c : Qt.rgba(c.r, c.g, c.b, 0.72)
+                    }
                     Behavior on color {
                         ColorAnimation {
                             duration: 140

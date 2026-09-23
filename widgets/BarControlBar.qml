@@ -311,7 +311,10 @@ Item {
                 return rows[i].label
         }
         const extra = root.volumeTierRows().concat(root.micVolumeTierRows())
-            .concat(root.statUtilTierRows()).concat(root.statTempRows())
+            .concat(root.statUtilTierRows())
+            .concat(root.statCpuTierRows()).concat(root.statMemTierRows()).concat(root.statGpuTierRows())
+            .concat(root.statTempRows())
+            .concat([{ key: "qlRunningDot", label: "Running app dot" }])
         for (let j = 0; j < extra.length; j++) {
             if (extra[j].key === key)
                 return extra[j].label
@@ -571,6 +574,8 @@ Item {
             root.colorsTick++
             if (bar && typeof bar.refreshThemeSavedList === "function")
                 bar.refreshThemeSavedList()
+            if (bar && typeof bar.refreshSetupSavedList === "function")
+                bar.refreshSetupSavedList()
         }
         root.menuTick++
         root.resetPanelScroll()
@@ -1080,6 +1085,57 @@ Item {
         ]
     }
 
+    function statCpuTierRows() {
+        if (bar && bar.themeStatCpuTierUiRows)
+            return bar.themeStatCpuTierUiRows
+        return [
+            { key: "statCpuTier1", label: "CPU low" },
+            { key: "statCpuTier2", label: "CPU mid" },
+            { key: "statCpuTier3", label: "CPU high" },
+            { key: "statCpuTier4", label: "CPU peak" }
+        ]
+    }
+
+    function statMemTierRows() {
+        if (bar && bar.themeStatMemTierUiRows)
+            return bar.themeStatMemTierUiRows
+        return [
+            { key: "statMemTier1", label: "Mem low" },
+            { key: "statMemTier2", label: "Mem mid" },
+            { key: "statMemTier3", label: "Mem high" },
+            { key: "statMemTier4", label: "Mem peak" }
+        ]
+    }
+
+    function statGpuTierRows() {
+        if (bar && bar.themeStatGpuTierUiRows)
+            return bar.themeStatGpuTierUiRows
+        return [
+            { key: "statGpuTier1", label: "GPU low" },
+            { key: "statGpuTier2", label: "GPU mid" },
+            { key: "statGpuTier3", label: "GPU high" },
+            { key: "statGpuTier4", label: "GPU peak" }
+        ]
+    }
+
+    function statMetricGroups() {
+        return [
+            { kind: "cpu", title: "CPU load", hint: "AMD-red family by default. Used on the CPU util bar and %." },
+            { kind: "mem", title: "Memory load", hint: "Cyan family by default. Used on the Memory util bar and %." },
+            { kind: "gpu", title: "GPU load", hint: "NVIDIA-green family by default. Used on the GPU util bar and %." }
+        ]
+    }
+
+    function statTierRowsFor(kind) {
+        if (kind === "cpu")
+            return root.statCpuTierRows()
+        if (kind === "mem")
+            return root.statMemTierRows()
+        if (kind === "gpu")
+            return root.statGpuTierRows()
+        return root.statUtilTierRows()
+    }
+
     function statTempRows() {
         if (bar && bar.themeStatTempUiRows)
             return bar.themeStatTempUiRows
@@ -1098,6 +1154,9 @@ Item {
             || key.indexOf("audioUtilThreshold") === 0
             || key.indexOf("audioMicUtilThreshold") === 0
             || key.indexOf("statUtilTier") === 0
+            || key.indexOf("statCpuTier") === 0
+            || key.indexOf("statMemTier") === 0
+            || key.indexOf("statGpuTier") === 0
             || key.indexOf("statUtilThreshold") === 0
             || key.indexOf("statTemp") === 0
     }
@@ -8504,6 +8563,60 @@ Item {
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
                                 }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 8
+                                        Text {
+                                            text: "Running-dot color"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                            Layout.fillWidth: true
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: 28
+                                            Layout.preferredHeight: 16
+                                            radius: 4
+                                            color: {
+                                                void root.colorsTick
+                                                void root.optionsTick
+                                                return root.themeColorFor("qlRunningDot")
+                                            }
+                                            border.width: 1
+                                            border.color: Qt.rgba(1, 1, 1, 0.25)
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    root.activeMenu = "colors"
+                                                    root.colorsTab = "theming"
+                                                    root.openColorPicker("qlRunningDot")
+                                                    root.colorsTick++
+                                                    root.scheduleReposition()
+                                                }
+                                            }
+                                        }
+                                        Text {
+                                            text: {
+                                                void root.colorsTick
+                                                return root.themeHexFor("qlRunningDot")
+                                            }
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            Layout.preferredWidth: root.optControlColW + 12
+                                        }
+                                    }
+                                }
                                 Text {
                                     text: "Apply to"
                                     color: bar.subtext
@@ -10763,7 +10876,7 @@ Item {
                                         }
                                     }
 
-                                    // ── Sys Stats (CPU / Memory / GPU util bars) ──
+                                    // ── Sys Stats (shared % cutoffs, per-metric colors) ──
                                     Text {
                                         text: "Sys Stats load"
                                         color: bar.text
@@ -10775,7 +10888,7 @@ Item {
                                     Text {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Utilization bar and % colors for CPU, Memory, and GPU on the Sys Stats pill."
+                                        text: "Shared % cutoffs. Each metric has its own color ramp (CPU AMD-red, Memory cyan, GPU NVIDIA-green by default)."
                                         color: bar.subtext
                                         font.pixelSize: (bar.popupHintSize !== undefined ? bar.popupHintSize : 11) + 1
                                         font.family: bar.fontFamily
@@ -10839,68 +10952,92 @@ Item {
                                         }
                                     }
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-                                        Repeater {
-                                            model: {
-                                                void root.colorsTick
-                                                return root.statUtilTierRows()
+                                    Repeater {
+                                        model: root.statMetricGroups()
+                                        delegate: ColumnLayout {
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            spacing: 4
+                                            Text {
+                                                text: modelData.title
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                                Layout.topMargin: 4
                                             }
-                                            delegate: Rectangle {
-                                                required property var modelData
+                                            Text {
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 40
-                                                radius: root.chipR
-                                                color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
-                                                border.width: 1
-                                                border.color: root.colorsPickerKey === modelData.key ? bar.accent : bar.dividerStrong
-                                                ColumnLayout {
-                                                    anchors.fill: parent
-                                                    anchors.margins: 6
-                                                    spacing: 2
-                                                    Text {
-                                                        Layout.fillWidth: true
-                                                        text: modelData.label
-                                                        color: bar.text
-                                                        font.pixelSize: 10
-                                                        font.family: bar.fontFamily
-                                                        elide: Text.ElideRight
+                                                wrapMode: Text.WordWrap
+                                                text: modelData.hint
+                                                color: bar.subtext
+                                                font.pixelSize: bar.popupHintSize
+                                                font.family: bar.fontFamily
+                                            }
+                                            RowLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 8
+                                                Repeater {
+                                                    model: {
+                                                        void root.colorsTick
+                                                        return root.statTierRowsFor(modelData.kind)
                                                     }
-                                                    RowLayout {
+                                                    delegate: Rectangle {
+                                                        required property var modelData
                                                         Layout.fillWidth: true
-                                                        spacing: 4
-                                                        Rectangle {
-                                                            Layout.preferredWidth: 22
-                                                            Layout.preferredHeight: 14
-                                                            radius: 3
-                                                            color: {
-                                                                void root.colorsTick
-                                                                return root.themeColorFor(modelData.key)
+                                                        Layout.preferredHeight: 40
+                                                        radius: root.chipR
+                                                        color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
+                                                        border.width: 1
+                                                        border.color: root.colorsPickerKey === modelData.key ? bar.accent : bar.dividerStrong
+                                                        ColumnLayout {
+                                                            anchors.fill: parent
+                                                            anchors.margins: 6
+                                                            spacing: 2
+                                                            Text {
+                                                                Layout.fillWidth: true
+                                                                text: modelData.label
+                                                                color: bar.text
+                                                                font.pixelSize: 10
+                                                                font.family: bar.fontFamily
+                                                                elide: Text.ElideRight
                                                             }
-                                                            border.width: 1
-                                                            border.color: Qt.rgba(1, 1, 1, 0.25)
-                                                            MouseArea {
-                                                                anchors.fill: parent
-                                                                cursorShape: Qt.PointingHandCursor
-                                                                onClicked: {
-                                                                    if (root.colorsPickerKey === modelData.key)
-                                                                        root.closeColorPicker()
-                                                                    else
-                                                                        root.openColorPicker(modelData.key)
+                                                            RowLayout {
+                                                                Layout.fillWidth: true
+                                                                spacing: 4
+                                                                Rectangle {
+                                                                    Layout.preferredWidth: 22
+                                                                    Layout.preferredHeight: 14
+                                                                    radius: 3
+                                                                    color: {
+                                                                        void root.colorsTick
+                                                                        return root.themeColorFor(modelData.key)
+                                                                    }
+                                                                    border.width: 1
+                                                                    border.color: Qt.rgba(1, 1, 1, 0.25)
+                                                                    MouseArea {
+                                                                        anchors.fill: parent
+                                                                        cursorShape: Qt.PointingHandCursor
+                                                                        onClicked: {
+                                                                            if (root.colorsPickerKey === modelData.key)
+                                                                                root.closeColorPicker()
+                                                                            else
+                                                                                root.openColorPicker(modelData.key)
+                                                                        }
+                                                                    }
+                                                                }
+                                                                Text {
+                                                                    Layout.fillWidth: true
+                                                                    text: {
+                                                                        void root.colorsTick
+                                                                        return root.themeHexFor(modelData.key)
+                                                                    }
+                                                                    color: bar.subtext
+                                                                    font.pixelSize: 9
+                                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                                    elide: Text.ElideRight
                                                                 }
                                                             }
-                                                        }
-                                                        Text {
-                                                            Layout.fillWidth: true
-                                                            text: {
-                                                                void root.colorsTick
-                                                                return root.themeHexFor(modelData.key)
-                                                            }
-                                                            color: bar.subtext
-                                                            font.pixelSize: 9
-                                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                            elide: Text.ElideRight
                                                         }
                                                     }
                                                 }
@@ -12012,6 +12149,32 @@ Item {
                                                 }
                                             }
                                         }
+                                        Rectangle {
+                                            Layout.preferredHeight: 28
+                                            Layout.preferredWidth: saveSetupLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: saveSetupMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                id: saveSetupLbl
+                                                anchors.centerIn: parent
+                                                text: "Save setup"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: saveSetupMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (bar && typeof bar.saveSetup === "function")
+                                                        bar.saveSetup(root.colorsExportName)
+                                                }
+                                            }
+                                        }
                                     }
 
                                     Flow {
@@ -12104,6 +12267,116 @@ Item {
                                             return list.length === 0
                                         }
                                         text: "No custom presets yet — save the current look with a name above."
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    Text {
+                                        text: "Your setups"
+                                        color: bar.text
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                        Layout.topMargin: 8
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: "A setup is colors + layout: widget order, classic/dual bars, sizes, dock, Quick Launch pins, and Options. Same name field as presets; use Save setup."
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    Flow {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        visible: {
+                                            void root.colorsTick
+                                            void bar.setupSavedList
+                                            const list = (bar && bar.setupSavedList) ? bar.setupSavedList : []
+                                            return list.length > 0
+                                        }
+                                        Repeater {
+                                            model: {
+                                                void root.colorsTick
+                                                void bar.setupSavedList
+                                                return (bar && bar.setupSavedList) ? bar.setupSavedList : []
+                                            }
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property string setupTarget: modelData.path || modelData.id || ""
+                                                width: userSetupRow.implicitWidth + 12
+                                                height: 28
+                                                radius: root.chipR
+                                                color: userSetupMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Row {
+                                                    id: userSetupRow
+                                                    anchors.centerIn: parent
+                                                    spacing: 6
+                                                    Text {
+                                                        text: modelData.name || modelData.id
+                                                        color: bar.subtext
+                                                        font.pixelSize: 11
+                                                        font.family: bar.fontFamily
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                    }
+                                                    Rectangle {
+                                                        width: 18
+                                                        height: 18
+                                                        radius: 4
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        color: removeSetupMa.containsMouse ? Qt.rgba(1, 0.24, 0.54, 0.35) : Qt.rgba(1, 1, 1, 0.08)
+                                                        border.width: 1
+                                                        border.color: Qt.rgba(1, 1, 1, 0.15)
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "×"
+                                                            color: bar.text
+                                                            font.pixelSize: 12
+                                                            font.bold: true
+                                                        }
+                                                        MouseArea {
+                                                            id: removeSetupMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: {
+                                                                if (bar && typeof bar.deleteSetup === "function")
+                                                                    bar.deleteSetup(setupTarget)
+                                                                root.colorsTick++
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                MouseArea {
+                                                    id: userSetupMa
+                                                    anchors.fill: parent
+                                                    anchors.rightMargin: 24
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.loadSetup === "function")
+                                                            bar.loadSetup(setupTarget)
+                                                        root.colorsPickerKey = ""
+                                                        root.colorsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: {
+                                            void root.colorsTick
+                                            void bar.setupSavedList
+                                            const list = (bar && bar.setupSavedList) ? bar.setupSavedList : []
+                                            return list.length === 0
+                                        }
+                                        text: "No saved setups yet — name the current bar and click Save setup."
                                         color: bar.subtext
                                         font.pixelSize: 11
                                         font.family: bar.fontFamily

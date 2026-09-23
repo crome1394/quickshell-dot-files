@@ -147,8 +147,10 @@ Color picker opens on the **right**. **Undo** reverts theme steps. Fonts, colors
 | **Opacity** sliders | Alpha for glass fills, borders, hover, active button, active workspace, top edge shine |
 | **Text** swatches | **Main** (headers) · **Secondary** (body) · **Bar widget text** (bar face) · button/workspace labels |
 | **Built-in presets** | Liquid glass + liquid variants, Solid dark, Soft grey, Nordic, Ember, Ocean, Lavender, Forest — **cannot be removed** |
-| **Your presets** | Click to apply; **×** removes a custom preset only |
-| **Save as preset** | Stores the current look under a name in `~/.config/quickshell/themes/` |
+| **Your presets** | Click to apply; **×** removes a custom preset only (colors/fonts/thresholds) |
+| **Save as preset** | Stores the current **colors** under a name in `~/.config/quickshell/themes/` |
+| **Save setup** | Stores **colors + layout** (dual/classic bars, widget order, dock, pins, Options) in `~/.config/quickshell/profiles/` |
+| **Your setups** | Click to apply the full snapshot; **×** removes it |
 | **Load file** | Optional path to any theme `.json` |
 | **Reset** | Restores factory Liquid glass defaults |
 
@@ -172,10 +174,13 @@ Each Colors swatch writes **only** its Theme key (strict isolation). Shared look
 | Active workspace text | `wsActiveText` | Number/icon on the active workspace |
 | Workspace text | `wsInactiveText` | Number/icon on inactive workspaces |
 | Volume levels | `audioSpeakerTier1`–`4` + thresholds | Volume bars on the bar and in Audio panels |
-| Sys Stats load | `statUtilTier1`–`4` + thresholds | CPU / Memory / GPU util bars and % text |
+| Running app dot | `qlRunningDot` | Quick Launch running indicator (also Options → Dock) |
+| CPU load | `statCpuTier1`–`4` | CPU util bar and % (AMD-red defaults) |
+| Memory load | `statMemTier1`–`4` | Memory util bar and % (cyan defaults) |
+| GPU load | `statGpuTier1`–`4` | GPU util bar and % (NVIDIA-green defaults) |
 | Sys Stats temperature | `statTempCool` / `Warm` / `Hot` + °C cutoffs | CPU / GPU temperature labels |
 
-**Thresholds** tab: volume and Sys Stats each have three cutoffs and four tier swatches (low → peak). Speaker and mic share the volume ramp. Temperature has warm/hot °C cutoffs and three colors.
+**Thresholds** tab: volume has three cutoffs and four tier swatches (low → peak). Sys Stats keeps **shared % cutoffs** and **separate color ramps** for CPU, Memory, and GPU. Temperature has warm/hot °C cutoffs and three colors.
 
 Changes apply **live** across the bar and widgets, and the active look is stored in `state/theme-colors.json` (survives `qs` restart). Layout prefs (including **Color presets section** visibility) stay in `bar-layout.json` — resetting colors does not move widgets.
 

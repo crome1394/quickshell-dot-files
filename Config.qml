@@ -137,7 +137,11 @@ QtObject {
         "audioMicTier1", "audioMicTier2", "audioMicTier3", "audioMicTier4",
         "iconColor", "audioSpeakerIcon", "audioMicIcon",
         "statUtilTier1", "statUtilTier2", "statUtilTier3", "statUtilTier4",
-        "statTempCool", "statTempWarm", "statTempHot"
+        "statCpuTier1", "statCpuTier2", "statCpuTier3", "statCpuTier4",
+        "statMemTier1", "statMemTier2", "statMemTier3", "statMemTier4",
+        "statGpuTier1", "statGpuTier2", "statGpuTier3", "statGpuTier4",
+        "statTempCool", "statTempWarm", "statTempHot",
+        "qlRunningDot"
     ]
 
     // Numeric theme keys (thresholds) — exported/imported with colors JSON.
@@ -165,6 +169,7 @@ QtObject {
         { key: "controlActiveBg", label: "Active button", opacity: true,  section: "colors" },
         { key: "wsActiveBg",  label: "Active workspace",  opacity: true,  section: "colors" },
         { key: "iconColor", label: "Icon color",   opacity: false, section: "colors" },
+        { key: "qlRunningDot", label: "Running app dot", opacity: false, section: "colors" },
         // ── Text ──
         { key: "text",        label: "Main text (menu headers)", opacity: false, section: "text" },
         { key: "subtext",     label: "Secondary text (menu body)", opacity: false, section: "text" },
@@ -196,12 +201,31 @@ QtObject {
         { key: "audioMicTier4", label: "In peak",   opacity: false }
     ]
 
-    // SysStats util bar tiers (CPU / Memory / GPU — Colors → Thresholds).
+    // Shared fallback (older themes). Thresholds UI uses the per-metric rows.
     readonly property var themeStatUtilTierUiRows: [
         { key: "statUtilTier1", label: "Load low",    opacity: false },
         { key: "statUtilTier2", label: "Load mid",    opacity: false },
         { key: "statUtilTier3", label: "Load high",   opacity: false },
         { key: "statUtilTier4", label: "Load peak",   opacity: false }
+    ]
+
+    readonly property var themeStatCpuTierUiRows: [
+        { key: "statCpuTier1", label: "CPU low",    opacity: false },
+        { key: "statCpuTier2", label: "CPU mid",    opacity: false },
+        { key: "statCpuTier3", label: "CPU high",   opacity: false },
+        { key: "statCpuTier4", label: "CPU peak",   opacity: false }
+    ]
+    readonly property var themeStatMemTierUiRows: [
+        { key: "statMemTier1", label: "Mem low",    opacity: false },
+        { key: "statMemTier2", label: "Mem mid",    opacity: false },
+        { key: "statMemTier3", label: "Mem high",   opacity: false },
+        { key: "statMemTier4", label: "Mem peak",   opacity: false }
+    ]
+    readonly property var themeStatGpuTierUiRows: [
+        { key: "statGpuTier1", label: "GPU low",    opacity: false },
+        { key: "statGpuTier2", label: "GPU mid",    opacity: false },
+        { key: "statGpuTier3", label: "GPU high",   opacity: false },
+        { key: "statGpuTier4", label: "GPU peak",   opacity: false }
     ]
 
     // SysStats temperature label colors (CPU / GPU).
@@ -316,9 +340,22 @@ QtObject {
         case "statUtilTier2": return statUtilTier2
         case "statUtilTier3": return statUtilTier3
         case "statUtilTier4": return statUtilTier4
+        case "statCpuTier1": return statCpuTier1
+        case "statCpuTier2": return statCpuTier2
+        case "statCpuTier3": return statCpuTier3
+        case "statCpuTier4": return statCpuTier4
+        case "statMemTier1": return statMemTier1
+        case "statMemTier2": return statMemTier2
+        case "statMemTier3": return statMemTier3
+        case "statMemTier4": return statMemTier4
+        case "statGpuTier1": return statGpuTier1
+        case "statGpuTier2": return statGpuTier2
+        case "statGpuTier3": return statGpuTier3
+        case "statGpuTier4": return statGpuTier4
         case "statTempCool": return statTempCool
         case "statTempWarm": return statTempWarm
         case "statTempHot": return statTempHot
+        case "qlRunningDot": return qlRunningDot
         default: return null
         }
     }
@@ -389,9 +426,22 @@ QtObject {
         case "statUtilTier2": statUtilTier2 = c; break
         case "statUtilTier3": statUtilTier3 = c; break
         case "statUtilTier4": statUtilTier4 = c; break
+        case "statCpuTier1": statCpuTier1 = c; break
+        case "statCpuTier2": statCpuTier2 = c; break
+        case "statCpuTier3": statCpuTier3 = c; break
+        case "statCpuTier4": statCpuTier4 = c; break
+        case "statMemTier1": statMemTier1 = c; break
+        case "statMemTier2": statMemTier2 = c; break
+        case "statMemTier3": statMemTier3 = c; break
+        case "statMemTier4": statMemTier4 = c; break
+        case "statGpuTier1": statGpuTier1 = c; break
+        case "statGpuTier2": statGpuTier2 = c; break
+        case "statGpuTier3": statGpuTier3 = c; break
+        case "statGpuTier4": statGpuTier4 = c; break
         case "statTempCool": statTempCool = c; break
         case "statTempWarm": statTempWarm = c; break
         case "statTempHot": statTempHot = c; break
+        case "qlRunningDot": qlRunningDot = c; break
         default: return false
         }
         return true
@@ -819,9 +869,22 @@ QtObject {
                 statUtilTier2: { hex: "#F59E0B", alpha: 1 },
                 statUtilTier3: { hex: "#F97316", alpha: 1 },
                 statUtilTier4: { hex: "#EF4444", alpha: 1 },
+                statCpuTier1: { hex: "#E8A0A4", alpha: 1 },
+                statCpuTier2: { hex: "#ED1C24", alpha: 1 },
+                statCpuTier3: { hex: "#C4161C", alpha: 1 },
+                statCpuTier4: { hex: "#FF4500", alpha: 1 },
+                statMemTier1: { hex: "#5EEAD4", alpha: 1 },
+                statMemTier2: { hex: "#22D3EE", alpha: 1 },
+                statMemTier3: { hex: "#06B6D4", alpha: 1 },
+                statMemTier4: { hex: "#0284C7", alpha: 1 },
+                statGpuTier1: { hex: "#76B900", alpha: 1 },
+                statGpuTier2: { hex: "#C4D600", alpha: 1 },
+                statGpuTier3: { hex: "#FFC800", alpha: 1 },
+                statGpuTier4: { hex: "#FF5A00", alpha: 1 },
                 statTempCool: { hex: "#f0f4fc", alpha: 1 },
                 statTempWarm: { hex: "#f0d060", alpha: 1 },
-                statTempHot: { hex: "#FF3D8A", alpha: 1 }
+                statTempHot: { hex: "#FF3D8A", alpha: 1 },
+                qlRunningDot: { hex: "#00F5FF", alpha: 1 }
             },
             numbers: {
                 audioUtilThreshold1: 25,
@@ -1450,9 +1513,22 @@ QtObject {
                 statUtilTier2: { hex: "#F59E0B", alpha: 1 },
                 statUtilTier3: { hex: "#F97316", alpha: 1 },
                 statUtilTier4: { hex: "#EF4444", alpha: 1 },
+                statCpuTier1: { hex: "#E8A0A4", alpha: 1 },
+                statCpuTier2: { hex: "#ED1C24", alpha: 1 },
+                statCpuTier3: { hex: "#C4161C", alpha: 1 },
+                statCpuTier4: { hex: "#FF4500", alpha: 1 },
+                statMemTier1: { hex: "#5EEAD4", alpha: 1 },
+                statMemTier2: { hex: "#22D3EE", alpha: 1 },
+                statMemTier3: { hex: "#06B6D4", alpha: 1 },
+                statMemTier4: { hex: "#0284C7", alpha: 1 },
+                statGpuTier1: { hex: "#76B900", alpha: 1 },
+                statGpuTier2: { hex: "#C4D600", alpha: 1 },
+                statGpuTier3: { hex: "#FFC800", alpha: 1 },
+                statGpuTier4: { hex: "#FF5A00", alpha: 1 },
                 statTempCool: { hex: "#f0f4fc", alpha: 1 },
                 statTempWarm: { hex: "#f0d060", alpha: 1 },
-                statTempHot: { hex: m, alpha: 1 }
+                statTempHot: { hex: m, alpha: 1 },
+                qlRunningDot: { hex: "#00F5FF", alpha: 1 }
             },
             numbers: {
                 audioUtilThreshold1: 25, audioUtilThreshold2: 50, audioUtilThreshold3: 75,
@@ -2457,11 +2533,28 @@ QtObject {
     readonly property int  statGaugeRadius:   sp(3)
     readonly property color statTrack:       Qt.rgba(1, 1, 1, 0.10)  // Bar background track on glass
 
-    // Utilization % bar and text color by load level (writable — Colors → Thresholds).
-    property color statUtilTier1: "#10B981"   // Low load (0% up to first threshold)
+    // Shared fallback util ramp (older themes / unknown metric).
+    property color statUtilTier1: "#10B981"
     property color statUtilTier2: "#F59E0B"
     property color statUtilTier3: "#F97316"
-    property color statUtilTier4: "#EF4444"   // High load (above third threshold)
+    property color statUtilTier4: "#EF4444"
+
+    // Per-metric util ramps (Themes → Thresholds). Defaults: AMD red / cyan / NVIDIA green.
+    property color statCpuTier1: "#E8A0A4"
+    property color statCpuTier2: "#ED1C24"
+    property color statCpuTier3: "#C4161C"
+    property color statCpuTier4: "#FF4500"
+    property color statMemTier1: "#5EEAD4"
+    property color statMemTier2: "#22D3EE"
+    property color statMemTier3: "#06B6D4"
+    property color statMemTier4: "#0284C7"
+    property color statGpuTier1: "#76B900"
+    property color statGpuTier2: "#C4D600"
+    property color statGpuTier3: "#FFC800"
+    property color statGpuTier4: "#FF5A00"
+
+    // Quick Launch running-app dot (Themes → Theming / Options → Dock).
+    property color qlRunningDot: "#00F5FF"
 
     // At what utilization % each color tier starts (must be in ascending order).
     property int statUtilThreshold1: 25
@@ -2480,12 +2573,24 @@ QtObject {
     // Color of the "|" between utilization % and temperature (or used GiB for Memory).
     readonly property color statValueSeparator: overlay
 
-    function statUtilColor(util) {
+    function statUtilColor(util, metric) {
         var u = Math.max(0, Math.min(100, util))
-        if (u <= statUtilThreshold1) return statUtilTier1
-        if (u <= statUtilThreshold2) return statUtilTier2
-        if (u <= statUtilThreshold3) return statUtilTier3
-        return statUtilTier4
+        var m = String(metric || "")
+        var t1 = statUtilTier1
+        var t2 = statUtilTier2
+        var t3 = statUtilTier3
+        var t4 = statUtilTier4
+        if (m === "cpu") {
+            t1 = statCpuTier1; t2 = statCpuTier2; t3 = statCpuTier3; t4 = statCpuTier4
+        } else if (m === "mem" || m === "memory") {
+            t1 = statMemTier1; t2 = statMemTier2; t3 = statMemTier3; t4 = statMemTier4
+        } else if (m === "gpu") {
+            t1 = statGpuTier1; t2 = statGpuTier2; t3 = statGpuTier3; t4 = statGpuTier4
+        }
+        if (u <= statUtilThreshold1) return t1
+        if (u <= statUtilThreshold2) return t2
+        if (u <= statUtilThreshold3) return t3
+        return t4
     }
 
     function statTempColor(temp) {

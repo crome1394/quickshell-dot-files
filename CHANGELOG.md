@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Per-metric stats colors, running-dot color, saved setups
+
+- **Themes → Theming:** **Running app dot** (`qlRunningDot`, default vivid cyan `#00F5FF`). Same swatch on **Options → Dock**.
+- **Themes → Thresholds:** CPU / Memory / GPU each have their own load ramp (AMD-red, cyan, NVIDIA-green defaults). Shared % cutoffs stay one set.
+- **Themes → Presets:** **Save setup** stores colors + layout (bars, widget order, dock, pins) under `profiles/`. **Your setups** to apply or remove.
+
 ## 2026-09 — Quick Launch running dot
 
 - Running apps show a Mac-dock-style **dot** on the pill’s bottom edge instead of a dash plus workspace-chip fill. Icons stay center-aligned with the rest of the bar; focused is the same size dot, brighter.
