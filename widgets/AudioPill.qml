@@ -1564,9 +1564,7 @@ Rectangle {
         Row {
             id: speakerViewRow
             visible: audio.viewMode === 0
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: embedded ? 0 : (bar.pillFaceTopPad !== undefined ? bar.pillFaceTopPad : 3)
+            anchors.centerIn: parent
             spacing: 6
 
             Item {
@@ -1654,9 +1652,7 @@ Rectangle {
         Row {
             id: micViewRow
             visible: audio.viewMode === 1
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: embedded ? 0 : (bar.pillFaceTopPad !== undefined ? bar.pillFaceTopPad : 3)
+            anchors.centerIn: parent
             spacing: 6
 
             Item {
@@ -1743,9 +1739,7 @@ Rectangle {
         Row {
             id: dualViewRow
             visible: audio.viewMode === 2
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: embedded ? 0 : (bar.pillFaceTopPad !== undefined ? bar.pillFaceTopPad : 3)
+            anchors.centerIn: parent
             spacing: 10
 
                 // --- Speaker half ---

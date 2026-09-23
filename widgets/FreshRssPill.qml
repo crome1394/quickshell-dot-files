@@ -1008,9 +1008,7 @@ Rectangle {
     // ── Pill face ───────────────────────────────────────────────────────────
     Row {
         id: pillInner
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: bar.pillFaceTopPad
+        anchors.centerIn: parent
         spacing: 6
 
         Text {

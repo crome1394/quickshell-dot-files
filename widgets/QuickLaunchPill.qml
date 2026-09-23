@@ -300,9 +300,8 @@ Rectangle {
 
                 Image {
                     visible: !root.entryUsesGlyph(modelData)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -2
                     width: root._icon
                     height: root._icon
                     source: modelData.icon || ""
@@ -313,9 +312,8 @@ Rectangle {
 
                 Text {
                     visible: root.entryUsesGlyph(modelData)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
+                    anchors.centerIn: parent
+                    anchors.verticalCenterOffset: -2
                     text: modelData.glyph || ""
                     font.pixelSize: root._icon
                     font.family: bar.fontFamily

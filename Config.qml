@@ -1642,9 +1642,9 @@ QtObject {
     readonly property int widgetSpacing:         sp(8)   // Spacing between major widgets in the bar row
     // Total vertical inset of inner hover chips vs pillHeight (workspaces use ~4).
     readonly property int pillChipInset:         4
-    // Optical top of bar-face icons/text. Matches QuickLaunch icon inset so
-    // launcher, FreshRSS, config, clock, network, and audio share one cap line.
-    readonly property int pillFaceTopPad:        3
+    // Legacy token (was a top inset for nerd-font glyphs). Bar faces now
+    // use anchors.centerIn like WorkspacesPill so pills share one vertical center.
+    readonly property int pillFaceTopPad:        0
     readonly property int iconTextGap:           sp(6)   // Gap between icon and volume bar or label inside audio pill
     readonly property int dualAudioSidePadding:  sp(3)   // Extra tight padding used only in AudioPill dual view
 

@@ -2813,9 +2813,7 @@ ShellRoot {
                         ? bar.accent
                         : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
 
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
+                    anchors.centerIn: parent
                     width: _sz
                     height: _sz
 
@@ -2920,9 +2918,7 @@ ShellRoot {
 
                 Row {
                     id: connectivityRow
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: bar.pillFaceTopPad
+                    anchors.centerIn: parent
                     spacing: Math.max(2, bar.widgetW("connectivity", 4))
 
                     NetworkPill {
@@ -2937,7 +2933,7 @@ ShellRoot {
                     Rectangle {
                         visible: root.effNetwork && root.effBluetooth
                         width: Math.max(1, bar.widgetW("connectivity", bar.dividerThickness))
-                        height: 17
+                        height: Math.max(14, Math.round((bar.wsButtonHeight || 32) * 0.55))
                         anchors.verticalCenter: parent.verticalCenter
                         color: bar.divider
                     }
@@ -2954,7 +2950,7 @@ ShellRoot {
                     Rectangle {
                         visible: (root.effNetwork || root.effBluetooth) && root.showAudioPill
                         width: Math.max(1, bar.widgetW("connectivity", bar.dividerThickness))
-                        height: 17
+                        height: Math.max(14, Math.round((bar.wsButtonHeight || 32) * 0.55))
                         anchors.verticalCenter: parent.verticalCenter
                         color: bar.divider
                     }
@@ -3052,9 +3048,7 @@ ShellRoot {
                               ? bar.accent : bar.pillBorder
 
                 Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: bar.pillFaceTopPad
+                    anchors.centerIn: parent
                     text: bar.iconControlBar
                     font.pixelSize: bar.widgetW("controlBar", bar.iconSizePillLarge)
                     font.family: bar.fontFamily

@@ -48,9 +48,7 @@ Rectangle {
 
         Text {
             id: clockLabel
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.top
-            anchors.topMargin: Math.max(0, (bar.pillFaceTopPad !== undefined ? bar.pillFaceTopPad : 3) - 2)
+            anchors.centerIn: parent
             text: Qt.formatDateTime(new Date(), root.clockFormat)
             // Bar widget text (Themes → Bar widget text font/size)
             color: (bar.barText !== undefined) ? bar.barText : bar.text
