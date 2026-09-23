@@ -4967,7 +4967,7 @@ Item {
                                         opacity: widgetRow.widgetOn ? 1.0 : 0.78
 
                                         onLivePctChanged: {
-                                            if (!widgetRow.editing && !sizeSlider.pressed)
+                                            if (!widgetRow.editing)
                                                 widgetRow.localPct = livePct
                                         }
 
@@ -7082,7 +7082,7 @@ Item {
                                             from: 0
                                             to: 10
                                             stepSize: 1
-                                            value: bar.wsMinimumShown
+                                            value: (bar && bar.wsMinimumShown) || 0
                                             onValueEdited: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
                                             onValueCommitted: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
                                         }
@@ -7115,7 +7115,7 @@ Item {
                                             from: 0
                                             to: 10
                                             stepSize: 1
-                                            value: bar.wsStartupWorkspace
+                                            value: (bar && bar.wsStartupWorkspace) || 0
                                             onValueEdited: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
                                             onValueCommitted: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
                                         }
@@ -8555,7 +8555,7 @@ Item {
                                             to: 160
                                             stepSize: 5
                                             suffix: "%"
-                                            value: Math.round((Number(bar.dockMaxScale) || 1.28) * 100)
+                                            value: Math.round((Number((bar && bar.dockMaxScale) || 1.28)) * 100)
                                             onValueEdited: (v) => {
                                                 if (bar)
                                                     bar.dockMaxScale = v / 100
@@ -8598,7 +8598,7 @@ Item {
                                             to: 140
                                             stepSize: 4
                                             suffix: "px"
-                                            value: Math.round(bar.dockRadius || 72)
+                                            value: Math.round((bar && bar.dockRadius) || 72)
                                             onValueEdited: (v) => {
                                                 if (bar)
                                                     bar.dockRadius = Math.round(v)
@@ -8641,7 +8641,7 @@ Item {
                                             to: 16
                                             stepSize: 1
                                             suffix: "px"
-                                            value: Math.round(bar.dockJumpPx || 8)
+                                            value: Math.round((bar && bar.dockJumpPx) || 8)
                                             onValueEdited: (v) => {
                                                 if (bar)
                                                     bar.dockJumpPx = Math.round(v)
