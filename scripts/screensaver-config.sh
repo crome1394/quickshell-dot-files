@@ -18,11 +18,19 @@ expand_path() {
     printf '%s' "$p"
 }
 
+norm_bool() {
+    case "${1:-}" in
+        1|true|yes|on) echo 1 ;;
+        *) echo 0 ;;
+    esac
+}
+
 read_conf() {
     ENABLED=1
     TIMEOUT_SEC=600
     VIDEO="$DEFAULT_VIDEO"
     SCRIPT="$DEFAULT_SCRIPT"
+    IGNORE_INHIBIT=0
     [[ -f "$CONF" ]] || return 0
     local line key val
     while IFS= read -r line || [[ -n "$line" ]]; do
@@ -36,10 +44,13 @@ read_conf() {
             timeout_sec) TIMEOUT_SEC="$val" ;;
             video) VIDEO="$val" ;;
             script) SCRIPT="$val" ;;
+            ignore_inhibit) IGNORE_INHIBIT="$val" ;;
         esac
     done <"$CONF"
     VIDEO="$(expand_path "$VIDEO")"
     SCRIPT="$(expand_path "$SCRIPT")"
+    ENABLED="$(norm_bool "$ENABLED")"
+    IGNORE_INHIBIT="$(norm_bool "$IGNORE_INHIBIT")"
 }
 
 json_escape() {
@@ -51,9 +62,9 @@ emit_json() {
     local video_ok=0 script_ok=0
     [[ -f "$VIDEO" ]] && video_ok=1
     [[ -x "$SCRIPT" ]] && script_ok=1
-    python3 - "$ENABLED" "$TIMEOUT_SEC" "$VIDEO" "$SCRIPT" "$video_ok" "$script_ok" <<'PY'
+    python3 - "$ENABLED" "$TIMEOUT_SEC" "$VIDEO" "$SCRIPT" "$video_ok" "$script_ok" "$IGNORE_INHIBIT" <<'PY'
 import json, sys
-enabled, timeout, video, script, vok, sok = sys.argv[1:7]
+enabled, timeout, video, script, vok, sok, ign = sys.argv[1:8]
 try:
     t = int(timeout)
 except ValueError:
@@ -62,6 +73,10 @@ try:
     en = int(enabled)
 except ValueError:
     en = 1
+try:
+    ig = int(ign)
+except ValueError:
+    ig = 0
 print(json.dumps({
     "ok": True,
     "enabled": bool(en),
@@ -71,6 +86,7 @@ print(json.dumps({
     "script": script,
     "video_ok": bool(int(vok)),
     "script_ok": bool(int(sok)),
+    "ignore_inhibit": bool(ig),
 }))
 PY
 }
@@ -85,6 +101,7 @@ enabled=${ENABLED}
 timeout_sec=${TIMEOUT_SEC}
 video=${VIDEO}
 script=${SCRIPT}
+ignore_inhibit=${IGNORE_INHIBIT}
 EOF
     mv -f "$tmp" "$CONF"
 }
@@ -121,6 +138,13 @@ else:
     if text and not text.endswith("\n"):
         text += "\n"
     new = text + "\n" + block
+import re
+# Tab video (YouTube/X/etc.) uses Wayland/D-Bus idle inhibit. Ignore those so
+# hypridle still reaches timeout; idle-ok decides fullscreen vs always-start.
+for key in ("ignore_dbus_inhibit", "ignore_systemd_inhibit", "ignore_wayland_inhibit"):
+    new2, nsub = re.subn(rf"(?m)^(\s*{key}\s*=\s*)\S+", r"\1true", new)
+    if nsub:
+        new = new2
 if new != text:
     bak = path + ".bak-screensaver"
     pathlib.Path(bak).write_text(pathlib.Path(path).read_text())
@@ -129,6 +153,42 @@ if new != text:
 else:
     print("unchanged")
 PY
+}
+
+# True if a mapped client is in real fullscreen (not the screensaver itself).
+fullscreen_client_blocks() {
+    hyprctl clients -j 2>/dev/null | python3 -c '
+import json, sys
+try:
+    clients = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+if not isinstance(clients, list):
+    sys.exit(1)
+
+def is_real_fullscreen(c):
+    if c.get("fullscreenClient"):
+        return True
+    fs = c.get("fullscreen")
+    if fs is True:
+        return True
+    try:
+        return int(fs) >= 2
+    except (TypeError, ValueError):
+        return False
+
+for c in clients:
+    if not c or not c.get("mapped", True):
+        continue
+    if c.get("hidden"):
+        continue
+    title = str(c.get("title") or "")
+    if title == "hypr-screensaver":
+        continue
+    if is_real_fullscreen(c):
+        sys.exit(0)
+sys.exit(1)
+'
 }
 
 reload_hypridle() {
@@ -155,6 +215,8 @@ cmd_set() {
                 VIDEO="$(expand_path "$2")"; shift 2 ;;
             --script)
                 SCRIPT="$(expand_path "$2")"; shift 2 ;;
+            --ignore-inhibit)
+                IGNORE_INHIBIT="$2"; shift 2 ;;
             *)
                 echo "{\"ok\":false,\"error\":\"unknown arg $1\"}" >&2
                 exit 2 ;;
@@ -172,6 +234,7 @@ cmd_set() {
     if (( TIMEOUT_SEC > 86400 )); then TIMEOUT_SEC=86400; fi
     VIDEO="$(expand_path "$VIDEO")"
     SCRIPT="$(expand_path "$SCRIPT")"
+    IGNORE_INHIBIT="$(norm_bool "$IGNORE_INHIBIT")"
     write_conf
     patch_hypridle
     reload_hypridle
@@ -181,6 +244,13 @@ cmd_set() {
 cmd_idle_ok() {
     read_conf
     [[ "$ENABLED" == "1" ]] || exit 1
+    # Override: start after idle even if a site is playing video or is fullscreen.
+    [[ "$IGNORE_INHIBIT" == "1" ]] && exit 0
+    # Tab players (YouTube, X, Facebook, Rumble, …) set idle-inhibit without
+    # fullscreen; those are ignored in hypridle. Real fullscreen still blocks.
+    if fullscreen_client_blocks; then
+        exit 1
+    fi
     exit 0
 }
 

@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Screensaver ignores tab video; fullscreen still blocks
+
+- Browser tabs playing YouTube / X / Facebook / Rumble no longer hold off the idle screensaver (`ignore_wayland/dbus/systemd_inhibit` in hypridle; `idle-ok` only refuses **fullscreen** windows).
+- Options → Screensaver **Always start after idle** starts the saver even during fullscreen video. Apply to save.
+
 ## 2026-09 — Widgets panel Top / Bottom sections
 
 - **Widgets** lists dual-layout pills in **Top bar** and **Bottom bar** cards (classic: Left / Center / Right). Empty sections stay visible so you can move a widget in with T/B.

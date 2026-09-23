@@ -850,6 +850,7 @@ Item {
     property string ssScript: ""
     property bool ssVideoOk: false
     property bool ssScriptOk: false
+    property bool ssIgnoreInhibit: false
     property string ssStatus: ""
     property bool ssLoading: false
 
@@ -889,7 +890,8 @@ Item {
             "--enabled", root.ssEnabled ? "1" : "0",
             "--timeout-min", String(mins),
             "--video", (root.ssVideo || "").trim(),
-            "--script", (root.ssScript || "").trim()
+            "--script", (root.ssScript || "").trim(),
+            "--ignore-inhibit", root.ssIgnoreInhibit ? "1" : "0"
         ])
     }
 
@@ -3114,6 +3116,7 @@ Item {
                     root.ssScript = j.script || ""
                     root.ssVideoOk = !!j.video_ok
                     root.ssScriptOk = !!j.script_ok
+                    root.ssIgnoreInhibit = !!j.ignore_inhibit
                     const delay = root.ssEnabled ? (root.ssTimeoutMin + " min idle") : "auto-start off"
                     root.ssStatus = delay + (root.ssVideoOk ? " · video ok" : " · missing video")
                 } catch (e) {
@@ -3146,6 +3149,7 @@ Item {
                         root.ssScript = j.script || root.ssScript
                         root.ssVideoOk = !!j.video_ok
                         root.ssScriptOk = !!j.script_ok
+                        root.ssIgnoreInhibit = !!j.ignore_inhibit
                         root.ssStatus = j.ok
                             ? ("Saved · " + (root.ssEnabled ? (root.ssTimeoutMin + " min") : "manual only"))
                             : (j.error || "Save failed")
@@ -9060,7 +9064,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Fullscreen video after idle (no DPMS — keeps the G9 link). Super+L starts it now. Click or move to dismiss."
+                                    text: "Fullscreen video after idle (no DPMS — keeps the G9 link). Super+L starts it now. Click or move to dismiss. YouTube/X/Facebook/Rumble tabs do not block auto-start; a fullscreen video does, unless you turn on Always start."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -9123,6 +9127,69 @@ Item {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
                                                     onClicked: root.ssEnabled = !root.ssEnabled
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Always start after idle"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Ignore fullscreen video and browser idle-inhibit"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: root.ssIgnoreInhibit ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.ssIgnoreInhibit ? "✓" : "✕"
+                                                    color: root.ssIgnoreInhibit ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.ssIgnoreInhibit = !root.ssIgnoreInhibit
                                                 }
                                             }
                                         }
