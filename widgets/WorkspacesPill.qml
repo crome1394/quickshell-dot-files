@@ -498,12 +498,6 @@ Rectangle {
                         dockFx.jump()
                         root.activateEntry(modelData)
                     }
-                    onPositionChanged: (mouse) => {
-                        if (!dockLeaveGuard.enabled || !root.dockPointerInPill())
-                            return
-                        const p = mapToItem(wsRow, mouse.x, mouse.y)
-                        root.dockHoverX = p.x
-                    }
                     onContainsMouseChanged: {
                         if (!containsMouse && !root.dockPointerInPill())
                             root.dockHoverX = -1

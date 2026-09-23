@@ -876,21 +876,7 @@ Item {
         }
         if (ssSetProcess.running)
             return
-        if (typeof ssMinField !== "undefined" && ssMinField && ssMinField.text) {
-            const typed = parseInt(ssMinField.text, 10)
-            if (typed >= 1)
-                root.ssTimeoutMin = typed
-        }
-        if (typeof ssDimField !== "undefined" && ssDimField && ssDimField.text.length) {
-            const d = parseInt(ssDimField.text, 10)
-            if (!isNaN(d))
-                root.ssDimLevel = Math.max(0, Math.min(100, d))
-        }
-        if (typeof ssRestoreField !== "undefined" && ssRestoreField && ssRestoreField.text.length) {
-            const r = parseInt(ssRestoreField.text, 10)
-            if (!isNaN(r))
-                root.ssRestoreLevel = Math.max(0, Math.min(100, r))
-        }
+
         let mins = parseInt(root.ssTimeoutMin, 10)
         if (!(mins >= 1))
             mins = 10
@@ -1381,7 +1367,7 @@ Item {
     }
 
     // Shared size slider chip (right column of font rows)
-    function fontSizeChipWidth() { return 168 }
+    function fontSizeChipWidth() { return 260 }
 
     // Helpers for Fonts tab / panels — safe fallbacks
     function menuTitleFont() {
@@ -3760,45 +3746,24 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: posEdgeSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 0
                                             to: 48
                                             stepSize: 2
+                                            suffix: "px"
                                             value: root.optBarEdgeMargin()
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setBarEdgeMargin === "function")
-                                                    bar.setBarEdgeMargin(Math.round(value))
+                                                    bar.setBarEdgeMargin(Math.round(v))
                                                 root.menuTick++
                                                 Qt.callLater(root.reposition)
                                             }
-                                            background: Rectangle {
-                                                x: posEdgeSlider.leftPadding
-                                                y: posEdgeSlider.topPadding + posEdgeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: posEdgeSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: posEdgeSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: posEdgeSlider.leftPadding + posEdgeSlider.visualPosition * (posEdgeSlider.availableWidth - width)
-                                                y: posEdgeSlider.topPadding + posEdgeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: posEdgeSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setBarEdgeMargin === "function")
+                                                    bar.setBarEdgeMargin(Math.round(v))
                                             }
                                         }
                                     }
@@ -3902,45 +3867,24 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: posBarSizeSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 80
                                             to: 140
                                             stepSize: 5
+                                            suffix: "%"
                                             value: root.optBarSizePct()
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(value) / 100)
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                                 root.menuTick++
                                                 Qt.callLater(root.reposition)
                                             }
-                                            background: Rectangle {
-                                                x: posBarSizeSlider.leftPadding
-                                                y: posBarSizeSlider.topPadding + posBarSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: posBarSizeSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: posBarSizeSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: posBarSizeSlider.leftPadding + posBarSizeSlider.visualPosition * (posBarSizeSlider.availableWidth - width)
-                                                y: posBarSizeSlider.topPadding + posBarSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: posBarSizeSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                             }
                                         }
                                     }
@@ -4183,74 +4127,18 @@ Item {
                                                 font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
                                             }
                                         }
-                                        Slider {
-                                            id: displayResSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 28
-                                            readonly property int resCount: (root.displayFilteredList || []).length
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            showField: false
                                             from: 0
-                                            to: Math.max(0, resCount - 1)
+                                            to: Math.max(0, (root.displayFilteredList || []).length - 1)
                                             stepSize: 1
-                                            snapMode: Slider.SnapAlways
-                                            live: true
-                                            enabled: resCount > 1 && !root.displayApplying && !root.displayLoading
-                                            // External value only when not dragging — avoids binding fight
-                                            Binding on value {
-                                                when: !displayResSlider.pressed
-                                                value: root.displayResIndex
-                                            }
-                                            // Integer steps only — skip redundant work between snaps
-                                            property int _lastStep: -1
-                                            onMoved: {
-                                                const step = Math.round(value)
-                                                if (step === _lastStep)
-                                                    return
-                                                _lastStep = step
-                                                root.displayOnResIndexChanged(step)
-                                            }
-                                            onPressedChanged: {
-                                                root.displaySliderPressed = pressed
-                                                if (typeof panelFlick !== "undefined" && panelFlick) {
-                                                    if (pressed) {
-                                                        _lastStep = Math.round(value)
-                                                        panelFlick.interactive = false
-                                                    } else {
-                                                        panelFlick.interactive = root.panelNeedsScroll
-                                                                && (panelFlick.contentHeight > panelFlick.height + 4)
-                                                        root.displayOnResIndexChanged(Math.round(value))
-                                                        _lastStep = -1
-                                                    }
-                                                } else if (!pressed) {
-                                                    root.displayOnResIndexChanged(Math.round(value))
-                                                    _lastStep = -1
-                                                }
-                                            }
-                                            background: Rectangle {
-                                                x: displayResSlider.leftPadding
-                                                y: displayResSlider.topPadding + displayResSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 120
-                                                implicitHeight: 6
-                                                width: displayResSlider.availableWidth
-                                                height: 6
-                                                radius: 2
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: displayResSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 2
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: displayResSlider.leftPadding + displayResSlider.visualPosition * (displayResSlider.availableWidth - width)
-                                                y: displayResSlider.topPadding + displayResSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 16
-                                                implicitHeight: 16
-                                                radius: 3
-                                                color: displayResSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
-                                            }
+                                            enabled: (root.displayFilteredList || []).length > 1 && !root.displayApplying && !root.displayLoading
+                                            value: root.displayResIndex
+                                            onValueEdited: (v) => root.displayOnResIndexChanged(Math.round(v))
+                                            onValueCommitted: (v) => root.displayOnResIndexChanged(Math.round(v))
                                         }
                                         Text {
                                             Layout.fillWidth: true
@@ -4722,46 +4610,17 @@ Item {
                                             font.pixelSize: 11
                                             font.family: bar.fontFamily
                                         }
-                                        Slider {
-                                            id: wpTileSizeSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 100
                                             to: 260
                                             stepSize: 10
-                                            snapMode: Slider.SnapAlways
+                                            suffix: "px"
                                             value: root.wallpaperTilePref
-                                            onMoved: root.setWallpaperTilePref(Math.round(value))
-                                            onPressedChanged: {
-                                                if (!pressed)
-                                                    root.setWallpaperTilePref(Math.round(value))
-                                            }
-                                            background: Rectangle {
-                                                x: wpTileSizeSlider.leftPadding
-                                                y: wpTileSizeSlider.topPadding + wpTileSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: wpTileSizeSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: wpTileSizeSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: wpTileSizeSlider.leftPadding + wpTileSizeSlider.visualPosition * (wpTileSizeSlider.availableWidth - width)
-                                                y: wpTileSizeSlider.topPadding + wpTileSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: wpTileSizeSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
-                                            }
+                                            onValueEdited: (v) => root.setWallpaperTilePref(Math.round(v))
+                                            onValueCommitted: (v) => root.setWallpaperTilePref(Math.round(v))
                                         }
                                         Text {
                                             Layout.preferredWidth: 44
@@ -5286,81 +5145,23 @@ Item {
                                                 Layout.fillWidth: true
                                                 spacing: 6
 
-                                                Slider {
-                                                    id: sizeSlider
-                                                    Layout.fillWidth: true
-                                                    Layout.preferredHeight: 16
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
                                                     from: 80
                                                     to: 180
                                                     stepSize: 5
+                                                    suffix: "%"
                                                     value: widgetRow.localPct
-                                                    onMoved: {
-                                                        widgetRow.localPct = Math.round(value)
+                                                    onValueEdited: (v) => {
+                                                        widgetRow.localPct = Math.round(v)
                                                         root.setScalePercent(widgetRow.widgetId, widgetRow.localPct)
                                                     }
-                                                    onPressedChanged: {
-                                                        if (!pressed)
-                                                            root.setScalePercent(widgetRow.widgetId, widgetRow.localPct)
+                                                    onValueCommitted: (v) => {
+                                                        widgetRow.localPct = Math.round(v)
+                                                        root.setScalePercent(widgetRow.widgetId, widgetRow.localPct)
                                                     }
-
-                                                    background: Rectangle {
-                                                        x: sizeSlider.leftPadding
-                                                        y: sizeSlider.topPadding + sizeSlider.availableHeight / 2 - height / 2
-                                                        implicitWidth: 160
-                                                        implicitHeight: 5
-                                                        width: sizeSlider.availableWidth
-                                                        height: 5
-                                                        radius: 3
-                                                        color: Qt.rgba(1, 1, 1, 0.12)
-                                                        Rectangle {
-                                                            width: sizeSlider.visualPosition * parent.width
-                                                            height: parent.height
-                                                            radius: 3
-                                                            color: bar.accent
-                                                        }
-                                                    }
-                                                    handle: Rectangle {
-                                                        x: sizeSlider.leftPadding + sizeSlider.visualPosition * (sizeSlider.availableWidth - width)
-                                                        y: sizeSlider.topPadding + sizeSlider.availableHeight / 2 - height / 2
-                                                        implicitWidth: 12
-                                                        implicitHeight: 12
-                                                        radius: 3
-                                                        color: sizeSlider.pressed ? bar.accent : bar.text
-                                                        border.width: 1
-                                                        border.color: bar.accent
-                                                    }
-                                                }
-
-                                                TextField {
-                                                    id: pctField
-                                                    Layout.preferredWidth: 44
-                                                    Layout.preferredHeight: 22
-                                                    horizontalAlignment: Text.AlignHCenter
-                                                    color: bar.text
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    text: String(widgetRow.localPct)
-                                                    validator: IntValidator { bottom: 80; top: 180 }
-                                                    background: Rectangle {
-                                                        radius: 4
-                                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                        border.width: 1
-                                                        border.color: pctField.activeFocus ? bar.accent : bar.pillBorder
-                                                    }
-                                                    onActiveFocusChanged: widgetRow.editing = activeFocus
-                                                    onTextChanged: {
-                                                        const n = parseInt(text, 10)
-                                                        if (!isNaN(n))
-                                                            widgetRow.localPct = n
-                                                    }
-                                                    onAccepted: root.setScalePercent(widgetRow.widgetId, widgetRow.localPct)
-                                                    onEditingFinished: root.setScalePercent(widgetRow.widgetId, widgetRow.localPct)
-                                                }
-                                                Text {
-                                                    text: "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 10
-                                                    font.family: bar.fontFamily
                                                 }
                                             }
                                         }
@@ -6663,48 +6464,20 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: uiScaleSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 65
                                             to: 100
                                             stepSize: 5
+                                            suffix: "%"
                                             value: Math.round(root.optUiScaleManual() * 100)
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setUiScale === "function")
-                                                    bar.setUiScale(Math.round(value) / 100)
+                                                    bar.setUiScale(Math.round(v) / 100)
                                             }
-                                            onPressedChanged: {
-                                                if (!pressed)
-                                                    root.refreshOptions()
-                                            }
-                                            background: Rectangle {
-                                                x: uiScaleSlider.leftPadding
-                                                y: uiScaleSlider.topPadding + uiScaleSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: uiScaleSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: uiScaleSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: uiScaleSlider.leftPadding + uiScaleSlider.visualPosition * (uiScaleSlider.availableWidth - width)
-                                                y: uiScaleSlider.topPadding + uiScaleSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: uiScaleSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
-                                            }
+                                            onValueCommitted: (v) => root.refreshOptions()
                                         }
                                     }
                                 }
@@ -6740,46 +6513,25 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: optEdgeSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 0
                                             to: 48
                                             stepSize: 2
+                                            suffix: "px"
                                             value: root.optBarEdgeMargin()
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setBarEdgeMargin === "function")
-                                                    bar.setBarEdgeMargin(Math.round(value))
+                                                    bar.setBarEdgeMargin(Math.round(v))
                                                 root.optionsTick++
                                                 root.menuTick++
                                                 Qt.callLater(root.reposition)
                                             }
-                                            background: Rectangle {
-                                                x: optEdgeSlider.leftPadding
-                                                y: optEdgeSlider.topPadding + optEdgeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: optEdgeSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: optEdgeSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: optEdgeSlider.leftPadding + optEdgeSlider.visualPosition * (optEdgeSlider.availableWidth - width)
-                                                y: optEdgeSlider.topPadding + optEdgeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: optEdgeSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setBarEdgeMargin === "function")
+                                                    bar.setBarEdgeMargin(Math.round(v))
                                             }
                                         }
                                     }
@@ -6881,46 +6633,25 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: optBarSizeSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 80
                                             to: 140
                                             stepSize: 5
+                                            suffix: "%"
                                             value: root.optBarSizePct()
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(value) / 100)
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                                 root.optionsTick++
                                                 root.menuTick++
                                                 Qt.callLater(root.reposition)
                                             }
-                                            background: Rectangle {
-                                                x: optBarSizeSlider.leftPadding
-                                                y: optBarSizeSlider.topPadding + optBarSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: optBarSizeSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: optBarSizeSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: optBarSizeSlider.leftPadding + optBarSizeSlider.visualPosition * (optBarSizeSlider.availableWidth - width)
-                                                y: optBarSizeSlider.topPadding + optBarSizeSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: optBarSizeSlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                             }
                                         }
                                     }
@@ -6964,45 +6695,25 @@ Item {
                                                 horizontalAlignment: Text.AlignHCenter
                                             }
                                         }
-                                        Slider {
-                                            id: optTipDelaySlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            fieldWidth: 52
                                             from: 0
                                             to: 3000
                                             stepSize: 50
+                                            suffix: "ms"
                                             value: root.optTooltipDelay()
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (typeof bar.setTooltipDelay === "function")
-                                                    bar.setTooltipDelay(Math.round(value))
+                                                    bar.setTooltipDelay(Math.round(v))
                                                 root.optionsTick++
                                                 root.menuTick++
                                             }
-                                            background: Rectangle {
-                                                x: optTipDelaySlider.leftPadding
-                                                y: optTipDelaySlider.topPadding + optTipDelaySlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: optTipDelaySlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: optTipDelaySlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
-                                            }
-                                            handle: Rectangle {
-                                                x: optTipDelaySlider.leftPadding + optTipDelaySlider.visualPosition * (optTipDelaySlider.availableWidth - width)
-                                                y: optTipDelaySlider.topPadding + optTipDelaySlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 12
-                                                implicitHeight: 12
-                                                radius: 3
-                                                color: optTipDelaySlider.pressed ? bar.accent : bar.text
-                                                border.width: 1
-                                                border.color: bar.accent
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setTooltipDelay === "function")
+                                                    bar.setTooltipDelay(Math.round(v))
                                             }
                                         }
                                     }
@@ -7346,123 +7057,67 @@ Item {
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
+                                    Layout.preferredHeight: 56
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Minimum workspace pills"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Show 1…N when not “only active”"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Minimum workspace pills"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                         }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            TextField {
-                                                id: wsMinField
-                                                anchors.centerIn: parent
-                                                width: root.optFieldW
-                                                height: root.optToggleH
-                                                horizontalAlignment: Text.AlignHCenter
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                text: String(bar.wsMinimumShown)
-                                                validator: IntValidator { bottom: 0; top: 10 }
-                                                background: Rectangle {
-                                                    radius: 4
-                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                    border.width: 1
-                                                    border.color: wsMinField.activeFocus ? bar.accent : bar.pillBorder
-                                                }
-                                                onAccepted: root.setOptNumber("setWsMinimumShown", parseInt(text, 10))
-                                                onEditingFinished: root.setOptNumber("setWsMinimumShown", parseInt(text, 10))
-                                            }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 0
+                                            to: 10
+                                            stepSize: 1
+                                            value: bar.wsMinimumShown
+                                            onValueEdited: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
+                                            onValueCommitted: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
                                         }
                                     }
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
+                                    Layout.preferredHeight: 56
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Startup workspace"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "0 = leave focus alone (safe on qs reload)"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Startup workspace"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                         }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            TextField {
-                                                id: wsStartField
-                                                anchors.centerIn: parent
-                                                width: root.optFieldW
-                                                height: root.optToggleH
-                                                horizontalAlignment: Text.AlignHCenter
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                text: String(bar.wsStartupWorkspace)
-                                                validator: IntValidator { bottom: 0; top: 10 }
-                                                background: Rectangle {
-                                                    radius: 4
-                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                    border.width: 1
-                                                    border.color: wsStartField.activeFocus ? bar.accent : bar.pillBorder
-                                                }
-                                                onAccepted: root.setOptNumber("setWsStartupWorkspace", parseInt(text, 10))
-                                                onEditingFinished: root.setOptNumber("setWsStartupWorkspace", parseInt(text, 10))
-                                            }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 0
+                                            to: 10
+                                            stepSize: 1
+                                            value: bar.wsStartupWorkspace
+                                            onValueEdited: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
+                                            onValueCommitted: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
                                         }
                                     }
                                 }
@@ -8885,56 +8540,30 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Magnify amount"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Magnify amount"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: Math.round((Number(bar.dockMaxScale) || 1.28) * 100) + "%"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
-                                        Slider {
-                                            id: dockScaleSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 110
                                             to: 160
                                             stepSize: 5
+                                            suffix: "%"
                                             value: Math.round((Number(bar.dockMaxScale) || 1.28) * 100)
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (bar)
-                                                    bar.dockMaxScale = value / 100
+                                                    bar.dockMaxScale = v / 100
                                                 root.optionsTick++
                                             }
-                                            onPressedChanged: {
-                                                if (!pressed && typeof bar.setDockMaxScale === "function")
-                                                    bar.setDockMaxScale(bar.dockMaxScale)
-                                            }
-                                            background: Rectangle {
-                                                x: dockScaleSlider.leftPadding
-                                                y: dockScaleSlider.topPadding + dockScaleSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: dockScaleSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: dockScaleSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setDockMaxScale === "function")
+                                                    bar.setDockMaxScale(v / 100)
                                             }
                                         }
                                     }
@@ -8954,56 +8583,30 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Neighbor spread"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Neighbor spread"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: String(Math.round(bar.dockRadius || 72)) + " px"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
-                                        Slider {
-                                            id: dockRadiusSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 40
                                             to: 140
                                             stepSize: 4
+                                            suffix: "px"
                                             value: Math.round(bar.dockRadius || 72)
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (bar)
-                                                    bar.dockRadius = Math.round(value)
+                                                    bar.dockRadius = Math.round(v)
                                                 root.optionsTick++
                                             }
-                                            onPressedChanged: {
-                                                if (!pressed && typeof bar.setDockRadius === "function")
-                                                    bar.setDockRadius(bar.dockRadius)
-                                            }
-                                            background: Rectangle {
-                                                x: dockRadiusSlider.leftPadding
-                                                y: dockRadiusSlider.topPadding + dockRadiusSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: dockRadiusSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: dockRadiusSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setDockRadius === "function")
+                                                    bar.setDockRadius(v)
                                             }
                                         }
                                     }
@@ -9023,56 +8626,30 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Jump height"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Jump height"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: String(Math.round(bar.dockJumpPx || 8)) + " px"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
-                                        Slider {
-                                            id: dockJumpSlider
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 16
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
                                             from: 4
                                             to: 16
                                             stepSize: 1
+                                            suffix: "px"
                                             value: Math.round(bar.dockJumpPx || 8)
-                                            onMoved: {
+                                            onValueEdited: (v) => {
                                                 if (bar)
-                                                    bar.dockJumpPx = Math.round(value)
+                                                    bar.dockJumpPx = Math.round(v)
                                                 root.optionsTick++
                                             }
-                                            onPressedChanged: {
-                                                if (!pressed && typeof bar.setDockJumpPx === "function")
-                                                    bar.setDockJumpPx(bar.dockJumpPx)
-                                            }
-                                            background: Rectangle {
-                                                x: dockJumpSlider.leftPadding
-                                                y: dockJumpSlider.topPadding + dockJumpSlider.availableHeight / 2 - height / 2
-                                                implicitWidth: 160
-                                                implicitHeight: 5
-                                                width: dockJumpSlider.availableWidth
-                                                height: 5
-                                                radius: 3
-                                                color: Qt.rgba(1, 1, 1, 0.12)
-                                                Rectangle {
-                                                    width: dockJumpSlider.visualPosition * parent.width
-                                                    height: parent.height
-                                                    radius: 3
-                                                    color: bar.accent
-                                                }
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setDockJumpPx === "function")
+                                                    bar.setDockJumpPx(v)
                                             }
                                         }
                                     }
@@ -9227,246 +8804,153 @@ Item {
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
+                                    Layout.preferredHeight: 56
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Start after"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Minutes idle (1–180). Apply to save."
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Start after"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                         }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            TextField {
-                                                id: ssMinField
-                                                anchors.centerIn: parent
-                                                width: root.optFieldW
-                                                height: root.optToggleH
-                                                horizontalAlignment: Text.AlignHCenter
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                text: String(root.ssTimeoutMin)
-                                                validator: IntValidator { bottom: 1; top: 180 }
-                                                background: Rectangle {
-                                                    radius: 4
-                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                    border.width: 1
-                                                    border.color: ssMinField.activeFocus ? bar.accent : bar.pillBorder
-                                                }
-                                                onAccepted: {
-                                                    const n = parseInt(text, 10)
-                                                    if (n >= 1)
-                                                        root.ssTimeoutMin = n
-                                                }
-                                                onEditingFinished: {
-                                                    const n = parseInt(text, 10)
-                                                    if (n >= 1)
-                                                        root.ssTimeoutMin = n
-                                                }
-                                            }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 1
+                                            to: 180
+                                            stepSize: 1
+                                            suffix: "min"
+                                            value: root.ssTimeoutMin
+                                            onValueEdited: (v) => root.ssTimeoutMin = Math.round(v)
+                                            onValueCommitted: (v) => root.ssTimeoutMin = Math.round(v)
                                         }
                                     }
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
+                                    Layout.preferredHeight: 72
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 10
-                                        spacing: 8
-                                        ColumnLayout {
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 4
+                                        RowLayout {
                                             Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
                                             Text {
                                                 text: "Dim on start"
                                                 color: bar.text
                                                 font.pixelSize: 12
                                                 font.family: bar.fontFamily
-                                                elide: Text.ElideRight
                                                 Layout.fillWidth: true
                                             }
-                                            Text {
-                                                text: "DDC brightness while the saver runs (G9, not DPMS)"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.preferredWidth: root.optToggleW
-                                            Layout.preferredHeight: root.optToggleH
-                                            radius: 4
-                                            border.width: 1
-                                            border.color: root.ssDimEnable ? root.onGreen : root.offRed
-                                            color: "transparent"
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: root.ssDimEnable ? "✓" : "✕"
-                                                color: root.ssDimEnable ? root.onGreen : root.offRed
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.ssDimEnable = !root.ssDimEnable
-                                            }
-                                        }
-                                        TextField {
-                                            id: ssDimField
-                                            Layout.preferredWidth: root.optFieldW
-                                            Layout.preferredHeight: root.optToggleH
-                                            horizontalAlignment: Text.AlignHCenter
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                            text: String(root.ssDimLevel)
-                                            validator: IntValidator { bottom: 0; top: 100 }
-                                            background: Rectangle {
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
                                                 radius: 4
-                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
                                                 border.width: 1
-                                                border.color: ssDimField.activeFocus ? bar.accent : bar.pillBorder
-                                            }
-                                            onAccepted: {
-                                                const n = parseInt(text, 10)
-                                                if (!isNaN(n))
-                                                    root.ssDimLevel = Math.max(0, Math.min(100, n))
-                                            }
-                                            onEditingFinished: {
-                                                const n = parseInt(text, 10)
-                                                if (!isNaN(n))
-                                                    root.ssDimLevel = Math.max(0, Math.min(100, n))
+                                                border.color: root.ssDimEnable ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.ssDimEnable ? "✓" : "✕"
+                                                    color: root.ssDimEnable ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.ssDimEnable = !root.ssDimEnable
+                                                }
                                             }
                                         }
-                                        Text {
-                                            text: "%"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 0
+                                            to: 100
+                                            stepSize: 1
+                                            suffix: "%"
+                                            enabled: root.ssDimEnable
+                                            value: root.ssDimLevel
+                                            onValueEdited: (v) => root.ssDimLevel = Math.round(v)
+                                            onValueCommitted: (v) => root.ssDimLevel = Math.round(v)
                                         }
                                     }
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
+                                    Layout.preferredHeight: 72
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
-                                    RowLayout {
+                                    ColumnLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
                                         anchors.rightMargin: 10
-                                        spacing: 8
-                                        ColumnLayout {
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 4
+                                        RowLayout {
                                             Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
                                             Text {
                                                 text: "Brightness on exit"
                                                 color: bar.text
                                                 font.pixelSize: 12
                                                 font.family: bar.fontFamily
-                                                elide: Text.ElideRight
                                                 Layout.fillWidth: true
                                             }
-                                            Text {
-                                                text: "Off = restore the level from before dim"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.preferredWidth: root.optToggleW
-                                            Layout.preferredHeight: root.optToggleH
-                                            radius: 4
-                                            border.width: 1
-                                            border.color: root.ssRestoreEnable ? root.onGreen : root.offRed
-                                            color: "transparent"
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: root.ssRestoreEnable ? "✓" : "✕"
-                                                color: root.ssRestoreEnable ? root.onGreen : root.offRed
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.ssRestoreEnable = !root.ssRestoreEnable
-                                            }
-                                        }
-                                        TextField {
-                                            id: ssRestoreField
-                                            Layout.preferredWidth: root.optFieldW
-                                            Layout.preferredHeight: root.optToggleH
-                                            horizontalAlignment: Text.AlignHCenter
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                            text: String(root.ssRestoreLevel)
-                                            validator: IntValidator { bottom: 0; top: 100 }
-                                            background: Rectangle {
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
                                                 radius: 4
-                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
                                                 border.width: 1
-                                                border.color: ssRestoreField.activeFocus ? bar.accent : bar.pillBorder
-                                            }
-                                            onAccepted: {
-                                                const n = parseInt(text, 10)
-                                                if (!isNaN(n))
-                                                    root.ssRestoreLevel = Math.max(0, Math.min(100, n))
-                                            }
-                                            onEditingFinished: {
-                                                const n = parseInt(text, 10)
-                                                if (!isNaN(n))
-                                                    root.ssRestoreLevel = Math.max(0, Math.min(100, n))
+                                                border.color: root.ssRestoreEnable ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.ssRestoreEnable ? "✓" : "✕"
+                                                    color: root.ssRestoreEnable ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.ssRestoreEnable = !root.ssRestoreEnable
+                                                }
                                             }
                                         }
-                                        Text {
-                                            text: "%"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 0
+                                            to: 100
+                                            stepSize: 1
+                                            suffix: "%"
+                                            enabled: root.ssRestoreEnable
+                                            value: root.ssRestoreLevel
+                                            onValueEdited: (v) => root.ssRestoreLevel = Math.round(v)
+                                            onValueCommitted: (v) => root.ssRestoreLevel = Math.round(v)
                                         }
                                     }
                                 }
@@ -10858,7 +10342,7 @@ Item {
                                                 delegate: Rectangle {
                                                     required property var modelData
                                                     Layout.fillWidth: true
-                                                    Layout.preferredHeight: 34
+                                                    Layout.preferredHeight: 40
                                                     radius: root.chipR
                                                     color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
                                                     border.width: 1
@@ -10878,27 +10362,20 @@ Item {
                                                             Layout.preferredWidth: implicitWidth
                                                             Layout.maximumWidth: 160
                                                         }
-                                                        Slider {
-                                                            Layout.fillWidth: true
+                                                        OptValueSlider {
+                                                            bar: bar
+                                                            fieldBg: root.optFieldBg
+                                                            fieldBgFocus: root.optFieldBgFocus
                                                             from: 0
                                                             to: 100
                                                             stepSize: 1
+                                                            suffix: "%"
                                                             value: {
                                                                 void root.colorsTick
                                                                 return root.themeAlphaPct(modelData.key)
                                                             }
-                                                            onMoved: root.setThemeAlphaPct(modelData.key, value)
-                                                        }
-                                                        Text {
-                                                            text: {
-                                                                void root.colorsTick
-                                                                return root.themeAlphaPct(modelData.key) + "%"
-                                                            }
-                                                            color: bar.subtext
-                                                            font.pixelSize: 11
-                                                            font.family: bar.fontFamily
-                                                            Layout.preferredWidth: 36
-                                                            horizontalAlignment: Text.AlignRight
+                                                            onValueEdited: (v) => root.setThemeAlphaPct(modelData.key, v)
+                                                            onValueCommitted: (v) => root.setThemeAlphaPct(modelData.key, v)
                                                         }
                                                     }
                                                 }
@@ -11014,7 +10491,7 @@ Item {
                                             delegate: Rectangle {
                                                 required property var modelData
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 36
+                                                Layout.preferredHeight: 44
                                                 radius: root.chipR
                                                 color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
                                                 border.width: 1
@@ -11030,30 +10507,23 @@ Item {
                                                         font.pixelSize: 12
                                                         font.family: bar.fontFamily
                                                     }
-                                                    TextInput {
-                                                        Layout.fillWidth: true
-                                                        horizontalAlignment: Text.AlignRight
-                                                        color: bar.text
-                                                        font.pixelSize: 13
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                        selectByMouse: true
-                                                        validator: IntValidator { bottom: 1; top: 99 }
-                                                        text: {
+                                                    OptValueSlider {
+                                                        bar: bar
+                                                        fieldBg: root.optFieldBg
+                                                        fieldBgFocus: root.optFieldBgFocus
+                                                        from: 1
+                                                        to: 99
+                                                        stepSize: 1
+                                                        suffix: "%"
+                                                        value: {
                                                             void root.colorsTick
-                                                            return "" + root.themeNumberFor(modelData.key)
+                                                            return root.themeNumberFor(modelData.key)
                                                         }
-                                                        onEditingFinished: {
-                                                            const n = parseInt(text, 10)
-                                                            if (!isNaN(n))
-                                                                root.setThemeNumberValue(modelData.key, n)
+                                                        onValueEdited: (v) => root.setThemeNumberValue(modelData.key, Math.round(v))
+                                                        onValueCommitted: (v) => {
+                                                            root.setThemeNumberValue(modelData.key, Math.round(v))
                                                             root.colorsTick++
                                                         }
-                                                    }
-                                                    Text {
-                                                        text: "%"
-                                                        color: bar.subtext
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontFamily
                                                     }
                                                 }
                                             }
@@ -11159,7 +10629,7 @@ Item {
                                             delegate: Rectangle {
                                                 required property var modelData
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 36
+                                                Layout.preferredHeight: 44
                                                 radius: root.chipR
                                                 color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
                                                 border.width: 1
@@ -11175,30 +10645,23 @@ Item {
                                                         font.pixelSize: 12
                                                         font.family: bar.fontFamily
                                                     }
-                                                    TextInput {
-                                                        Layout.fillWidth: true
-                                                        horizontalAlignment: Text.AlignRight
-                                                        color: bar.text
-                                                        font.pixelSize: 13
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                        selectByMouse: true
-                                                        validator: IntValidator { bottom: 1; top: 99 }
-                                                        text: {
+                                                    OptValueSlider {
+                                                        bar: bar
+                                                        fieldBg: root.optFieldBg
+                                                        fieldBgFocus: root.optFieldBgFocus
+                                                        from: 1
+                                                        to: 99
+                                                        stepSize: 1
+                                                        suffix: "%"
+                                                        value: {
                                                             void root.colorsTick
-                                                            return "" + root.themeNumberFor(modelData.key)
+                                                            return root.themeNumberFor(modelData.key)
                                                         }
-                                                        onEditingFinished: {
-                                                            const n = parseInt(text, 10)
-                                                            if (!isNaN(n))
-                                                                root.setThemeNumberValue(modelData.key, n)
+                                                        onValueEdited: (v) => root.setThemeNumberValue(modelData.key, Math.round(v))
+                                                        onValueCommitted: (v) => {
+                                                            root.setThemeNumberValue(modelData.key, Math.round(v))
                                                             root.colorsTick++
                                                         }
-                                                    }
-                                                    Text {
-                                                        text: "%"
-                                                        color: bar.subtext
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontFamily
                                                     }
                                                 }
                                             }
@@ -11304,7 +10767,7 @@ Item {
                                             delegate: Rectangle {
                                                 required property var modelData
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 36
+                                                Layout.preferredHeight: 44
                                                 radius: root.chipR
                                                 color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
                                                 border.width: 1
@@ -11320,30 +10783,23 @@ Item {
                                                         font.pixelSize: 11
                                                         font.family: bar.fontFamily
                                                     }
-                                                    TextInput {
-                                                        Layout.fillWidth: true
-                                                        horizontalAlignment: Text.AlignRight
-                                                        color: bar.text
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                        selectByMouse: true
-                                                        validator: IntValidator { bottom: 1; top: 99 }
-                                                        text: {
+                                                    OptValueSlider {
+                                                        bar: bar
+                                                        fieldBg: root.optFieldBg
+                                                        fieldBgFocus: root.optFieldBgFocus
+                                                        from: 1
+                                                        to: 99
+                                                        stepSize: 1
+                                                        suffix: "%"
+                                                        value: {
                                                             void root.colorsTick
-                                                            return "" + root.themeNumberFor(modelData.key)
+                                                            return root.themeNumberFor(modelData.key)
                                                         }
-                                                        onEditingFinished: {
-                                                            const n = parseInt(text, 10)
-                                                            if (!isNaN(n))
-                                                                root.setThemeNumberValue(modelData.key, n)
+                                                        onValueEdited: (v) => root.setThemeNumberValue(modelData.key, Math.round(v))
+                                                        onValueCommitted: (v) => {
+                                                            root.setThemeNumberValue(modelData.key, Math.round(v))
                                                             root.colorsTick++
                                                         }
-                                                    }
-                                                    Text {
-                                                        text: "%"
-                                                        color: bar.subtext
-                                                        font.pixelSize: 11
-                                                        font.family: bar.fontFamily
                                                     }
                                                 }
                                             }
@@ -11472,7 +10928,7 @@ Item {
                                             delegate: Rectangle {
                                                 required property var modelData
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 36
+                                                Layout.preferredHeight: 44
                                                 radius: root.chipR
                                                 color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
                                                 border.width: 1
@@ -11488,30 +10944,23 @@ Item {
                                                         font.pixelSize: 11
                                                         font.family: bar.fontFamily
                                                     }
-                                                    TextInput {
-                                                        Layout.fillWidth: true
-                                                        horizontalAlignment: Text.AlignRight
-                                                        color: bar.text
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                        selectByMouse: true
-                                                        validator: IntValidator { bottom: 1; top: 150 }
-                                                        text: {
+                                                    OptValueSlider {
+                                                        bar: bar
+                                                        fieldBg: root.optFieldBg
+                                                        fieldBgFocus: root.optFieldBgFocus
+                                                        from: 1
+                                                        to: 150
+                                                        stepSize: 1
+                                                        suffix: "°C"
+                                                        value: {
                                                             void root.colorsTick
-                                                            return "" + root.themeNumberFor(modelData.key)
+                                                            return root.themeNumberFor(modelData.key)
                                                         }
-                                                        onEditingFinished: {
-                                                            const n = parseInt(text, 10)
-                                                            if (!isNaN(n))
-                                                                root.setThemeNumberValue(modelData.key, n)
+                                                        onValueEdited: (v) => root.setThemeNumberValue(modelData.key, Math.round(v))
+                                                        onValueCommitted: (v) => {
+                                                            root.setThemeNumberValue(modelData.key, Math.round(v))
                                                             root.colorsTick++
                                                         }
-                                                    }
-                                                    Text {
-                                                        text: modelData.unit
-                                                        color: bar.subtext
-                                                        font.pixelSize: 11
-                                                        font.family: bar.fontFamily
                                                     }
                                                 }
                                             }
@@ -11792,20 +11241,20 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                Slider {
-                                                    Layout.fillWidth: true
-                                                    from: 70; to: 150; stepSize: 1
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 70
+                                                    to: 150
+                                                    stepSize: 1
+                                                    suffix: "%"
                                                     value: root.currentRoleFontScalePct("ui")
-                                                    onPressedChanged: { if (pressed) root.pushThemeUndo() }
-                                                    onMoved: root.applyFontScalePct(value)
-                                                }
-                                                Text {
-                                                    text: root.currentRoleFontScalePct("ui") + "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    Layout.preferredWidth: 40
-                                                    horizontalAlignment: Text.AlignRight
+                                                    onValueEdited: (v) => {
+                                                        root.pushThemeUndo()
+                                                        root.applyFontScalePct(v)
+                                                    }
+                                                    onValueCommitted: (v) => root.applyFontScalePct(v)
                                                 }
                                             }
                                         }
@@ -11919,20 +11368,20 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                Slider {
-                                                    Layout.fillWidth: true
-                                                    from: 70; to: 150; stepSize: 1
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 70
+                                                    to: 150
+                                                    stepSize: 1
+                                                    suffix: "%"
                                                     value: root.currentRoleFontScalePct("mono")
-                                                    onPressedChanged: { if (pressed) root.pushThemeUndo() }
-                                                    onMoved: root.applyRoleFontScalePct("mono", value)
-                                                }
-                                                Text {
-                                                    text: root.currentRoleFontScalePct("mono") + "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    Layout.preferredWidth: 40
-                                                    horizontalAlignment: Text.AlignRight
+                                                    onValueEdited: (v) => {
+                                                        root.pushThemeUndo()
+                                                        root.applyRoleFontScalePct("mono", v)
+                                                    }
+                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("mono", v)
                                                 }
                                             }
                                         }
@@ -12057,20 +11506,20 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                Slider {
-                                                    Layout.fillWidth: true
-                                                    from: 70; to: 150; stepSize: 1
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 70
+                                                    to: 150
+                                                    stepSize: 1
+                                                    suffix: "%"
                                                     value: root.currentRoleFontScalePct("main")
-                                                    onPressedChanged: { if (pressed) root.pushThemeUndo() }
-                                                    onMoved: root.applyRoleFontScalePct("main", value)
-                                                }
-                                                Text {
-                                                    text: root.currentRoleFontScalePct("main") + "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    Layout.preferredWidth: 40
-                                                    horizontalAlignment: Text.AlignRight
+                                                    onValueEdited: (v) => {
+                                                        root.pushThemeUndo()
+                                                        root.applyRoleFontScalePct("main", v)
+                                                    }
+                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("main", v)
                                                 }
                                             }
                                         }
@@ -12184,20 +11633,20 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                Slider {
-                                                    Layout.fillWidth: true
-                                                    from: 70; to: 150; stepSize: 1
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 70
+                                                    to: 150
+                                                    stepSize: 1
+                                                    suffix: "%"
                                                     value: root.currentRoleFontScalePct("secondary")
-                                                    onPressedChanged: { if (pressed) root.pushThemeUndo() }
-                                                    onMoved: root.applyRoleFontScalePct("secondary", value)
-                                                }
-                                                Text {
-                                                    text: root.currentRoleFontScalePct("secondary") + "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    Layout.preferredWidth: 40
-                                                    horizontalAlignment: Text.AlignRight
+                                                    onValueEdited: (v) => {
+                                                        root.pushThemeUndo()
+                                                        root.applyRoleFontScalePct("secondary", v)
+                                                    }
+                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("secondary", v)
                                                 }
                                             }
                                         }
@@ -12311,20 +11760,20 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                Slider {
-                                                    Layout.fillWidth: true
-                                                    from: 70; to: 150; stepSize: 1
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 70
+                                                    to: 150
+                                                    stepSize: 1
+                                                    suffix: "%"
                                                     value: root.currentRoleFontScalePct("bar")
-                                                    onPressedChanged: { if (pressed) root.pushThemeUndo() }
-                                                    onMoved: root.applyRoleFontScalePct("bar", value)
-                                                }
-                                                Text {
-                                                    text: root.currentRoleFontScalePct("bar") + "%"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                    Layout.preferredWidth: 40
-                                                    horizontalAlignment: Text.AlignRight
+                                                    onValueEdited: (v) => {
+                                                        root.pushThemeUndo()
+                                                        root.applyRoleFontScalePct("bar", v)
+                                                    }
+                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("bar", v)
                                                 }
                                             }
                                         }
@@ -13106,23 +12555,24 @@ Item {
                                                     anchors.leftMargin: 8
                                                     anchors.rightMargin: 8
                                                     spacing: 4
-                                                    Slider {
-                                                        Layout.fillWidth: true
-                                                        from: 70; to: 150; stepSize: 1
+                                                    OptValueSlider {
+                                                        bar: bar
+                                                        fieldBg: root.optFieldBg
+                                                        fieldBgFocus: root.optFieldBgFocus
+                                                        from: 70
+                                                        to: 150
+                                                        stepSize: 1
+                                                        suffix: "%"
                                                         value: root.currentClockFontScalePct()
-                                                        onMoved: {
+                                                        onValueEdited: (v) => {
                                                             if (typeof bar.setClockFontScale === "function")
-                                                                bar.setClockFontScale(Math.round(value) / 100)
+                                                                bar.setClockFontScale(Math.round(v) / 100)
                                                             root.menuTick++
                                                         }
-                                                    }
-                                                    Text {
-                                                        text: root.currentClockFontScalePct() + "%"
-                                                        color: bar.subtext
-                                                        font.pixelSize: 11
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                        Layout.preferredWidth: 40
-                                                        horizontalAlignment: Text.AlignRight
+                                                        onValueCommitted: (v) => {
+                                                            if (typeof bar.setClockFontScale === "function")
+                                                                bar.setClockFontScale(Math.round(v) / 100)
+                                                        }
                                                     }
                                                 }
                                             }

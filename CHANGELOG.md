@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Slider steppers + even dock hover
+
+- Control-bar numeric sliders (Dock, Position, Options, Wallpaper, Themes opacity/fonts, Screensaver, thresholds, widget width) use **‹ ›** plus a typed field (`OptValueSlider`).
+- Hover between Quick Launch / tray / workspace icons no longer tracks the scaled hit-box, so neighbors magnify evenly.
+
 ## 2026-09 — Docs catch-up
 
 - README covers Dock, Quick Launch dots, per-metric stats colors, **Save setup**, and screensaver (idle mpv, no DPMS).

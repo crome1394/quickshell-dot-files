@@ -175,12 +175,6 @@ Rectangle {
                                 modelData.activate()
                             }
                         }
-                        onPositionChanged: (mouse) => {
-                            if (!dockLeaveGuard.enabled || !root.dockPointerInPill())
-                                return
-                            const p = mapToItem(trayIconsRow, mouse.x, mouse.y)
-                            root.dockHoverX = p.x
-                        }
                         onContainsMouseChanged: {
                             if (!containsMouse && !root.dockPointerInPill())
                                 root.dockHoverX = -1

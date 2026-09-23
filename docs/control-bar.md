@@ -120,7 +120,7 @@ Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Networ
 | **Screensaver** | Auto-start · **Always start after idle** · idle minutes · **Dim on start** (DDC %, G9) · **Brightness on exit** (set % or restore previous) · **video path** · **script** · **Browse** / **Preview** / **Apply**. Tab video does not block; fullscreen does unless Always start is on. | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
 
-Editable text fields use a slightly lifted background so they read as inputs. Toggle/number columns share a fixed right-hand control slot for alignment.
+Numeric settings that use a slider also have **‹ ›** step buttons and a typed field (`components/OptValueSlider.qml`). Toggle rows still use the right-hand chip.
 
 ## Themes panel
 

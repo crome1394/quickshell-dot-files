@@ -421,12 +421,6 @@ Rectangle {
                         dockFx.jump()
                         root.launchEntry(modelData)
                     }
-                    onPositionChanged: (mouse) => {
-                        if (!root._dockMagnify || !root.dockPointerInPill())
-                            return
-                        const p = mapToItem(appsRow, mouse.x, mouse.y)
-                        root.dockHoverX = p.x
-                    }
                     onContainsMouseChanged: {
                         if (!containsMouse && !root.dockPointerInPill())
                             root.dockHoverX = -1

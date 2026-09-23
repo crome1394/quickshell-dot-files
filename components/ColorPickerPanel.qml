@@ -342,25 +342,25 @@ Item {
                     font.pixelSize: 11
                     font.family: root.fontFamily
                 }
-                Slider {
-                    id: alphaSlider
+                OptValueSlider {
                     Layout.fillWidth: true
+                    accent: root.accentColor
+                    textColor: root.labelColor
+                    subtextColor: root.labelColor
+                    fontFamily: root.fontFamily
                     from: 0
                     to: 100
                     stepSize: 1
+                    suffix: "%"
                     value: Math.round(root.alpha * 100)
-                    onMoved: {
-                        root.alpha = value / 100
+                    onValueEdited: (v) => {
+                        root.alpha = v / 100
                         root.emitColor()
                     }
-                }
-                Text {
-                    text: Math.round(root.alpha * 100) + "%"
-                    color: root.labelColor
-                    font.pixelSize: 11
-                    font.family: root.fontFamily
-                    Layout.preferredWidth: 32
-                    horizontalAlignment: Text.AlignRight
+                    onValueCommitted: (v) => {
+                        root.alpha = v / 100
+                        root.emitColor()
+                    }
                 }
             }
 
