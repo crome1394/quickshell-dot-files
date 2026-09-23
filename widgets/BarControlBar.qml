@@ -585,6 +585,7 @@ Item {
         if (typeof bar.refreshOptionsState === "function")
             bar.refreshOptionsState()
         root.refreshFreshRssSecrets()
+        root.refreshScreensaver()
         root.optionsTick++
         root.menuTick++
     }
@@ -809,6 +810,81 @@ Item {
     property bool frHasPassword: false
     property string frStatus: ""
     property bool frLoading: false
+
+    // Screensaver (idle mpv — no DPMS). Source of truth: ~/.config/hypr/screensaver.conf
+    readonly property string screensaverConfigScript: "/home/crome/.local/bin/screensaver-config.sh"
+    property bool ssEnabled: true
+    property int ssTimeoutMin: 10
+    property string ssVideo: ""
+    property string ssScript: ""
+    property bool ssVideoOk: false
+    property bool ssScriptOk: false
+    property string ssStatus: ""
+    property bool ssLoading: false
+
+    function refreshScreensaver() {
+        const script = root.screensaverConfigScript
+        if (!script.length)
+            return
+        if (ssGetProcess.running)
+            return
+        root.ssLoading = true
+        ssGetProcess.exec([script, "get"])
+    }
+
+    function saveScreensaver() {
+        const script = root.screensaverConfigScript
+        if (!script.length) {
+            root.ssStatus = "config helper missing"
+            return
+        }
+        if (ssSetProcess.running)
+            return
+        if (typeof ssMinField !== "undefined" && ssMinField && ssMinField.text) {
+            const typed = parseInt(ssMinField.text, 10)
+            if (typed >= 1)
+                root.ssTimeoutMin = typed
+        }
+        let mins = parseInt(root.ssTimeoutMin, 10)
+        if (!(mins >= 1))
+            mins = 10
+        if (mins > 180)
+            mins = 180
+        root.ssTimeoutMin = mins
+        root.ssStatus = "Saving…"
+        root.ssLoading = true
+        ssSetProcess.exec([
+            script, "set",
+            "--enabled", root.ssEnabled ? "1" : "0",
+            "--timeout-min", String(mins),
+            "--video", (root.ssVideo || "").trim(),
+            "--script", (root.ssScript || "").trim()
+        ])
+    }
+
+    function pickScreensaverVideo() {
+        const script = root.screensaverConfigScript
+        if (ssPickVideoProcess.running)
+            return
+        root.ssStatus = "Pick a video…"
+        ssPickVideoProcess.exec([script, "pick-video"])
+    }
+
+    function pickScreensaverScript() {
+        const script = root.screensaverConfigScript
+        if (ssPickScriptProcess.running)
+            return
+        root.ssStatus = "Pick a script…"
+        ssPickScriptProcess.exec([script, "pick-script"])
+    }
+
+    function previewScreensaver() {
+        const script = root.screensaverConfigScript
+        if (ssPreviewProcess.running)
+            return
+        root.ssStatus = "Starting…"
+        ssPreviewProcess.exec([script, "start"])
+    }
 
     function refreshFreshRssSecrets() {
         const script = bar.freshRssSecretsReadScript || ""
@@ -2907,6 +2983,122 @@ Item {
             root.frLoading = false
             if (code !== 0 && !(frConnectionTestStdout.text || "").trim())
                 root.frStatus = "Test failed"
+        }
+    }
+
+    Io.Process {
+        id: ssGetProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: ssGetStdout
+            onStreamFinished: {
+                root.ssLoading = false
+                const text = (ssGetStdout.text || "").trim()
+                if (!text.startsWith("{")) {
+                    root.ssStatus = "No screensaver config yet"
+                    return
+                }
+                try {
+                    const j = JSON.parse(text)
+                    root.ssEnabled = !!j.enabled
+                    root.ssTimeoutMin = Math.max(1, parseInt(j.timeout_min, 10) || 10)
+                    root.ssVideo = j.video || ""
+                    root.ssScript = j.script || ""
+                    root.ssVideoOk = !!j.video_ok
+                    root.ssScriptOk = !!j.script_ok
+                    const delay = root.ssEnabled ? (root.ssTimeoutMin + " min idle") : "auto-start off"
+                    root.ssStatus = delay + (root.ssVideoOk ? " · video ok" : " · missing video")
+                } catch (e) {
+                    root.ssStatus = "Parse error"
+                }
+                root.optionsTick++
+            }
+        }
+        onExited: (code) => {
+            root.ssLoading = false
+            if (code !== 0)
+                root.ssStatus = "Read failed"
+        }
+    }
+
+    Io.Process {
+        id: ssSetProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: ssSetStdout
+            onStreamFinished: {
+                root.ssLoading = false
+                const text = (ssSetStdout.text || "").trim()
+                if (text.startsWith("{")) {
+                    try {
+                        const j = JSON.parse(text)
+                        root.ssEnabled = !!j.enabled
+                        root.ssTimeoutMin = Math.max(1, parseInt(j.timeout_min, 10) || 10)
+                        root.ssVideo = j.video || root.ssVideo
+                        root.ssScript = j.script || root.ssScript
+                        root.ssVideoOk = !!j.video_ok
+                        root.ssScriptOk = !!j.script_ok
+                        root.ssStatus = j.ok
+                            ? ("Saved · " + (root.ssEnabled ? (root.ssTimeoutMin + " min") : "manual only"))
+                            : (j.error || "Save failed")
+                    } catch (e) {
+                        root.ssStatus = "Saved"
+                    }
+                } else {
+                    root.ssStatus = text.length ? text : "Saved"
+                }
+                root.optionsTick++
+            }
+        }
+        onExited: (code) => {
+            root.ssLoading = false
+            if (code !== 0)
+                root.ssStatus = "Save failed"
+        }
+    }
+
+    Io.Process {
+        id: ssPickVideoProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: ssPickVideoStdout
+            onStreamFinished: {
+                const p = (ssPickVideoStdout.text || "").trim()
+                if (p.length) {
+                    root.ssVideo = p
+                    root.ssStatus = "Video selected — Apply to save"
+                    root.optionsTick++
+                } else {
+                    root.ssStatus = "Cancelled"
+                }
+            }
+        }
+    }
+
+    Io.Process {
+        id: ssPickScriptProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: ssPickScriptStdout
+            onStreamFinished: {
+                const p = (ssPickScriptStdout.text || "").trim()
+                if (p.length) {
+                    root.ssScript = p
+                    root.ssStatus = "Script selected — Apply to save"
+                    root.optionsTick++
+                } else {
+                    root.ssStatus = "Cancelled"
+                }
+            }
+        }
+    }
+
+    Io.Process {
+        id: ssPreviewProcess
+        running: false
+        stdout: Io.StdioCollector { id: ssPreviewStdout }
+        onExited: (code) => {
+            root.ssStatus = (code === 0) ? "Running — click or move to dismiss" : "Start failed"
         }
     }
 
@@ -8191,6 +8383,330 @@ Item {
                                                     onClicked: root.setOptToggle("setMetricsLiveUpdates", !root.optMetricsLive())
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+
+                                // --- Screensaver ---
+                                Text {
+                                    text: "Screensaver"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Fullscreen video after idle (no DPMS — keeps the G9 link). Super+L starts it now. Click or move to dismiss."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Auto-start after idle"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Same action as Super+L"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: root.ssEnabled ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.ssEnabled ? "✓" : "✕"
+                                                    color: root.ssEnabled ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.ssEnabled = !root.ssEnabled
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Start after"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Minutes idle (1–180). Apply to save."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.fillHeight: true
+                                            TextField {
+                                                id: ssMinField
+                                                anchors.centerIn: parent
+                                                width: root.optFieldW
+                                                height: root.optToggleH
+                                                horizontalAlignment: Text.AlignHCenter
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                text: String(root.ssTimeoutMin)
+                                                validator: IntValidator { bottom: 1; top: 180 }
+                                                background: Rectangle {
+                                                    radius: 4
+                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                    border.width: 1
+                                                    border.color: ssMinField.activeFocus ? bar.accent : bar.pillBorder
+                                                }
+                                                onAccepted: {
+                                                    const n = parseInt(text, 10)
+                                                    if (n >= 1)
+                                                        root.ssTimeoutMin = n
+                                                }
+                                                onEditingFinished: {
+                                                    const n = parseInt(text, 10)
+                                                    if (n >= 1)
+                                                        root.ssTimeoutMin = n
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Text {
+                                        text: "Video"
+                                        color: bar.subtext
+                                        font.pixelSize: 12
+                                        font.family: bar.fontFamily
+                                        Layout.preferredWidth: 48
+                                    }
+                                    TextField {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 30
+                                        placeholderText: "~/Videos/screensaver/g9-screen-saver.mp4"
+                                        color: bar.text
+                                        placeholderTextColor: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        text: root.ssVideo
+                                        onTextChanged: root.ssVideo = text
+                                        background: Rectangle {
+                                            radius: root.chipR
+                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                            border.width: 1
+                                            border.color: parent.activeFocus
+                                                          ? bar.accent
+                                                          : (root.ssVideoOk ? bar.pillBorder : root.offRed)
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssVidBrowseLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: ssVidBrowseMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssVidBrowseMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssVidBrowseLbl
+                                            anchors.centerIn: parent
+                                            text: "Browse"
+                                            color: ssVidBrowseMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssVidBrowseMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.pickScreensaverVideo()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Text {
+                                        text: "Script"
+                                        color: bar.subtext
+                                        font.pixelSize: 12
+                                        font.family: bar.fontFamily
+                                        Layout.preferredWidth: 48
+                                    }
+                                    TextField {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 30
+                                        placeholderText: "~/.local/bin/screensaver.sh"
+                                        color: bar.text
+                                        placeholderTextColor: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        text: root.ssScript
+                                        onTextChanged: root.ssScript = text
+                                        background: Rectangle {
+                                            radius: root.chipR
+                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                            border.width: 1
+                                            border.color: parent.activeFocus
+                                                          ? bar.accent
+                                                          : (root.ssScriptOk ? bar.pillBorder : root.offRed)
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssScrBrowseLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: ssScrBrowseMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssScrBrowseMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssScrBrowseLbl
+                                            anchors.centerIn: parent
+                                            text: "Browse"
+                                            color: ssScrBrowseMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssScrBrowseMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.pickScreensaverScript()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: root.ssLoading ? "…" : (root.ssStatus || "Apply writes idle delay (no DPMS)")
+                                        color: {
+                                            const s = root.ssStatus || ""
+                                            if (s.indexOf("Saved") === 0 || s.indexOf("video ok") >= 0 || s.indexOf("Running") === 0)
+                                                return root.onGreen
+                                            if (s.indexOf("fail") >= 0 || s.indexOf("missing") >= 0 || s.indexOf("error") >= 0)
+                                                return root.offRed
+                                            return bar.subtext
+                                        }
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssPrevLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: ssPrevMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssPrevMa.containsMouse ? bar.accent : bar.pillBorder
+                                        opacity: root.ssLoading ? 0.6 : 1.0
+                                        Text {
+                                            id: ssPrevLbl
+                                            anchors.centerIn: parent
+                                            text: "Preview"
+                                            color: ssPrevMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssPrevMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            enabled: !root.ssLoading
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.previewScreensaver()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssSaveLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: ssSaveMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssSaveMa.containsMouse ? bar.accent : bar.pillBorder
+                                        opacity: root.ssLoading ? 0.6 : 1.0
+                                        Text {
+                                            id: ssSaveLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: ssSaveMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssSaveMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            enabled: !root.ssLoading
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.saveScreensaver()
                                         }
                                     }
                                 }

@@ -114,6 +114,7 @@ The bar clock itself still uses local time, so after a successful region apply i
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
+| **Screensaver** | Auto-start toggle · idle minutes · **video path** · **script** (`start`/`stop`) · **Browse** / **Preview** / **Apply** | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
 
 Editable text fields use a slightly lifted background so they read as inputs. Toggle/number columns share a fixed right-hand control slot for alignment.
