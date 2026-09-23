@@ -105,7 +105,7 @@ Search for **QUICK LAUNCH**. Edit the `quickLaunchApps` list — one object per 
 | `tooltip` | Hover label |
 | `matchClass` | Optional WM class / app-id (string or list) when the running indicator cannot match from `command` |
 
-Open windows light a Mac-dock-style accent **dot** under the matching icon (any workspace, including magic). Focused is the same size dot, brighter — icons stay one size and baseline. Matching uses `matchClass` if set, otherwise the `gtk-launch` id or the command’s binary name against Hyprland `class` / `initialClass` / Wayland `appId`. `steam_app_*` windows do not count as Steam.
+Open windows light a Mac-dock-style accent **dot** on the pill’s bottom edge (any workspace, including magic). Focused is the same size dot, brighter — icons stay center-aligned with the rest of the bar. Matching uses `matchClass` if set, otherwise the `gtk-launch` id or the command’s binary name against Hyprland `class` / `initialClass` / Wayland `appId`. `steam_app_*` windows do not count as Steam.
 
 Also tune `quickLaunchIcon` (size), `quickLaunchSpacing`, and `quickLaunchPaddingH`.
 

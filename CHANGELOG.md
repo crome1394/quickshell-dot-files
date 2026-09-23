@@ -4,7 +4,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Quick Launch running dot
 
-- Running apps show a Mac-dock-style **dot** under the icon instead of a dash plus workspace-chip fill. Icons stay one size and baseline; focused is the same dot, brighter.
+- Running apps show a Mac-dock-style **dot** on the pill’s bottom edge instead of a dash plus workspace-chip fill. Icons stay center-aligned with the rest of the bar; focused is the same size dot, brighter.
 
 ## 2026-09 — Dock hover on all icons + last-icon unstick
 

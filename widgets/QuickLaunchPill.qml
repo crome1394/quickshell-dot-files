@@ -15,9 +15,9 @@ import Quickshell.Hyprland
 //   Config.qml defaults (search QUICK LAUNCH); runtime list is bar.quickLaunchApps
 //   (editable from BarControlBar → Launch, persisted in bar-layout.json).
 //
-//   Running apps get a Mac-dock-style accent dot under the icon (any workspace,
-//   including magic). Icons stay the same size and baseline; focused is the same
-//   dot, a bit brighter — no workspace-chip fill.
+//   Running apps get a Mac-dock-style accent dot on the pill's bottom edge (any
+//   workspace, including magic). Icons are centerIn like the rest of the bar;
+//   focused is the same size dot, a bit brighter — no workspace-chip fill.
 //
 // Theme Properties Consumed:
 //   - bar.pillRadius, bar.pillBg, bar.pillBorder, bar.accent, bar.wsActiveBg
@@ -344,8 +344,8 @@ Rectangle {
                     Translate { y: dockFx.jumpY }
                 ]
 
-                // Square cells, same size for every icon. Running is a Mac-style
-                // dot in the bottom gutter — do not shift the icon for it.
+                // Square cells; icon is centerIn like the rest of the bar.
+                // Running dot sits on the pill's bottom edge, not in an icon gutter.
                 readonly property int _dot: Math.max(3, Math.round(root._icon * 0.2))
                 width: root._icon + 10
                 height: root._icon + 10
@@ -370,9 +370,7 @@ Rectangle {
 
                 Image {
                     visible: !root.entryUsesGlyph(modelData)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
+                    anchors.centerIn: parent
                     width: root._icon
                     height: root._icon
                     source: modelData.icon || ""
@@ -383,9 +381,7 @@ Rectangle {
 
                 Text {
                     visible: root.entryUsesGlyph(modelData)
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 2
+                    anchors.centerIn: parent
                     width: root._icon
                     height: root._icon
                     horizontalAlignment: Text.AlignHCenter
@@ -399,8 +395,8 @@ Rectangle {
                 Rectangle {
                     visible: isRunning
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 2
+                    anchors.bottom: root.bottom
+                    anchors.bottomMargin: Math.max(1, bar.controlBorderWidth)
                     width: dockCell._dot
                     height: dockCell._dot
                     radius: dockCell._dot / 2
