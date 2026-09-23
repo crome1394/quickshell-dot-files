@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Screensaver DDC dim / exit brightness
+
+- Options → Screensaver **Dim on start** (0–100%) uses `ddcutil` VCP 10 (G9 has no sysfs backlight; not DPMS). Captures the current level first.
+- **Brightness on exit**: on = set that %; off = restore the captured level after a dim. Needs `ddcutil`. One get/set per transition.
+
 ## 2026-09 — Screensaver ignores tab video; fullscreen still blocks
 
 - Browser tabs playing YouTube / X / Facebook / Rumble no longer hold off the idle screensaver (`ignore_wayland/dbus/systemd_inhibit` in hypridle; `idle-ok` only refuses **fullscreen** windows).

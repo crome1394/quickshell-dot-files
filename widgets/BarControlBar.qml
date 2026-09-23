@@ -851,6 +851,10 @@ Item {
     property bool ssVideoOk: false
     property bool ssScriptOk: false
     property bool ssIgnoreInhibit: false
+    property bool ssDimEnable: false
+    property int ssDimLevel: 10
+    property bool ssRestoreEnable: false
+    property int ssRestoreLevel: 80
     property string ssStatus: ""
     property bool ssLoading: false
 
@@ -877,6 +881,16 @@ Item {
             if (typed >= 1)
                 root.ssTimeoutMin = typed
         }
+        if (typeof ssDimField !== "undefined" && ssDimField && ssDimField.text.length) {
+            const d = parseInt(ssDimField.text, 10)
+            if (!isNaN(d))
+                root.ssDimLevel = Math.max(0, Math.min(100, d))
+        }
+        if (typeof ssRestoreField !== "undefined" && ssRestoreField && ssRestoreField.text.length) {
+            const r = parseInt(ssRestoreField.text, 10)
+            if (!isNaN(r))
+                root.ssRestoreLevel = Math.max(0, Math.min(100, r))
+        }
         let mins = parseInt(root.ssTimeoutMin, 10)
         if (!(mins >= 1))
             mins = 10
@@ -891,7 +905,11 @@ Item {
             "--timeout-min", String(mins),
             "--video", (root.ssVideo || "").trim(),
             "--script", (root.ssScript || "").trim(),
-            "--ignore-inhibit", root.ssIgnoreInhibit ? "1" : "0"
+            "--ignore-inhibit", root.ssIgnoreInhibit ? "1" : "0",
+            "--dim-enable", root.ssDimEnable ? "1" : "0",
+            "--dim-level", String(Math.max(0, Math.min(100, parseInt(root.ssDimLevel, 10) || 10))),
+            "--restore-enable", root.ssRestoreEnable ? "1" : "0",
+            "--restore-level", String(Math.max(0, Math.min(100, parseInt(root.ssRestoreLevel, 10) || 80)))
         ])
     }
 
@@ -3117,6 +3135,10 @@ Item {
                     root.ssVideoOk = !!j.video_ok
                     root.ssScriptOk = !!j.script_ok
                     root.ssIgnoreInhibit = !!j.ignore_inhibit
+                    root.ssDimEnable = !!j.dim_enable
+                    root.ssDimLevel = Math.max(0, Math.min(100, parseInt(j.dim_level, 10) || 10))
+                    root.ssRestoreEnable = !!j.restore_enable
+                    root.ssRestoreLevel = Math.max(0, Math.min(100, parseInt(j.restore_level, 10) || 80))
                     const delay = root.ssEnabled ? (root.ssTimeoutMin + " min idle") : "auto-start off"
                     root.ssStatus = delay + (root.ssVideoOk ? " · video ok" : " · missing video")
                 } catch (e) {
@@ -3150,6 +3172,14 @@ Item {
                         root.ssVideoOk = !!j.video_ok
                         root.ssScriptOk = !!j.script_ok
                         root.ssIgnoreInhibit = !!j.ignore_inhibit
+                        if (j.dim_enable !== undefined)
+                            root.ssDimEnable = !!j.dim_enable
+                        if (j.dim_level !== undefined)
+                            root.ssDimLevel = Math.max(0, Math.min(100, parseInt(j.dim_level, 10) || 10))
+                        if (j.restore_enable !== undefined)
+                            root.ssRestoreEnable = !!j.restore_enable
+                        if (j.restore_level !== undefined)
+                            root.ssRestoreLevel = Math.max(0, Math.min(100, parseInt(j.restore_level, 10) || 80))
                         root.ssStatus = j.ok
                             ? ("Saved · " + (root.ssEnabled ? (root.ssTimeoutMin + " min") : "manual only"))
                             : (j.error || "Save failed")
@@ -9261,6 +9291,182 @@ Item {
                                                         root.ssTimeoutMin = n
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 8
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Dim on start"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "DDC brightness while the saver runs (G9, not DPMS)"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: root.optToggleW
+                                            Layout.preferredHeight: root.optToggleH
+                                            radius: 4
+                                            border.width: 1
+                                            border.color: root.ssDimEnable ? root.onGreen : root.offRed
+                                            color: "transparent"
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: root.ssDimEnable ? "✓" : "✕"
+                                                color: root.ssDimEnable ? root.onGreen : root.offRed
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                            }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.ssDimEnable = !root.ssDimEnable
+                                            }
+                                        }
+                                        TextField {
+                                            id: ssDimField
+                                            Layout.preferredWidth: root.optFieldW
+                                            Layout.preferredHeight: root.optToggleH
+                                            horizontalAlignment: Text.AlignHCenter
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            text: String(root.ssDimLevel)
+                                            validator: IntValidator { bottom: 0; top: 100 }
+                                            background: Rectangle {
+                                                radius: 4
+                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                border.width: 1
+                                                border.color: ssDimField.activeFocus ? bar.accent : bar.pillBorder
+                                            }
+                                            onAccepted: {
+                                                const n = parseInt(text, 10)
+                                                if (!isNaN(n))
+                                                    root.ssDimLevel = Math.max(0, Math.min(100, n))
+                                            }
+                                            onEditingFinished: {
+                                                const n = parseInt(text, 10)
+                                                if (!isNaN(n))
+                                                    root.ssDimLevel = Math.max(0, Math.min(100, n))
+                                            }
+                                        }
+                                        Text {
+                                            text: "%"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 8
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Brightness on exit"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Off = restore the level from before dim"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: root.optToggleW
+                                            Layout.preferredHeight: root.optToggleH
+                                            radius: 4
+                                            border.width: 1
+                                            border.color: root.ssRestoreEnable ? root.onGreen : root.offRed
+                                            color: "transparent"
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: root.ssRestoreEnable ? "✓" : "✕"
+                                                color: root.ssRestoreEnable ? root.onGreen : root.offRed
+                                                font.pixelSize: 14
+                                                font.bold: true
+                                            }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.ssRestoreEnable = !root.ssRestoreEnable
+                                            }
+                                        }
+                                        TextField {
+                                            id: ssRestoreField
+                                            Layout.preferredWidth: root.optFieldW
+                                            Layout.preferredHeight: root.optToggleH
+                                            horizontalAlignment: Text.AlignHCenter
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            text: String(root.ssRestoreLevel)
+                                            validator: IntValidator { bottom: 0; top: 100 }
+                                            background: Rectangle {
+                                                radius: 4
+                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                border.width: 1
+                                                border.color: ssRestoreField.activeFocus ? bar.accent : bar.pillBorder
+                                            }
+                                            onAccepted: {
+                                                const n = parseInt(text, 10)
+                                                if (!isNaN(n))
+                                                    root.ssRestoreLevel = Math.max(0, Math.min(100, n))
+                                            }
+                                            onEditingFinished: {
+                                                const n = parseInt(text, 10)
+                                                if (!isNaN(n))
+                                                    root.ssRestoreLevel = Math.max(0, Math.min(100, n))
+                                            }
+                                        }
+                                        Text {
+                                            text: "%"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
                                         }
                                     }
                                 }

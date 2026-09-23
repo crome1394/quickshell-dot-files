@@ -31,6 +31,10 @@ read_conf() {
     VIDEO="$DEFAULT_VIDEO"
     SCRIPT="$DEFAULT_SCRIPT"
     IGNORE_INHIBIT=0
+    DIM_ENABLE=0
+    DIM_LEVEL=10
+    RESTORE_ENABLE=0
+    RESTORE_LEVEL=80
     [[ -f "$CONF" ]] || return 0
     local line key val
     while IFS= read -r line || [[ -n "$line" ]]; do
@@ -45,12 +49,27 @@ read_conf() {
             video) VIDEO="$val" ;;
             script) SCRIPT="$val" ;;
             ignore_inhibit) IGNORE_INHIBIT="$val" ;;
+            dim_enable) DIM_ENABLE="$val" ;;
+            dim_level) DIM_LEVEL="$val" ;;
+            restore_enable) RESTORE_ENABLE="$val" ;;
+            restore_level) RESTORE_LEVEL="$val" ;;
         esac
     done <"$CONF"
     VIDEO="$(expand_path "$VIDEO")"
     SCRIPT="$(expand_path "$SCRIPT")"
     ENABLED="$(norm_bool "$ENABLED")"
     IGNORE_INHIBIT="$(norm_bool "$IGNORE_INHIBIT")"
+    DIM_ENABLE="$(norm_bool "$DIM_ENABLE")"
+    RESTORE_ENABLE="$(norm_bool "$RESTORE_ENABLE")"
+    DIM_LEVEL="$(clamp_pct "$DIM_LEVEL")"
+    RESTORE_LEVEL="$(clamp_pct "$RESTORE_LEVEL")"
+}
+
+clamp_pct() {
+    local n="${1:-0}"
+    [[ "$n" =~ ^[0-9]+$ ]] || n=0
+    if (( n > 100 )); then n=100; fi
+    printf '%s' "$n"
 }
 
 json_escape() {
@@ -62,9 +81,10 @@ emit_json() {
     local video_ok=0 script_ok=0
     [[ -f "$VIDEO" ]] && video_ok=1
     [[ -x "$SCRIPT" ]] && script_ok=1
-    python3 - "$ENABLED" "$TIMEOUT_SEC" "$VIDEO" "$SCRIPT" "$video_ok" "$script_ok" "$IGNORE_INHIBIT" <<'PY'
+    python3 - "$ENABLED" "$TIMEOUT_SEC" "$VIDEO" "$SCRIPT" "$video_ok" "$script_ok" "$IGNORE_INHIBIT" \
+        "$DIM_ENABLE" "$DIM_LEVEL" "$RESTORE_ENABLE" "$RESTORE_LEVEL" <<'PY'
 import json, sys
-enabled, timeout, video, script, vok, sok, ign = sys.argv[1:8]
+enabled, timeout, video, script, vok, sok, ign, dim_on, dim_lv, rest_on, rest_lv = sys.argv[1:12]
 try:
     t = int(timeout)
 except ValueError:
@@ -73,10 +93,17 @@ try:
     en = int(enabled)
 except ValueError:
     en = 1
-try:
-    ig = int(ign)
-except ValueError:
-    ig = 0
+def b(x):
+    try:
+        return bool(int(x))
+    except ValueError:
+        return False
+def pct(x, default):
+    try:
+        n = int(x)
+    except ValueError:
+        n = default
+    return max(0, min(100, n))
 print(json.dumps({
     "ok": True,
     "enabled": bool(en),
@@ -86,7 +113,12 @@ print(json.dumps({
     "script": script,
     "video_ok": bool(int(vok)),
     "script_ok": bool(int(sok)),
-    "ignore_inhibit": bool(ig),
+    "ignore_inhibit": b(ign),
+    "dim_enable": b(dim_on),
+    "dim_level": pct(dim_lv, 10),
+    "restore_enable": b(rest_on),
+    "restore_level": pct(rest_lv, 80),
+    "ddcutil_ok": bool(__import__("shutil").which("ddcutil")),
 }))
 PY
 }
@@ -102,6 +134,10 @@ timeout_sec=${TIMEOUT_SEC}
 video=${VIDEO}
 script=${SCRIPT}
 ignore_inhibit=${IGNORE_INHIBIT}
+dim_enable=${DIM_ENABLE}
+dim_level=${DIM_LEVEL}
+restore_enable=${RESTORE_ENABLE}
+restore_level=${RESTORE_LEVEL}
 EOF
     mv -f "$tmp" "$CONF"
 }
@@ -217,6 +253,14 @@ cmd_set() {
                 SCRIPT="$(expand_path "$2")"; shift 2 ;;
             --ignore-inhibit)
                 IGNORE_INHIBIT="$2"; shift 2 ;;
+            --dim-enable)
+                DIM_ENABLE="$2"; shift 2 ;;
+            --dim-level)
+                DIM_LEVEL="$2"; shift 2 ;;
+            --restore-enable)
+                RESTORE_ENABLE="$2"; shift 2 ;;
+            --restore-level)
+                RESTORE_LEVEL="$2"; shift 2 ;;
             *)
                 echo "{\"ok\":false,\"error\":\"unknown arg $1\"}" >&2
                 exit 2 ;;
@@ -235,6 +279,10 @@ cmd_set() {
     VIDEO="$(expand_path "$VIDEO")"
     SCRIPT="$(expand_path "$SCRIPT")"
     IGNORE_INHIBIT="$(norm_bool "$IGNORE_INHIBIT")"
+    DIM_ENABLE="$(norm_bool "$DIM_ENABLE")"
+    RESTORE_ENABLE="$(norm_bool "$RESTORE_ENABLE")"
+    DIM_LEVEL="$(clamp_pct "$DIM_LEVEL")"
+    RESTORE_LEVEL="$(clamp_pct "$RESTORE_LEVEL")"
     write_conf
     patch_hypridle
     reload_hypridle
