@@ -96,6 +96,10 @@ Rectangle {
         }
     }
 
+    function dockScaleFor(cell) {
+        return DockFx.neighborMag(bar, root.dockHoverX, cell, root.dockPointerInPill(), true)
+    }
+
     // === Appearance via config (bar aliases) ===
     // Outer chrome is stable; per-workspace buttons handle their own hover highlight.
     color: bar.glassPillBg
@@ -467,7 +471,7 @@ Rectangle {
                     host: wsBtn
                     hovered: root.dockPointerInPill()
                     useNeighbor: true
-                    neighborScale: DockFx.neighborMag(root.bar, root.dockHoverX, wsBtn, root.dockPointerInPill(), true)
+                    neighborScale: root.dockScaleFor(wsBtn)
                 }
                 z: Math.round((dockFx.mag - 1) * 24)
                 transform: [
@@ -477,8 +481,10 @@ Rectangle {
                         origin.x: wsBtn.width / 2
                         origin.y: dockFx.growUp ? wsBtn.height : 0
                     },
-                    Translate { y: dockFx.jumpY }
-                }
+                    Translate {
+                        y: dockFx.jumpY
+                    }
+                ]
 
                 Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
                 Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }

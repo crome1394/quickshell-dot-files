@@ -102,6 +102,10 @@ Rectangle {
         }
     }
 
+    function dockScaleFor(cell) {
+        return DockFx.neighborMag(bar, root.dockHoverX, cell, root.dockPointerInPill(), true)
+    }
+
     Item {
         id: trayContent
         anchors.centerIn: parent
@@ -132,7 +136,7 @@ Rectangle {
                         host: trayIconItem
                         hovered: root.dockPointerInPill()
                         useNeighbor: true
-                        neighborScale: DockFx.neighborMag(root.bar, root.dockHoverX, trayIconItem, root.dockPointerInPill(), true)
+                        neighborScale: root.dockScaleFor(trayIconItem)
                     }
                     z: Math.round((dockFx.mag - 1) * 24)
                     transform: [
@@ -143,7 +147,7 @@ Rectangle {
                             origin.y: dockFx.growUp ? trayIconItem.height : 0
                         },
                         Translate { y: dockFx.jumpY }
-                    }
+                    ]
 
                     Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
                     Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
