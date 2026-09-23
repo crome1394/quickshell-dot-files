@@ -106,7 +106,7 @@ The bar clock itself still uses local time, so after a successful region apply i
 
 ## Options panel
 
-Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Screensaver** · **FreshRSS**. One section is shown at a time (same controls as before).
+Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. One section is shown at a time (same controls as before).
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|
@@ -116,6 +116,7 @@ Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Networ
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
+| **Dock** | Quick Launch hover: Off / Magnify / Jump / Both · magnify amount · neighbor spread · jump height | `bar-layout.json` |
 | **Screensaver** | Auto-start toggle · idle minutes · **video path** · **script** (`start`/`stop`) · **Browse** / **Preview** / **Apply** | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
 

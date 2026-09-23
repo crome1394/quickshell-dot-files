@@ -587,7 +587,7 @@ Item {
         const t = String(tab || "bar")
         const allowed = {
             "bar": 1, "workspaces": 1, "audio": 1, "network": 1,
-            "bluetooth": 1, "stats": 1, "screensaver": 1, "freshrss": 1
+            "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
         }
         root.optionsTab = allowed[t] ? t : "bar"
         if (typeof optionsBodyFlick !== "undefined" && optionsBodyFlick) {
@@ -6264,6 +6264,7 @@ Item {
                                             { id: "network", label: "Network" },
                                             { id: "bluetooth", label: "Bluetooth" },
                                             { id: "stats", label: "Stats" },
+                                            { id: "dock", label: "Dock" },
                                             { id: "screensaver", label: "Screensaver" },
                                             { id: "freshrss", label: "FreshRSS" }
                                         ]
@@ -8484,6 +8485,282 @@ Item {
                                 }
 
                                 } // options tab: stats
+                                ColumnLayout {
+                                    visible: root.optionsTab === "dock"
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                Text {
+                                    text: "Dock"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Mac-style hover on Quick Launch icons only (not stats, volume, or workspaces)."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    text: "Effect"
+                                    color: bar.subtext
+                                    font.pixelSize: 11
+                                    font.family: bar.fontFamily
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "off", label: "Off" },
+                                            { id: "magnify", label: "Magnify" },
+                                            { id: "jump", label: "Jump" },
+                                            { id: "both", label: "Both" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: String(bar.dockEffect || "both") === modelData.id
+                                            width: Math.max(64, dockFxLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, dockFxMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, dockFxMa.containsMouse)
+                                            Text {
+                                                id: dockFxLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, dockFxMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: dockFxMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setDockEffect === "function")
+                                                        bar.setDockEffect(modelData.id)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    opacity: (bar.dockEffect === "magnify" || bar.dockEffect === "both") ? 1 : 0.45
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Magnify amount"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: Math.round((Number(bar.dockMaxScale) || 1.28) * 100) + "%"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: dockScaleSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 110
+                                            to: 160
+                                            stepSize: 5
+                                            value: Math.round((Number(bar.dockMaxScale) || 1.28) * 100)
+                                            onMoved: {
+                                                if (bar)
+                                                    bar.dockMaxScale = value / 100
+                                                root.optionsTick++
+                                            }
+                                            onPressedChanged: {
+                                                if (!pressed && typeof bar.setDockMaxScale === "function")
+                                                    bar.setDockMaxScale(bar.dockMaxScale)
+                                            }
+                                            background: Rectangle {
+                                                x: dockScaleSlider.leftPadding
+                                                y: dockScaleSlider.topPadding + dockScaleSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: dockScaleSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: dockScaleSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    opacity: (bar.dockEffect === "magnify" || bar.dockEffect === "both") ? 1 : 0.45
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Neighbor spread"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: String(Math.round(bar.dockRadius || 72)) + " px"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: dockRadiusSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 40
+                                            to: 140
+                                            stepSize: 4
+                                            value: Math.round(bar.dockRadius || 72)
+                                            onMoved: {
+                                                if (bar)
+                                                    bar.dockRadius = Math.round(value)
+                                                root.optionsTick++
+                                            }
+                                            onPressedChanged: {
+                                                if (!pressed && typeof bar.setDockRadius === "function")
+                                                    bar.setDockRadius(bar.dockRadius)
+                                            }
+                                            background: Rectangle {
+                                                x: dockRadiusSlider.leftPadding
+                                                y: dockRadiusSlider.topPadding + dockRadiusSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: dockRadiusSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: dockRadiusSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    opacity: (bar.dockEffect === "jump" || bar.dockEffect === "both") ? 1 : 0.45
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Text {
+                                                text: "Jump height"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: String(Math.round(bar.dockJumpPx || 8)) + " px"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                Layout.preferredWidth: root.optControlColW
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                        }
+                                        Slider {
+                                            id: dockJumpSlider
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 16
+                                            from: 4
+                                            to: 16
+                                            stepSize: 1
+                                            value: Math.round(bar.dockJumpPx || 8)
+                                            onMoved: {
+                                                if (bar)
+                                                    bar.dockJumpPx = Math.round(value)
+                                                root.optionsTick++
+                                            }
+                                            onPressedChanged: {
+                                                if (!pressed && typeof bar.setDockJumpPx === "function")
+                                                    bar.setDockJumpPx(bar.dockJumpPx)
+                                            }
+                                            background: Rectangle {
+                                                x: dockJumpSlider.leftPadding
+                                                y: dockJumpSlider.topPadding + dockJumpSlider.availableHeight / 2 - height / 2
+                                                implicitWidth: 160
+                                                implicitHeight: 5
+                                                width: dockJumpSlider.availableWidth
+                                                height: 5
+                                                radius: 3
+                                                color: Qt.rgba(1, 1, 1, 0.12)
+                                                Rectangle {
+                                                    width: dockJumpSlider.visualPosition * parent.width
+                                                    height: parent.height
+                                                    radius: 3
+                                                    color: bar.accent
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                } // options tab: dock
                                 ColumnLayout {
                                     visible: root.optionsTab === "screensaver"
                                     Layout.fillWidth: true

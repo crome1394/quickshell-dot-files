@@ -1695,6 +1695,18 @@ QtObject {
     readonly property int quickLaunchPaddingH: sp(10)   // Left/right padding inside the pill
 
     // =========================================================================
+    // QUICK LAUNCH DOCK HOVER (runtime: shell.qml / Options → Dock)
+    // =========================================================================
+    // dockEffect: "off" | "magnify" | "jump" | "both"  — Quick Launch icons only
+    // dockMaxScale: 1.05–1.8  (hovered icon)
+    // dockRadius: px influence for neighbor magnification
+    // dockJumpPx: bounce height on click
+    readonly property string dockEffectDefault: "both"
+    readonly property real   dockMaxScaleDefault: 1.28
+    readonly property int    dockRadiusDefault: 72
+    readonly property int    dockJumpPxDefault: 8
+
+    // =========================================================================
     // QUICK LAUNCH (widgets/QuickLaunchPill.qml — pinned app icon row)
     // =========================================================================
     // Add, remove, or reorder entries in quickLaunchApps. Each entry is one icon.

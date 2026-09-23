@@ -167,6 +167,11 @@ ShellRoot {
     property bool audioDefaultsExpanded: true
     // FreshRSS reader: Filters section open on window start (Options + bar-layout.json)
     property bool freshRssFiltersExpanded: true
+    // Quick Launch dock-style hover (Options → Dock). off | magnify | jump | both
+    property string dockEffect: "both"
+    property real dockMaxScale: 1.28
+    property int dockRadius: 72
+    property int dockJumpPx: 8
 
     // Clock format string (Qt.formatDateTime); Config default, persisted override.
     property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
@@ -598,6 +603,13 @@ ShellRoot {
                 }
                 if (barLayoutAdapter.hasFreshRssPrefs)
                     root.freshRssFiltersExpanded = barLayoutAdapter.freshRssFiltersExpanded
+                if (barLayoutAdapter.hasDockPrefs) {
+                    const de = String(barLayoutAdapter.dockEffect || "both")
+                    root.dockEffect = (de === "off" || de === "magnify" || de === "jump" || de === "both") ? de : "both"
+                    root.dockMaxScale = Math.max(1.05, Math.min(1.8, Number(barLayoutAdapter.dockMaxScale) || 1.28))
+                    root.dockRadius = Math.max(32, Math.min(160, Math.round(barLayoutAdapter.dockRadius || 72)))
+                    root.dockJumpPx = Math.max(4, Math.min(20, Math.round(barLayoutAdapter.dockJumpPx || 8)))
+                }
                 // Layout JSON (normalize with the active mode so zones stay valid)
                 if (barLayoutAdapter.widgetLayoutJson && barLayoutAdapter.widgetLayoutJson.length > 2) {
                     try {
@@ -708,6 +720,11 @@ ShellRoot {
                 property bool audioDefaultsExpanded: true
                 property bool hasFreshRssPrefs: false
                 property bool freshRssFiltersExpanded: true
+                property bool hasDockPrefs: false
+                property string dockEffect: "both"
+                property real dockMaxScale: 1.28
+                property int dockRadius: 72
+                property int dockJumpPx: 8
             }
         }
 
@@ -1155,6 +1172,11 @@ ShellRoot {
             barLayoutAdapter.audioDefaultsExpanded = root.audioDefaultsExpanded
             barLayoutAdapter.hasFreshRssPrefs = true
             barLayoutAdapter.freshRssFiltersExpanded = root.freshRssFiltersExpanded
+            barLayoutAdapter.hasDockPrefs = true
+            barLayoutAdapter.dockEffect = root.dockEffect || "both"
+            barLayoutAdapter.dockMaxScale = Math.max(1.05, Math.min(1.8, Number(root.dockMaxScale) || 1.28))
+            barLayoutAdapter.dockRadius = Math.max(32, Math.min(160, Math.round(root.dockRadius || 72)))
+            barLayoutAdapter.dockJumpPx = Math.max(4, Math.min(20, Math.round(root.dockJumpPx || 8)))
             barLayoutFile.writeAdapter()
             // Clear guard after filesystem watcher has had a chance to fire.
             Qt.callLater(function() {
@@ -1207,6 +1229,23 @@ ShellRoot {
         }
         function setShowNetworkDeviceName(enabled) {
             root.showNetworkDeviceName = !!enabled
+            persistBarLayout()
+        }
+        function setDockEffect(mode) {
+            const m = String(mode || "off")
+            root.dockEffect = (m === "off" || m === "magnify" || m === "jump" || m === "both") ? m : "off"
+            persistBarLayout()
+        }
+        function setDockMaxScale(v) {
+            root.dockMaxScale = Math.max(1.05, Math.min(1.8, Number(v) || 1.28))
+            persistBarLayout()
+        }
+        function setDockRadius(v) {
+            root.dockRadius = Math.max(32, Math.min(160, Math.round(Number(v) || 72)))
+            persistBarLayout()
+        }
+        function setDockJumpPx(v) {
+            root.dockJumpPx = Math.max(4, Math.min(20, Math.round(Number(v) || 8)))
             persistBarLayout()
         }
         function setShowEchoCancelInMenu(enabled) {
@@ -2585,6 +2624,10 @@ ShellRoot {
         property alias showNetworkFullIp: root.showNetworkFullIp
         property alias showNetworkLastOctet: root.showNetworkLastOctet
         property alias showNetworkDeviceName: root.showNetworkDeviceName
+        property alias dockEffect: root.dockEffect
+        property alias dockMaxScale: root.dockMaxScale
+        property alias dockRadius: root.dockRadius
+        property alias dockJumpPx: root.dockJumpPx
         property alias showEchoCancelInMenu: root.showEchoCancelInMenu
         property alias showAudioSummary: root.showAudioSummary
         property alias showAudioDefaults: root.showAudioDefaults
