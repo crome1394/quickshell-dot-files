@@ -49,6 +49,8 @@ Item {
     property string clockTab: "region"
     // Options panel live reads (refreshed on open / toggle)
     property int optionsTick: 0
+    // Options sub-tabs (one section per tab instead of a long scroll)
+    property string optionsTab: "bar"
     // Themes panel state (activeMenu id remains "colors" for compatibility)
     property int colorsTick: 0
     property string colorsPickerKey: ""
@@ -579,6 +581,30 @@ Item {
             root.scheduleReposition()
         })
         root.scheduleReposition()
+    }
+
+    function setOptionsTab(tab) {
+        const t = String(tab || "bar")
+        const allowed = {
+            "bar": 1, "workspaces": 1, "audio": 1, "network": 1,
+            "bluetooth": 1, "stats": 1, "screensaver": 1, "freshrss": 1
+        }
+        root.optionsTab = allowed[t] ? t : "bar"
+        if (typeof optionsBodyFlick !== "undefined" && optionsBodyFlick) {
+            optionsBodyFlick.contentY = 0
+            if (optionsBodyFlick.returnToBounds)
+                optionsBodyFlick.returnToBounds()
+        }
+        root.optionsTick++
+        root.menuTick++
+        Qt.callLater(function () {
+            if (typeof optionsBodyFlick !== "undefined" && optionsBodyFlick) {
+                optionsBodyFlick.contentY = 0
+                if (optionsBodyFlick.returnToBounds)
+                    optionsBodyFlick.returnToBounds()
+            }
+            root.scheduleReposition()
+        })
     }
 
     function refreshOptions() {
@@ -6223,10 +6249,53 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Behavior prefs (saved where noted). Layout is under Widgets. Actions stay on keybinds / qs ipc."
+                                    text: "One topic at a time. Layout is under Widgets."
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "bar", label: "Bar" },
+                                            { id: "workspaces", label: "Workspaces" },
+                                            { id: "audio", label: "Audio" },
+                                            { id: "network", label: "Network" },
+                                            { id: "bluetooth", label: "Bluetooth" },
+                                            { id: "stats", label: "Stats" },
+                                            { id: "screensaver", label: "Screensaver" },
+                                            { id: "freshrss", label: "FreshRSS" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: root.optionsTab === modelData.id
+                                            Layout.preferredHeight: 26
+                                            width: Math.max(72, optTabLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, optTabMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, optTabMa.containsMouse)
+                                            Text {
+                                                id: optTabLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, optTabMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: optTabMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.setOptionsTab(modelData.id)
+                                            }
+                                        }
+                                    }
                                 }
 
                                 Flickable {
@@ -6261,7 +6330,10 @@ Item {
                                         width: Math.max(1, optionsBodyFlick.width - root.bodyScrollGutter)
                                         spacing: 8
 
-
+                                ColumnLayout {
+                                    visible: root.optionsTab === "bar"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Bar / UI"
                                     color: bar.text
@@ -6918,6 +6990,11 @@ Item {
                                         }
                                     }
                                 }
+                                } // options tab: bar
+                                ColumnLayout {
+                                    visible: root.optionsTab === "workspaces"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Workspaces"
                                     color: bar.text
@@ -7233,6 +7310,11 @@ Item {
                                         }
                                     }
                                 }
+                                } // options tab: workspaces
+                                ColumnLayout {
+                                    visible: root.optionsTab === "audio"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Audio"
                                     color: bar.text
@@ -7613,6 +7695,11 @@ Item {
                                         }
                                     }
                                 }
+                                } // options tab: audio
+                                ColumnLayout {
+                                    visible: root.optionsTab === "network"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Network"
                                     color: bar.text
@@ -7930,6 +8017,11 @@ Item {
                                         }
                                     }
                                 }
+                                } // options tab: network
+                                ColumnLayout {
+                                    visible: root.optionsTab === "bluetooth"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Bluetooth"
                                     color: bar.text
@@ -7999,6 +8091,11 @@ Item {
                                         }
                                     }
                                 }
+                                } // options tab: bluetooth
+                                ColumnLayout {
+                                    visible: root.optionsTab === "stats"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "System stats"
                                     color: bar.text
@@ -8387,6 +8484,11 @@ Item {
                                     }
                                 }
 
+                                } // options tab: stats
+                                ColumnLayout {
+                                    visible: root.optionsTab === "screensaver"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 // --- Screensaver ---
                                 Text {
                                     text: "Screensaver"
@@ -8711,6 +8813,11 @@ Item {
                                     }
                                 }
 
+                                } // options tab: screensaver
+                                ColumnLayout {
+                                    visible: root.optionsTab === "freshrss"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 // --- FreshRSS ---
                                 Text {
                                     text: "FreshRSS"
@@ -9020,6 +9127,7 @@ Item {
                                     }
                                 }
 
+                                } // options tab: freshrss
                                     } // optionsBodyCol
                                 } // optionsBodyFlick
 

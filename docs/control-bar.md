@@ -10,7 +10,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar o
 | **Display** | Monitor resolution / refresh / bit depth + adapter stats from `hyprctl` (see Display subsection) |
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
 | **Widgets** | **A–Z list**; each row is three columns: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
-| **Options** | Behavior prefs (not layout) — table below |
+| **Options** | Behavior prefs (not layout) — **tabs** per section (table below); only the active tab scrolls |
 | **Themes** | Live colors/opacity, text roles, **Fonts** (UI·Mono·Main·Secondary·Bar + sizes), thresholds, liquid presets (see Themes subsection) |
 | **Launch** | Quick Launch pins (installed apps or custom) |
 | **Autostart** | XDG `~/.config/autostart` (see Autostart subsection) |
@@ -105,6 +105,8 @@ Toolbar button **Region & Clock**. Two tabs (MIME-style chips); **Region** is th
 The bar clock itself still uses local time, so after a successful region apply it follows the new timezone automatically.
 
 ## Options panel
+
+Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Screensaver** · **FreshRSS**. One section is shown at a time (same controls as before).
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|
