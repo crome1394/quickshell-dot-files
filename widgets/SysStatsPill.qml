@@ -221,6 +221,7 @@ Rectangle {
         return (cpuMetricsPopup.visible && cpuLiveUpdates)
             || (memMetricsPopup.visible && memLiveUpdates)
             || (gpuMetricsPopup.visible && gpuLiveUpdates)
+            || (pinnedGraphWindow.visible)
     }
 
     function syncMetricsPolling() {
@@ -299,38 +300,61 @@ Rectangle {
                 gpuLiveUpdates = pauseAdapter.gpuLiveUpdates
         }
 
-        var anchorXFrac = section === "cpu" ? bar.popupStatsCpuAnchorX
-                        : section === "mem" ? bar.popupStatsMemAnchorX
-                        : bar.popupStatsGpuAnchorX
-        var anchorWholePill = section === "cpu" ? bar.popupStatsCpuAnchorWholePill
-                            : section === "mem" ? bar.popupStatsMemAnchorWholePill
-                            : bar.popupStatsGpuAnchorWholePill
-        var offsetX = section === "cpu" ? bar.popupStatsCpuOffsetX
-                    : section === "mem" ? bar.popupStatsMemOffsetX
-                    : bar.popupStatsGpuOffsetX
-        var offsetY = section === "cpu" ? bar.popupStatsCpuOffsetY
-                    : section === "mem" ? bar.popupStatsMemOffsetY
-                    : bar.popupStatsGpuOffsetY
-        var barGap = section === "cpu" ? bar.popupStatsCpuBarGap
-                   : section === "mem" ? bar.popupStatsMemBarGap
-                   : bar.popupStatsGpuBarGap
-
-        var layoutAnchor = anchorWholePill ? root : anchorItem
-        var popupW = popup.implicitWidth
-        if (typeof bar.placePopup === "function") {
-            bar.placePopup(popup, layoutAnchor, popupW, popup.implicitHeight, barGap,
-                           layoutAnchor.width * anchorXFrac, offsetX, offsetY)
-        } else {
-            var pos = layoutAnchor.mapToItem(barBg, layoutAnchor.width * anchorXFrac, 0)
-            var screenW = (bar.screen && bar.screen.width) ? bar.screen.width : 1920
-            var targetX = bar.sideMargin + pos.x - (popupW / 2) + offsetX
-            var minX = 12
-            var maxX = screenW - popupW - 12
-            popup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-            popup.anchor.rect.y = bar.popupAnchorY(popup.implicitHeight, barGap) + offsetY
-        }
+        root.placeMetricsPopup(popup)
         popup.visible = true
         syncMetricsPolling()
+    }
+
+    function metricsPopupWidth() {
+        const w = (barBg && barBg.width) ? barBg.width : 0
+        if (w >= 320)
+            return Math.round(w)
+        return bar.popupStatsMemWidth || 598
+    }
+
+    function placeMetricsPopup(popup) {
+        if (!popup)
+            return
+        const popupW = root.metricsPopupWidth()
+        popup.implicitWidth = popupW
+        const gap = (bar.popupStatsMemBarGap !== undefined) ? bar.popupStatsMemBarGap : 2
+        const extraY = (bar.popupStatsMemOffsetY !== undefined) ? bar.popupStatsMemOffsetY : 0
+        if (typeof bar.placePopup === "function")
+            bar.placePopup(popup, barBg, popupW, popup.implicitHeight, gap, 0, popupW / 2, extraY)
+    }
+
+    property string pinnedGraph: "cpu"
+
+    function pinGraph(section) {
+        const s = String(section || "cpu")
+        if (s !== "cpu" && s !== "mem" && s !== "gpu")
+            return
+        root.pinnedGraph = s
+        pinnedGraphWindow.visible = true
+        root.syncMetricsPolling()
+    }
+
+    function unpinGraph() {
+        pinnedGraphWindow.visible = false
+        root.syncMetricsPolling()
+    }
+
+    function pinnedGraphTitle() {
+        if (root.pinnedGraph === "mem")
+            return "Memory history"
+        if (root.pinnedGraph === "gpu")
+            return "GPU history"
+        return "CPU history"
+    }
+
+    function pinnedGraphHistory() {
+        if (!sysMonService)
+            return []
+        if (root.pinnedGraph === "mem")
+            return sysMonService.ramHistory || []
+        if (root.pinnedGraph === "gpu")
+            return sysMonService.gpuHistory || []
+        return sysMonService.cpuHistory || []
     }
 
     // === Appearance via Theme ===
@@ -700,7 +724,7 @@ Rectangle {
     PopupWindow {
         id: cpuMetricsPopup
         anchor.window: bar
-        implicitWidth: bar.popupStatsCpuWidth
+        implicitWidth: Math.max(320, Math.round(barBg.width))
         implicitHeight: bar.popupStatsCpuHeight
         visible: false
         grabFocus: true
@@ -746,6 +770,37 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: cpuPinBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: cpuPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? bar.accent : bar.dividerStrong
+
+                        Text {
+                            id: cpuPinBtnLabel
+                            anchors.centerIn: parent
+                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? "Unpin graph" : "Pin graph"
+                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? bar.accent : bar.subtext
+                            font.pixelSize: bar.popupHintSize
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: cpuPinBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (pinnedGraphWindow.visible && root.pinnedGraph === "cpu")
+                                    root.unpinGraph()
+                                else
+                                    root.pinGraph("cpu")
+                            }
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -837,7 +892,7 @@ Rectangle {
     PopupWindow {
         id: memMetricsPopup
         anchor.window: bar
-        implicitWidth: bar.popupStatsMemWidth
+        implicitWidth: Math.max(320, Math.round(barBg.width))
         implicitHeight: bar.popupStatsMemHeight
         visible: false
         grabFocus: true
@@ -883,6 +938,37 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: memPinBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: memPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? bar.accent : bar.dividerStrong
+
+                        Text {
+                            id: memPinBtnLabel
+                            anchors.centerIn: parent
+                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? "Unpin graph" : "Pin graph"
+                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? bar.accent : bar.subtext
+                            font.pixelSize: bar.popupHintSize
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: memPinBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (pinnedGraphWindow.visible && root.pinnedGraph === "mem")
+                                    root.unpinGraph()
+                                else
+                                    root.pinGraph("mem")
+                            }
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -977,7 +1063,7 @@ Rectangle {
     PopupWindow {
         id: gpuMetricsPopup
         anchor.window: bar
-        implicitWidth: bar.popupStatsGpuWidth
+        implicitWidth: Math.max(320, Math.round(barBg.width))
         implicitHeight: bar.popupStatsGpuHeight
         visible: false
         grabFocus: true
@@ -1023,6 +1109,37 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: gpuPinBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: gpuPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? bar.accent : bar.dividerStrong
+
+                        Text {
+                            id: gpuPinBtnLabel
+                            anchors.centerIn: parent
+                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? "Unpin graph" : "Pin graph"
+                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? bar.accent : bar.subtext
+                            font.pixelSize: bar.popupHintSize
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: gpuPinBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (pinnedGraphWindow.visible && root.pinnedGraph === "gpu")
+                                    root.unpinGraph()
+                                else
+                                    root.pinGraph("gpu")
+                            }
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -1110,6 +1227,157 @@ Rectangle {
             anchors.fill: parent
             z: -1
             onClicked: gpuMetricsPopup.visible = false
+        }
+    }
+
+    Connections {
+        target: barBg
+        function onWidthChanged() {
+            if (cpuMetricsPopup.visible)
+                root.placeMetricsPopup(cpuMetricsPopup)
+            if (memMetricsPopup.visible)
+                root.placeMetricsPopup(memMetricsPopup)
+            if (gpuMetricsPopup.visible)
+                root.placeMetricsPopup(gpuMetricsPopup)
+        }
+    }
+
+    FloatingWindow {
+        id: pinnedGraphWindow
+        visible: false
+        title: "Stats history"
+        color: "transparent"
+        implicitWidth: 520
+        implicitHeight: 280
+        minimumSize: Qt.size(280, 160)
+
+        onClosed: root.syncMetricsPolling()
+        onVisibleChanged: root.syncMetricsPolling()
+
+        Rectangle {
+            anchors.fill: parent
+            radius: bar.popupRadius
+            color: bar.glassPopupBg
+            border.width: bar.controlBorderWidth
+            border.color: bar.glassPopupBorder
+
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: bar.popupHeaderHighlightHeight
+                color: bar.glassPopupHighlight
+                radius: parent.radius
+            }
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        text: root.pinnedGraphTitle()
+                        color: bar.text
+                        font.pixelSize: bar.popupTitleSize
+                        font.bold: true
+                        font.family: bar.fontFamily
+                    }
+
+                    Repeater {
+                        model: [
+                            { id: "cpu", label: "CPU" },
+                            { id: "mem", label: "Mem" },
+                            { id: "gpu", label: "GPU" }
+                        ]
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property bool active: root.pinnedGraph === modelData.id
+                            Layout.preferredHeight: 22
+                            implicitWidth: pinChipLbl.implicitWidth + 14
+                            radius: bar.buttonRadius
+                            color: active ? Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.18)
+                                          : (pinChipMa.containsMouse ? bar.popupButtonHoverBg : "transparent")
+                            border.width: 1
+                            border.color: active ? bar.accent : bar.pillBorder
+                            Text {
+                                id: pinChipLbl
+                                anchors.centerIn: parent
+                                text: modelData.label
+                                color: active ? bar.accent : bar.subtext
+                                font.pixelSize: 11
+                                font.family: bar.fontFamily
+                                font.bold: active
+                            }
+                            MouseArea {
+                                id: pinChipMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.pinnedGraph = modelData.id
+                            }
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Text {
+                        text: "Drag the window to move · resize from edges"
+                        color: bar.subtext
+                        font.pixelSize: bar.popupHintSize
+                        font.family: bar.fontFamily
+                    }
+
+                    Rectangle {
+                        Layout.preferredHeight: 22
+                        implicitWidth: pinCloseLbl.implicitWidth + 14
+                        radius: bar.buttonRadius
+                        color: pinCloseMa.containsMouse ? bar.popupButtonHoverBg : "transparent"
+                        border.width: 1
+                        border.color: bar.pillBorder
+                        Text {
+                            id: pinCloseLbl
+                            anchors.centerIn: parent
+                            text: "Close"
+                            color: bar.subtext
+                            font.pixelSize: 11
+                            font.family: bar.fontFamily
+                        }
+                        MouseArea {
+                            id: pinCloseMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.unpinGraph()
+                        }
+                    }
+                }
+
+                Sparkline {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 80
+                    history: root.pinnedGraph === "mem"
+                             ? (sysMonService.ramHistory || [])
+                             : (root.pinnedGraph === "gpu"
+                                ? (sysMonService.gpuHistory || [])
+                                : (sysMonService.cpuHistory || []))
+                    fixedRange: true
+                    minValue: 0
+                    maxValue: 100
+                    drawGrid: true
+                    gridStep: 10
+                    chartTitle: ""
+                    titleColor: bar.text
+                    lineColor: bar.accent
+                    fillColor: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.22)
+                    labelColor: bar.subtext
+                    gridColor: Qt.rgba(1, 1, 1, 0.12)
+                }
+            }
         }
     }
 }
