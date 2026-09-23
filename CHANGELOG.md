@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Quick Launch running dot
+
+- Running apps show a Mac-dock-style **dot** under the icon instead of a dash plus workspace-chip fill. Icons stay one size and baseline; focused is the same dot, brighter.
+
 ## 2026-09 — Dock hover on all icons + last-icon unstick
 
 - Options → **Dock → Apply to**: **Quick Launch** or **All icons** (default). Magnify/jump apply to launcher, tray, workspaces, FreshRSS, net/BT chips, bell, kill, inspector, config, and power. CPU/Memory/GPU and the volume meter stay still.

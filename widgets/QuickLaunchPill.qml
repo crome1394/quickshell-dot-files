@@ -15,8 +15,9 @@ import Quickshell.Hyprland
 //   Config.qml defaults (search QUICK LAUNCH); runtime list is bar.quickLaunchApps
 //   (editable from BarControlBar → Launch, persisted in bar-layout.json).
 //
-//   Running apps get a small accent dash under the icon (any workspace, including
-//   magic). The focused window also gets the same teal glass fill as workspace pills.
+//   Running apps get a Mac-dock-style accent dot under the icon (any workspace,
+//   including magic). Icons stay the same size and baseline; focused is the same
+//   dot, a bit brighter — no workspace-chip fill.
 //
 // Theme Properties Consumed:
 //   - bar.pillRadius, bar.pillBg, bar.pillBorder, bar.accent, bar.wsActiveBg
@@ -315,7 +316,7 @@ Rectangle {
         Repeater {
             model: root.appsModel
 
-            // Per-icon hover + running/focused (same chip language as WorkspacesPill)
+            // Per-icon hover; running is a Mac-style dot, not a workspace chip.
             Rectangle {
                 id: dockCell
                 required property var modelData
@@ -343,21 +344,21 @@ Rectangle {
                     Translate { y: dockFx.jumpY }
                 ]
 
-                // Keep cells square so icons never squash into each other.
-                // Extra 2px vs the old +8 leaves a gap for the thicker running dash.
+                // Square cells, same size for every icon. Running is a Mac-style
+                // dot in the bottom gutter — do not shift the icon for it.
+                readonly property int _dot: Math.max(3, Math.round(root._icon * 0.2))
                 width: root._icon + 10
                 height: root._icon + 10
                 radius: bar.workspaceRadius
-                color: isFocused ? (bar.wsActiveBg !== undefined ? bar.wsActiveBg : bar.iconHoverBg) : (launchClick.containsMouse ? bar.iconHoverBg : "transparent")
-                border.width: (isFocused || launchClick.containsMouse) ? bar.controlBorderWidth : 0
-                border.color: isFocused ? (bar.wsActiveBorder !== undefined ? bar.wsActiveBorder : bar.accent) : (launchClick.containsMouse ? bar.accent : "transparent")
+                color: launchClick.containsMouse ? bar.iconHoverBg : "transparent"
+                border.width: launchClick.containsMouse ? bar.controlBorderWidth : 0
+                border.color: launchClick.containsMouse ? bar.accent : "transparent"
                 Behavior on border.color {
                     ColorAnimation {
                         duration: 140
                         easing.type: Easing.OutQuad
                     }
                 }
-                // Do not clip: the running dash sits on the cell edge.
                 clip: false
 
                 Behavior on color {
@@ -369,8 +370,9 @@ Rectangle {
 
                 Image {
                     visible: !root.entryUsesGlyph(modelData)
-                    anchors.centerIn: parent
-                    anchors.verticalCenterOffset: -2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: 2
                     width: root._icon
                     height: root._icon
                     source: modelData.icon || ""
@@ -381,36 +383,17 @@ Rectangle {
 
                 Text {
                     visible: root.entryUsesGlyph(modelData)
-                    anchors.centerIn: parent
-                    anchors.verticalCenterOffset: -2
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: 2
+                    width: root._icon
+                    height: root._icon
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                     text: modelData.glyph || ""
                     font.pixelSize: root._icon
                     font.family: bar.fontFamily
-                    color: launchClick.containsMouse || isFocused ? bar.accent : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
-                }
-
-                // Soft bloom so the dash reads as a light without covering the icon.
-                Rectangle {
-                    visible: isRunning
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 1
-                    width: isFocused ? 16 : 14
-                    height: 5
-                    radius: 2.5
-                    color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, isFocused ? 0.40 : 0.28)
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 140
-                            easing.type: Easing.OutQuad
-                        }
-                    }
-                    Behavior on width {
-                        NumberAnimation {
-                            duration: 140
-                            easing.type: Easing.OutQuad
-                        }
-                    }
+                    color: launchClick.containsMouse ? bar.accent : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
                 }
 
                 Rectangle {
@@ -418,18 +401,14 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: 2
-                    width: isFocused ? 12 : 10
-                    height: 3
-                    radius: 1.5
-                    color: isFocused ? bar.accent : Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.92)
+                    width: dockCell._dot
+                    height: dockCell._dot
+                    radius: dockCell._dot / 2
+                    color: isFocused
+                           ? bar.accent
+                           : Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.72)
                     Behavior on color {
                         ColorAnimation {
-                            duration: 140
-                            easing.type: Easing.OutQuad
-                        }
-                    }
-                    Behavior on width {
-                        NumberAnimation {
                             duration: 140
                             easing.type: Easing.OutQuad
                         }
