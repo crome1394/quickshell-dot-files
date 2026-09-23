@@ -344,11 +344,11 @@ Rectangle {
                     Translate { y: dockFx.jumpY }
                 ]
 
-                // Square cells; icon is centerIn like the rest of the bar.
-                // Running dot sits on the pill's bottom edge, not in an icon gutter.
+                // Full pill height so icons share the bar midline and the running
+                // dot can sit on this cell's bottom edge (same as the pill border).
                 readonly property int _dot: Math.max(3, Math.round(root._icon * 0.2))
                 width: root._icon + 10
-                height: root._icon + 10
+                height: root.height
                 radius: bar.workspaceRadius
                 color: launchClick.containsMouse ? bar.iconHoverBg : "transparent"
                 border.width: launchClick.containsMouse ? bar.controlBorderWidth : 0
@@ -395,7 +395,7 @@ Rectangle {
                 Rectangle {
                     visible: isRunning
                     anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: root.bottom
+                    anchors.bottom: parent.bottom
                     anchors.bottomMargin: Math.max(1, bar.controlBorderWidth)
                     width: dockCell._dot
                     height: dockCell._dot
