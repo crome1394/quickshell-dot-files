@@ -83,6 +83,19 @@ Rectangle {
     property bool cpuLiveUpdates: true
     property bool memLiveUpdates: true
     property bool gpuLiveUpdates: true
+    // Session-only graphs override for left-click metrics (−1 follow Options, 0 hide, 1 show).
+    // Does not write showStatMenuGraphs.
+    property int cpuGraphsMode: -1
+    property int memGraphsMode: -1
+    property int gpuGraphsMode: -1
+
+    function graphsEffective(mode) {
+        if (mode === 1)
+            return true
+        if (mode === 0)
+            return false
+        return root._showMenuGraphs
+    }
 
     // ===== Stats State & Polling (pill display — unchanged) =====
     property real cpuUtil: 0
@@ -262,6 +275,9 @@ Rectangle {
         cpuMetricsPopup.visible = false
         memMetricsPopup.visible = false
         gpuMetricsPopup.visible = false
+        root.cpuGraphsMode = -1
+        root.memGraphsMode = -1
+        root.gpuGraphsMode = -1
         syncMetricsPolling()
     }
 
@@ -689,7 +705,12 @@ Rectangle {
         visible: false
         grabFocus: true
         color: "transparent"
-        onVisibleChanged: if (!visible) root.syncMetricsPolling()
+        onVisibleChanged: {
+            if (!visible) {
+                root.cpuGraphsMode = -1
+                root.syncMetricsPolling()
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -725,6 +746,33 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: cpuGraphsBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: cpuGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+
+                        Text {
+                            id: cpuGraphsBtnLabel
+                            anchors.centerIn: parent
+                            text: root.graphsEffective(root.cpuGraphsMode) ? "Hide graphs" : "Show graphs"
+                            color: root.graphsEffective(root.cpuGraphsMode) ? bar.subtext : bar.accent
+                            font.pixelSize: bar.popupHintSize
+                            font.bold: !root.graphsEffective(root.cpuGraphsMode)
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: cpuGraphsBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.cpuGraphsMode = root.graphsEffective(root.cpuGraphsMode) ? 0 : 1
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -768,7 +816,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     service: sysMonService
-                    showGraphs: root._showMenuGraphs
+                    showGraphs: root.graphsEffective(root.cpuGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
                     accentColor: bar.accent
@@ -794,7 +842,12 @@ Rectangle {
         visible: false
         grabFocus: true
         color: "transparent"
-        onVisibleChanged: if (!visible) root.syncMetricsPolling()
+        onVisibleChanged: {
+            if (!visible) {
+                root.memGraphsMode = -1
+                root.syncMetricsPolling()
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -830,6 +883,33 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: memGraphsBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: memGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+
+                        Text {
+                            id: memGraphsBtnLabel
+                            anchors.centerIn: parent
+                            text: root.graphsEffective(root.memGraphsMode) ? "Hide graphs" : "Show graphs"
+                            color: root.graphsEffective(root.memGraphsMode) ? bar.subtext : bar.accent
+                            font.pixelSize: bar.popupHintSize
+                            font.bold: !root.graphsEffective(root.memGraphsMode)
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: memGraphsBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.memGraphsMode = root.graphsEffective(root.memGraphsMode) ? 0 : 1
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -873,7 +953,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     service: sysMonService
-                    showGraphs: root._showMenuGraphs
+                    showGraphs: root.graphsEffective(root.memGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
                     accentColor: bar.accent
@@ -902,7 +982,12 @@ Rectangle {
         visible: false
         grabFocus: true
         color: "transparent"
-        onVisibleChanged: if (!visible) root.syncMetricsPolling()
+        onVisibleChanged: {
+            if (!visible) {
+                root.gpuGraphsMode = -1
+                root.syncMetricsPolling()
+            }
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -938,6 +1023,33 @@ Rectangle {
                     }
 
                     Item { Layout.fillWidth: true }
+
+                    Rectangle {
+                        Layout.preferredHeight: 24
+                        Layout.preferredWidth: gpuGraphsBtnLabel.implicitWidth + 16
+                        radius: bar.buttonRadius
+                        color: gpuGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
+                        border.width: bar.controlBorderWidth
+                        border.color: bar.dividerStrong
+
+                        Text {
+                            id: gpuGraphsBtnLabel
+                            anchors.centerIn: parent
+                            text: root.graphsEffective(root.gpuGraphsMode) ? "Hide graphs" : "Show graphs"
+                            color: root.graphsEffective(root.gpuGraphsMode) ? bar.subtext : bar.accent
+                            font.pixelSize: bar.popupHintSize
+                            font.bold: !root.graphsEffective(root.gpuGraphsMode)
+                            font.family: bar.fontFamily
+                        }
+
+                        MouseArea {
+                            id: gpuGraphsBtnMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.gpuGraphsMode = root.graphsEffective(root.gpuGraphsMode) ? 0 : 1
+                        }
+                    }
 
                     Rectangle {
                         Layout.preferredHeight: 24
@@ -981,7 +1093,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     service: sysMonService
-                    showGraphs: root._showMenuGraphs
+                    showGraphs: root.graphsEffective(root.gpuGraphsMode)
                     textColor: bar.text
                     subtextColor: bar.subtext
                     accentColor: bar.accent
