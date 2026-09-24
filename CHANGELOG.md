@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Docs: floating control bar
+
+- README and [docs/control-bar.md](docs/control-bar.md) cover the movable **Bar control** window, Position mockups + Apply, Display res×Hz chips, slider steppers, and bottom-right tab actions.
+
 ## 2026-09 — Control bar after Hypr inspector
 
 - Opening **Hyprland Config Inspector** first no longer wedges the control strip. Show remaps if the FloatingWindow backing surface was dropped while `visible` stayed true.

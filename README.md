@@ -14,7 +14,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 ## Features
 
 - Liquid-glass bar: **Classic** (one bar, left / center / right) or **Dual** (top + bottom, centered)
-- **Control strip** (gear or right-click chrome): Position (layout + edge), Display, **Wallpaper**, Widgets, Options, **Themes**, Launch, Autostart, MIME, Services, Audio, Keybinds, **Region & Clock**
+- **Control strip** — movable Hyprland window titled **Bar control** (gear or right-click chrome). Opens on **Position**. Tabs fill the window; actions sit bottom-right. Drag the top strip; Esc / ✕ close.
 - **Widgets** — dual layout lists **Top bar** / **Bottom bar** (classic: Left / Center / Right); reorder, show/hide, width %
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
 - **Dock** — Mac-style magnify / jump (Options → Dock). Quick Launch or all icon widgets; CPU/Mem/GPU and volume stay still
@@ -51,7 +51,7 @@ qs --daemonize -n
 
 ## Bar layout
 
-Switch **Classic** / **Dual** in the control strip **Position** panel. Each mode keeps its own widget order in `state/bar-layout.json`.
+Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**). Each mode keeps its own widget order in `state/bar-layout.json`. Hyprland should float the window with `title = "^(Bar control)$"` (size/placement are compositor rules).
 
 **Classic** (default — one bar, L / C / R):
 

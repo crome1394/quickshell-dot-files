@@ -2,12 +2,12 @@
 
 # Bar control strip (`BarControlBar.qml`)
 
-Open via the **Config menu** gear or **right-click empty bar chrome**. It is a movable Hyprland window (title **Bar control**); drag the top strip, close with **✕** or Esc. Toolbar on the **bottom**; content expands above. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling. Refresh / reset / reload actions sit at the **bottom** of each panel.
+Open via the **Config menu** gear or **right-click empty bar chrome**. It is a movable Hyprland window (title **Bar control**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Bar control)$"` (and optionally `class = org.quickshell`); size and placement are compositor-owned.
 
 | Panel | What it does |
 |-------|----------------|
-| **Position** | Layout **Classic** (one bar, L/C/R) or **Dual** (top + bottom, centered) · classic edge top/bottom · **Gap from edge** (0–48px) · **Flush windows to bar** · **Bar size** (80–140%) → `state/bar-layout.json` |
-| **Display** | Monitor resolution / refresh / bit depth + adapter stats from `hyprctl` (see Display subsection) |
+| **Position** | Monitor mockups: **Classic** (one bottom bar) or **Dual** (thin top + bottom). Select, then **Apply**. Classic also has edge top/bottom. **Gap from edge**, **Flush windows to bar**, **Bar size**. |
+| **Display** | Current mode, adapter/GPU, resolution slider, chips for **every res × refresh rate**, bit depth, Apply. NVIDIA Settings + Refresh bottom-right. |
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
 | **Widgets** | Dual layout: **Top bar** and **Bottom bar** sections (classic: Left / Center / Right). Order inside a section is left-to-right on that bar. Each row: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
 | **Options** | Behavior prefs (not layout) — **tabs** per section (table below); only the active tab scrolls |
@@ -16,8 +16,8 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. It is a m
 | **Autostart** | XDG `~/.config/autostart` (see Autostart subsection) |
 | **MIME** | Preferred applications / file-type defaults (see MIME subsection) |
 | **Services** | systemd user/system units — filter, select, **Start / Stop / Restart** (reuses Inspector `ServicesView`) |
-| **Audio** | Sound manager: overview (summary / streams / levels), dual device columns + profiles, echo cancel; **pw-top** / **Restart audio** (reuses Inspector `AudioMonitorView`) |
-| **Keybinds** | Browse `keybindings.lua` by category; **edit key chord, category, description** (not the action) |
+| **Audio** | Sound manager: overview, dual device columns (inputs top-aligned), echo cancel. **Refresh** / **pw-top** / **Restart audio** bottom-right. |
+| **Keybinds** | Browse `keybindings.lua` by category; edit key chord, category, description (not the action). **Refresh** / **Reload Hypr** bottom-right. |
 | **Region & Clock** | Tabs: **Region** (default, clickable timezone map) · **Clock** (format presets + custom). **Apply region** closes the panel first so a password prompt is not covered. |
 
 ## MIME panel (Preferred applications)
@@ -61,15 +61,15 @@ Scripts: `wallpaper-list-json.sh`, `wallpaper-apply.sh`, `wallpaper-add.sh`, `wa
 
 Runtime mode switcher for the focused (or configured) Hyprland monitor. Modes come live from `hyprctl monitors -j` → `availableModes` via `scripts/monitor-mode.sh` — not a hardcoded list.
 
-Layout (top → bottom): status · adapter · **Resolution | Refresh | Bit depth** row · Apply.
+Layout (top → bottom): status · adapter · **Resolution | Refresh | Bit depth** row · Apply · chip grid of **every res × refresh rate** · NVIDIA + Refresh (bottom-right).
 
 | Control | Behavior |
 |---------|----------|
 | **Indicator** | Current resolution, refresh, bit depth, make/model/serial, connector + format + scale, physical size, position |
-| **NVIDIA** | Button with Nerd Font `md-nvidia` glyph + label; opens `nvidia-settings` |
+| **NVIDIA** | Button with Nerd Font `md-nvidia` glyph + label; opens `nvidia-settings` (footer, bottom-right) |
 | **Adapter** | DRM connector + NVIDIA name/driver; util, temp, P-state, power, VRAM, clocks. Mini GPU/VRAM bars. |
-| **Resolution** | Stepped block slider over `WxH` in the selected refresh **family**, sorted **width then height descending** |
-| **Refresh rate** | Dropdown of **exact** rates for the selected resolution only (hyprctl). Changing rate refilters the resolution list by Hz **family** (e.g. 239.76 / 239.90 / 239.97 → ~240) |
+| **Resolution** | Stepped slider over `WxH` in the selected refresh **family**, plus chips for **all** `WxH · Hz` modes from hyprctl |
+| **Refresh rate** | Dropdown of **exact** rates for the selected resolution only (hyprctl). Changing rate refilters the **slider** list by Hz **family** (e.g. 239.76 / 239.90 / 239.97 → ~240); chips stay unfiltered |
 | **Bit depth** | Dropdown: **8-bit** / **10-bit** (pending until Apply) |
 | **Apply** | Commits pending mode + bitdepth at **scale 1.0** |
 
