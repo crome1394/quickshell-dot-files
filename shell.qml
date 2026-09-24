@@ -2984,7 +2984,7 @@ ShellRoot {
                 }
             }
 
-            // Host for the temporary control strip (PopupWindow; zero-size Item).
+            // Host for the control strip (FloatingWindow; zero-size Item).
             BarControlBar {
                 id: barControlBar
                 bar: bar

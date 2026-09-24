@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Floating control bar + full-width Thresholds
+
+- Control strip is a movable Hyprland **FloatingWindow** (title **Bar control**), like the inspector. Drag the top strip; Esc / ✕ close. Does not dismiss on outside click.
+- Themes → **Thresholds** uses the full panel until you click a swatch; the color picker then opens on the right.
+
 ## 2026-09 — Slider steppers + even dock hover
 
 - Control-bar numeric sliders (Dock, Position, Options, Wallpaper, Themes opacity/fonts, Screensaver, thresholds, widget width) use **‹ ›** plus a typed field (`OptValueSlider`).

@@ -5,7 +5,8 @@
 // Right-click blank area of the main bar (wired in shell.qml) toggles this
 // strip. Horizontally centered; stacks just inward from the main bar.
 //
-// Single PopupWindow. Expandable panel on top; toolbar buttons
+// Single FloatingWindow (movable like the Hypr inspector). Expandable panel
+// on top; toolbar buttons
 // along the bottom: Position · Display · Wallpaper · Widgets · Options ·
 // Themes · Launch · Autostart · MIME · Services · Audio · Keybinds · Clock
 // Widgets = layout; Options = behavior prefs; Themes = bar/widget theme;
@@ -458,7 +459,6 @@ Item {
         root.menuTick++
         controlPopup.visible = true
         root.scheduleReposition()
-        Qt.callLater(root.armControlFocusGrab)
     }
 
     function toggle() {
@@ -497,34 +497,12 @@ Item {
                 screenH = bar.screen.height
         } catch (e) {}
 
-        var gap = (bar.popupBarGap !== undefined) ? bar.popupBarGap : 4
-        var minX = 12
-        var maxX = Math.max(minX, screenW - popupW - 12)
-        // Center on the bar / screen
-        var targetX = Math.round((screenW - popupW) / 2)
-
-        // Always anchor to `bar`. The control PopupWindow lives in that window;
-        // pointing it at the dual bottom bar made the strip unclickable (✕ / Esc / gear).
-        controlPopup.anchor.window = bar
-        controlPopup.anchor.rect.x = Math.max(minX, Math.min(targetX, maxX))
-        var y = (typeof bar.controlPopupAnchorY === "function")
-                ? bar.controlPopupAnchorY(popupH, gap)
-                : bar.popupAnchorY(popupH, gap)
-        var edge = (typeof bar.controlPopupEdge === "function") ? bar.controlPopupEdge() : bar.barPosition
-        // Clamp so a huge panel never starts above the top of the monitor
-        if (edge === "bottom") {
-            if (bar.barLayoutMode === "dual") {
-                if (y < 8)
-                    y = 8
-            } else {
-                var minY = -(screenH - (bar.barHeight || 58) - 8)
-                if (y < minY)
-                    y = minY
-            }
-        }
-        controlPopup.anchor.rect.y = y
-        controlPopup.anchor.rect.width = 1
-        controlPopup.anchor.rect.height = 1
+        // FloatingWindow is a real Hyprland window (moved by drag / compositor).
+        // Keep implicit size in sync with content; do not pin to the bar.
+        if (popupW > 0)
+            controlPopup.implicitWidth = popupW
+        if (popupH > 0)
+            controlPopup.implicitHeight = popupH
     }
 
     function scheduleReposition() {
@@ -560,7 +538,6 @@ Item {
             root.activeMenu = ""
         else
             root.activeMenu = name
-        root.armControlFocusGrab()
         if (root.activeMenu === "options")
             root.refreshOptions()
         if (root.activeMenu === "clock") {
@@ -1782,51 +1759,10 @@ Item {
     // exists leaves hover dead until the user clicks the panel.
     property bool _armingGrab: false
 
-    function ensureControlFocusGrab() {
-        if (!controlPopup.visible)
-            return
-        if (typeof controlFocusGrab === "undefined" || !controlFocusGrab)
-            return
-        if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
-            return
-        if (!controlFocusGrab.active)
-            controlFocusGrab.active = true
-    }
-
-    function armControlFocusGrab() {
-        if (!controlPopup.visible)
-            return
-        if (typeof controlFocusGrab === "undefined" || !controlFocusGrab)
-            return
-        if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
-            return
-        if (root._armingGrab) {
-            controlFocusGrab.active = true
-            return
-        }
-        root._armingGrab = true
-        if (controlFocusGrab.active)
-            controlFocusGrab.active = false
-        Qt.callLater(function() {
-            root._armingGrab = false
-            if (!controlPopup.visible)
-                return
-            if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
-                return
-            controlFocusGrab.active = true
-            grabRetryTimer.restart()
-        })
-    }
-
-    function onControlGrabCleared() {
-        if (root._armingGrab)
-            return
-        if (!controlPopup.visible)
-            return
-        if (root.activeMenu === "wallpaper")
-            return
-        Qt.callLater(root.armControlFocusGrab)
-    }
+    // Floating window: no click-outside grab (same as Hypr inspector).
+    function ensureControlFocusGrab() {}
+    function armControlFocusGrab() {}
+    function onControlGrabCleared() {}
 
     function fileUrlToPath(url) {
         let s = String(url || "")
@@ -3231,35 +3167,27 @@ Item {
     }
 
     // -------------------------------------------------------------------------
-    // One popup: toolbar row + optional expandable panel
-    // grabFocus (Qt::Popup) dismisses on any outside press, which also fires
-    // when a file-manager drag starts — so Wallpaper DnD would close the panel.
-    // HyprlandFocusGrab restores click-outside-to-close for every other tab.
+    // Floating Hyprland window (drag like the inspector). Esc / ✕ close it.
     // -------------------------------------------------------------------------
     HyprlandFocusGrab {
         id: controlFocusGrab
-        windows: {
-            void bar.layoutEpoch
-            void bar.barLayoutMode
-            void controlPopup.visible
-            void controlPopup.implicitWidth
-            void controlPopup.implicitHeight
-            const list = [controlPopup, bar]
-            if (bar && bar.barLayoutMode === "dual" && bar.bottomBarWindow)
-                list.push(bar.bottomBarWindow)
-            return list
-        }
-        onCleared: root.onControlGrabCleared()
+        windows: []
+        active: false
     }
 
-    PopupWindow {
+    FloatingWindow {
         id: controlPopup
-        anchor.window: bar
+        title: "Bar control"
+        color: "transparent"
+        visible: false
         implicitWidth: controlChrome.implicitWidth
         implicitHeight: controlChrome.implicitHeight
-        visible: false
-        grabFocus: false
-        color: "transparent"
+        minimumSize: Qt.size(420, 72)
+
+        onClosed: {
+            root.activeMenu = ""
+            root._closedAtMs = Date.now()
+        }
 
         Shortcut {
             sequences: ["Escape"]
@@ -3270,7 +3198,7 @@ Item {
 
         onVisibleChanged: {
             if (visible) {
-                root.armControlFocusGrab()
+                root.scheduleReposition()
                 return
             }
             if (root.activeMenu === "wallpaper"
@@ -3286,9 +3214,6 @@ Item {
             root._closedAtMs = Date.now()
             root.activeMenu = ""
         }
-
-        onImplicitWidthChanged: if (visible) root.scheduleReposition()
-        onImplicitHeightChanged: if (visible) root.scheduleReposition()
 
         Rectangle {
             id: controlChrome
@@ -3309,7 +3234,7 @@ Item {
                                             || root.activeMenu === "keybinds") ? 620
                                            : (root.activeMenu === "colors" ? 560 : 520))
                                         : 420)
-            implicitHeight: mainCol.implicitHeight + root.pad * 2
+            implicitHeight: mainCol.implicitHeight + root.pad * 2 + controlDragBar.height
             radius: bar.popupRadius !== undefined ? bar.popupRadius : bar.barRadius
             color: bar.glassPopupBg
             border.width: bar.controlBorderWidth
@@ -3325,20 +3250,35 @@ Item {
             }
 
             Rectangle {
+                id: controlDragBar
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
+                height: Math.max(22, bar.popupHeaderHighlightHeight + 14)
                 color: bar.glassPopupHighlight
                 radius: parent.radius
                 z: 2
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "Bar control"
+                    color: bar.subtext
+                    font.pixelSize: 11
+                    font.family: bar.fontFamily
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.SizeAllCursor
+                    onPressed: controlPopup.startSystemMove()
+                }
             }
 
             ColumnLayout {
                 id: mainCol
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: parent.top
+                anchors.top: controlDragBar.bottom
                 anchors.margins: root.pad
                 spacing: 8
 
@@ -10415,7 +10355,7 @@ Item {
                                 }
 
                                 // ════════ THRESHOLDS tab (volume + sys stats) ════════
-                                // Left: threshold controls · Right: color picker (no scroll to bottom)
+                                // Full width until a swatch is clicked; then picker on the right.
                                 RowLayout {
                                     id: thresholdsRow
                                     visible: root.colorsTab === "thresholds"
@@ -10429,11 +10369,11 @@ Item {
                                     }
                                     spacing: 10
 
-                                    // ════ LEFT — volume + sys stats controls (scroll when picker open) ════
+                                    // ════ LEFT — volume + sys stats (full width unless picker is open) ════
                                     Flickable {
                                         id: thresholdsLeftFlick
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
+                                        Layout.preferredWidth: root.thresholdsPickerOpen() ? 1 : 100
                                         Layout.fillHeight: root.thresholdsPickerOpen()
                                         Layout.preferredHeight: root.thresholdsPickerOpen()
                                                                 ? -1
@@ -11038,30 +10978,21 @@ Item {
                                     } // thresholdsLeftCol
                                     } // thresholdsLeftFlick
 
-                                    // ════ RIGHT — color picker ════
+                                    // ════ RIGHT — color picker (only while a swatch is open) ════
                                     ColumnLayout {
+                                        visible: root.thresholdsPickerOpen()
                                         Layout.fillWidth: true
-                                        Layout.preferredWidth: 1
+                                        Layout.preferredWidth: root.thresholdsPickerOpen() ? 1 : 0
+                                        Layout.minimumWidth: root.thresholdsPickerOpen() ? 220 : 0
                                         Layout.fillHeight: true
                                         Layout.alignment: Qt.AlignTop
                                         spacing: 6
 
                                         Text {
-                                            text: root.thresholdsPickerOpen()
-                                                  ? ("Picker · " + root.themeLabelForKey(root.colorsPickerKey))
-                                                  : "Picker"
+                                            text: "Picker · " + root.themeLabelForKey(root.colorsPickerKey)
                                             color: bar.text
                                             font.pixelSize: 12
                                             font.bold: true
-                                            font.family: bar.fontFamily
-                                        }
-                                        Text {
-                                            visible: !root.thresholdsPickerOpen()
-                                            Layout.fillWidth: true
-                                            wrapMode: Text.WordWrap
-                                            text: "Click a volume or Sys Stats color swatch to edit it here."
-                                            color: bar.subtext
-                                            font.pixelSize: bar.popupHintSize
                                             font.family: bar.fontFamily
                                         }
                                         ColorPickerPanel {

@@ -2,7 +2,7 @@
 
 # Bar control strip (`BarControlBar.qml`)
 
-Open via the **Config menu** gear or **right-click empty bar chrome**. Toolbar on the **bottom**; content expands above and resizes to fit. Close a panel with the **✕** (top-right) or Esc. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling. Refresh / reset / reload actions sit at the **bottom** of each panel.
+Open via the **Config menu** gear or **right-click empty bar chrome**. It is a movable Hyprland window (title **Bar control**); drag the top strip, close with **✕** or Esc. Toolbar on the **bottom**; content expands above. Wheel-scroll the body on Display, Wallpaper, Widgets, Options, Themes, Launch, Autostart. **MIME**, Services, Audio, and Keybinds use a fixed tall panel with internal scrolling. Refresh / reset / reload actions sit at the **bottom** of each panel.
 
 | Panel | What it does |
 |-------|----------------|
@@ -133,7 +133,7 @@ Title and sub-tabs (**Theming** · **Thresholds** · **Presets**) stay fixed at 
 | Tab | Contents |
 |-----|----------|
 | **Theming** | Collapsible **Colors** · **Text** · **Special / Effects** (left) and **Opacity** (right). Includes **Running app dot**. **Main text** = menu headers; **Secondary text** = menu body; **Bar widget text** = face labels on the bar |
-| **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU** color ramps; temperature (left); color picker (right) |
+| **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU** color ramps; temperature. Color picker appears only while a swatch is open. |
 | **Fonts** | Two columns: **typeface** left · **size %** right. Rows: **UI**, **Monospace**, **Main**, **Secondary**, **Bar widget**. Preview shows all five |
 | **Presets** | Liquid glass family (mint/violet/rose/amber/ice/aurora) + solid/soft/nordic/… — hide from **Options → Color presets section** |
 
