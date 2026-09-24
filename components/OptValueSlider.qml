@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 
-// Left / slider / right / typed field. Parent binds `value` and handles
+// Slider / ‹ › / typed field. Parent binds `value` and handles
 // valueEdited (live) + valueCommitted (release, nudge, or typed enter).
 RowLayout {
     id: root
@@ -66,31 +66,6 @@ RowLayout {
         root.emit(Number(root.value) + dir * Number(root.stepSize), true)
     }
 
-    Rectangle {
-        Layout.preferredWidth: 22
-        Layout.preferredHeight: 22
-        radius: 4
-        enabled: root.enabled
-        opacity: enabled ? 1 : 0.4
-        color: leftMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
-        border.width: 1
-        border.color: Qt.rgba(1, 1, 1, 0.16)
-        Text {
-            anchors.centerIn: parent
-            text: "‹"
-            color: root.textColor
-            font.pixelSize: 14
-            font.bold: true
-        }
-        MouseArea {
-            id: leftMa
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.nudge(-1)
-        }
-    }
-
     Slider {
         id: sl
         Layout.fillWidth: true
@@ -132,6 +107,31 @@ RowLayout {
             color: sl.pressed ? root.accent : root.textColor
             border.width: 1
             border.color: root.accent
+        }
+    }
+
+    Rectangle {
+        Layout.preferredWidth: 22
+        Layout.preferredHeight: 22
+        radius: 4
+        enabled: root.enabled
+        opacity: enabled ? 1 : 0.4
+        color: leftMa.containsMouse ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.06)
+        border.width: 1
+        border.color: Qt.rgba(1, 1, 1, 0.16)
+        Text {
+            anchors.centerIn: parent
+            text: "‹"
+            color: root.textColor
+            font.pixelSize: 14
+            font.bold: true
+        }
+        MouseArea {
+            id: leftMa
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.nudge(-1)
         }
     }
 

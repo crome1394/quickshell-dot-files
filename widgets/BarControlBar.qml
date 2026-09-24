@@ -457,6 +457,8 @@ Item {
 
     function show() {
         root.menuTick++
+        if (!root.activeMenu.length)
+            root.activeMenu = "position"
         controlPopup.visible = true
         root.scheduleReposition()
     }
@@ -472,37 +474,8 @@ Item {
     }
 
     function reposition() {
-        // Prefer chrome's laid-out size; popup implicit* can lag one frame and
-        // park a tall panel mid-screen (especially with bar on bottom).
-        var popupW = Math.max(
-            controlChrome.implicitWidth || 0,
-            controlPopup.implicitWidth || 0,
-            mainCol.implicitWidth + pad * 2,
-            320
-        )
-        var popupH = Math.max(
-            controlChrome.implicitHeight || 0,
-            controlPopup.implicitHeight || 0,
-            mainCol.implicitHeight + pad * 2,
-            48
-        )
-        var screenW = 1920
-        var screenH = 1080
-        try {
-            if (bar.screen && bar.screen.width)
-                screenW = bar.screen.width
-            else if (bar.width > 0)
-                screenW = bar.width
-            if (bar.screen && bar.screen.height)
-                screenH = bar.screen.height
-        } catch (e) {}
-
-        // FloatingWindow is a real Hyprland window (moved by drag / compositor).
-        // Keep implicit size in sync with content; do not pin to the bar.
-        if (popupW > 0)
-            controlPopup.implicitWidth = popupW
-        if (popupH > 0)
-            controlPopup.implicitHeight = popupH
+        // Size is owned by Hyprland (window rule). Do not resize on tab change
+        // or the bottom toolbar jumps.
     }
 
     function scheduleReposition() {
@@ -3180,9 +3153,9 @@ Item {
         title: "Bar control"
         color: "transparent"
         visible: false
-        implicitWidth: controlChrome.implicitWidth
-        implicitHeight: controlChrome.implicitHeight
-        minimumSize: Qt.size(420, 72)
+        implicitWidth: 1192
+        implicitHeight: 725
+        minimumSize: Qt.size(520, 360)
 
         onClosed: {
             root.activeMenu = ""
@@ -3217,24 +3190,7 @@ Item {
 
         Rectangle {
             id: controlChrome
-            implicitWidth: Math.max(mainCol.implicitWidth + root.pad * 2,
-                                    (root.activeMenu === "wallpaper"
-                                     || root.activeMenu === "options"
-                                     || root.activeMenu === "colors"
-                                     || root.activeMenu === "widgets"
-                                     || root.activeMenu === "display"
-                                     || root.activeMenu === "clock"
-                                     || root.activeMenu === "mime"
-                                     || root.activeMenu === "services"
-                                     || root.activeMenu === "audio"
-                                     || root.activeMenu === "keybinds")
-                                        ? ((root.activeMenu === "mime"
-                                            || root.activeMenu === "services"
-                                            || root.activeMenu === "audio"
-                                            || root.activeMenu === "keybinds") ? 620
-                                           : (root.activeMenu === "colors" ? 560 : 520))
-                                        : 420)
-            implicitHeight: mainCol.implicitHeight + root.pad * 2 + controlDragBar.height
+            anchors.fill: parent
             radius: bar.popupRadius !== undefined ? bar.popupRadius : bar.barRadius
             color: bar.glassPopupBg
             border.width: bar.controlBorderWidth
@@ -3279,15 +3235,16 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: controlDragBar.bottom
+                anchors.bottom: parent.bottom
                 anchors.margins: root.pad
                 spacing: 8
 
-                // ── Expandable panel (same window so clicks stay in this popup) ──
+                // ── Expandable panel (fills remaining height so the toolbar stays at the bottom) ──
                 Rectangle {
                     id: panelBox
                     visible: root.activeMenu.length > 0
                     Layout.fillWidth: true
-                    // Margins (8×2) + slack; height tracks active menu content up to panelMaxH
+                    Layout.fillHeight: true
                     readonly property int panelPad: 18
                     readonly property int contentH: {
                         void root.menuTick
@@ -3295,23 +3252,7 @@ Item {
                         void root.wallpaperTilePref
                         return root.measurePanelContent()
                     }
-                    Layout.preferredHeight: {
-                        void root.menuTick
-                        void root.activeMenu
-                        void root.wallpaperTilePref
-                        if (!visible)
-                            return 0
-                        // Fit content; screen-cap (and scroll) only for tall menus
-                        const need = panelBox.contentH + panelPad
-                        if (need <= 0)
-                            return 72
-                        if (root.panelScrollableMenu)
-                            return Math.min(root.panelMaxH, Math.max(48, need))
-                        // Position / Clock etc.: hug content (still never exceed screen)
-                        return Math.min(root.panelMaxH, Math.max(48, need))
-                    }
                     Layout.minimumHeight: visible ? 48 : 0
-                    Layout.maximumHeight: root.panelMaxH
                     radius: root.chipR
                     color: Qt.rgba(0.05, 0.05, 0.07, 0.85)
                     border.width: bar.controlBorderWidth
@@ -3668,23 +3609,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Gap from edge"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Gap from edge"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: root.optBarEdgeMargin() + " px"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar
@@ -3789,23 +3719,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Bar size"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Bar size"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: root.optBarSizePct() + "%"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar
@@ -6386,23 +6305,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Manual scale"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Manual scale"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: Math.round(root.optUiScaleManual() * 100) + "%"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar
@@ -6435,23 +6343,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Gap from edge"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Gap from edge"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: root.optBarEdgeMargin() + " px"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar
@@ -6555,23 +6452,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Bar size"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Bar size"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: root.optBarSizePct() + "%"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: root.optControlColW
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar
@@ -6617,23 +6503,12 @@ Item {
                                         anchors.topMargin: 6
                                         anchors.bottomMargin: 6
                                         spacing: 2
-                                        RowLayout {
+                                        Text {
+                                            text: "Delay"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
                                             Layout.fillWidth: true
-                                            Text {
-                                                text: "Delay"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: root.optTooltipDelay() + " ms"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                Layout.preferredWidth: 56
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                         }
                                         OptValueSlider {
                                             bar: bar

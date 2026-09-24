@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar fills the window; stepper arrows grouped
+
+- Opening the control strip starts on **Position**. The panel fills the window so the tab bar stays at the bottom (Hyprland owns the size).
+- Slider **‹ ›** buttons sit together after the track, then the typed value.
+
 ## 2026-09 — Floating control bar + full-width Thresholds
 
 - Control strip is a movable Hyprland **FloatingWindow** (title **Bar control**), like the inspector. Drag the top strip; Esc / ✕ close. Does not dismiss on outside click.
