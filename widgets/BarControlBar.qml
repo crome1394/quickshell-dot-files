@@ -4266,6 +4266,7 @@ Item {
                                 }
 
                                 Flickable {
+                                    id: dispResFlick
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     Layout.minimumHeight: 72
@@ -4275,7 +4276,7 @@ Item {
                                     contentWidth: width
                                     contentHeight: dispResFlow.implicitHeight
                                     ScrollBar.vertical: ScrollBar {
-                                        policy: contentHeight > height + 4 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        policy: dispResFlick.contentHeight > dispResFlick.height + 4 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
                                         width: 6
                                         contentItem: Rectangle {
                                             implicitWidth: 4
