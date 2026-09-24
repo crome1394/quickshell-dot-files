@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar after Hypr inspector
+
+- Opening **Hyprland Config Inspector** first no longer wedges the control strip. Show remaps if the FloatingWindow backing surface was dropped while `visible` stayed true.
+
 ## 2026-09 — Audio top-align, all display modes, layout previews
 
 - Audio: Input Devices align to the top of the column; Refresh / pw-top / Restart audio sit on the panel bottom-right.

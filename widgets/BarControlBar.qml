@@ -37,7 +37,17 @@ Item {
 
     property double _closedAtMs: 0
     readonly property int _reopenGuardMs: 220
-    readonly property bool open: controlPopup.visible
+    readonly property bool open: {
+        if (!controlPopup.visible)
+            return false
+        // Another FloatingWindow (inspector) can drop our backing surface
+        // while `visible` stays true — then toggle() would only hide.
+        try {
+            if (controlPopup.backingWindowVisible === false)
+                return false
+        } catch (e) {}
+        return true
+    }
 
     // "" | "position" | "display" | "wallpaper" | "widgets" | "options" |
     // "colors" | "launch" | "autostart" | "mime" | "services" | "audio" | "keybinds" | "clock"
@@ -481,12 +491,29 @@ Item {
             root.activeMenu = "position"
         if (root.activeMenu === "position")
             root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
-        controlPopup.visible = true
-        root.scheduleReposition()
+        if (root.open) {
+            try {
+                if (typeof controlPopup.requestActivate === "function")
+                    controlPopup.requestActivate()
+            } catch (e) {}
+            return
+        }
+        // Remap if qs still thinks we are visible after the backing window died
+        // (opening Hypr inspector first). Same-frame visible=true is a no-op.
+        if (controlPopup.visible)
+            controlPopup.visible = false
+        Qt.callLater(function() {
+            controlPopup.visible = true
+            root.scheduleReposition()
+            try {
+                if (typeof controlPopup.requestActivate === "function")
+                    controlPopup.requestActivate()
+            } catch (e) {}
+        })
     }
 
     function toggle() {
-        if (controlPopup.visible) {
+        if (root.open) {
             hide()
             return
         }
@@ -3230,12 +3257,14 @@ Item {
         onClosed: {
             root.activeMenu = ""
             root._closedAtMs = Date.now()
+            if (controlPopup.visible)
+                controlPopup.visible = false
         }
 
         Shortcut {
             sequences: ["Escape"]
-            enabled: controlPopup.visible
-            context: Qt.ApplicationShortcut
+            enabled: root.open
+            context: Qt.WindowShortcut
             onActivated: root.hide()
         }
 
