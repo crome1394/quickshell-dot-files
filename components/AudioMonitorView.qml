@@ -919,12 +919,10 @@ Item {
             width: audioScroll.width - (audioScroll.contentHeight > audioScroll.height + 4 ? 10 : 0)
             spacing: root.sectionSpacing
 
-        // Tools row (Refresh / pw-top / Restart) — control bar + inspector
         RowLayout {
-            visible: root.showTools
+            visible: root.showTools && (root.toolsStatus.length > 0 || root.loading || (root.lastAction || "").length > 0)
             Layout.fillWidth: true
             spacing: 6
-
             Text {
                 text: root.toolsStatus.length ? root.toolsStatus
                       : (root.loading ? "loading…" : (root.lastAction || ""))
@@ -934,36 +932,6 @@ Item {
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
-
-            Rectangle {
-                Layout.preferredHeight: 22
-                Layout.preferredWidth: Math.max(56, refreshLbl.implicitWidth + 14)
-                radius: 4
-                color: refreshMa.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.04)
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.10)
-                opacity: root.loading ? 0.5 : 1
-                Text {
-                    id: refreshLbl
-                    anchors.centerIn: parent
-                    text: "Refresh"
-                    color: root.subtextColor
-                    font.pixelSize: 10
-                    font.family: "monospace"
-                }
-                MouseArea {
-                    id: refreshMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: !root.loading
-                    onClicked: {
-                        root.refresh()
-                        root.refreshEchoCancelStatus()
-                    }
-                }
-            }
-
         }
 
 
@@ -2322,6 +2290,34 @@ Item {
             Layout.fillWidth: true
             spacing: 6
             Item { Layout.fillWidth: true }
+            Rectangle {
+                Layout.preferredHeight: 22
+                Layout.preferredWidth: Math.max(56, refreshLbl.implicitWidth + 14)
+                radius: 4
+                color: refreshMa.containsMouse ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(1, 1, 1, 0.04)
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.10)
+                opacity: root.loading ? 0.5 : 1
+                Text {
+                    id: refreshLbl
+                    anchors.centerIn: parent
+                    text: "Refresh"
+                    color: root.subtextColor
+                    font.pixelSize: 10
+                    font.family: "monospace"
+                }
+                MouseArea {
+                    id: refreshMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.loading
+                    onClicked: {
+                        root.refresh()
+                        root.refreshEchoCancelStatus()
+                    }
+                }
+            }
             Rectangle {
                 Layout.preferredHeight: 22
                 Layout.preferredWidth: Math.max(52, pwTopLbl.implicitWidth + 14)

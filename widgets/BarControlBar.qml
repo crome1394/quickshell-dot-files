@@ -3287,23 +3287,12 @@ Item {
                             anchors.margins: 8
                             anchors.rightMargin: 38
                         contentWidth: width
-                        // Only the visible section — never the sum of hidden menus
-                        contentHeight: {
-                            void root.menuTick
-                            void root.activeMenu
-                            void root.wallpaperTilePref
-                            return Math.max(root.measurePanelContent(), 1)
-                        }
+                        // Viewport-sized so the visible tab can fillHeight (inner panels scroll).
+                        contentHeight: height
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
                         flickableDirection: Flickable.VerticalFlick
-                        // Scroll only when content exceeds the panel (Wallpaper/Widgets/Autostart/Launch)
-                        // Disable scrolling while the color picker is open — Flickable
-                        // otherwise steals vertical drag from the SV square / hue strip.
-                        // Themes panel scrolls internally (sticky tabs) — never use outer flick
-                        interactive: root.panelNeedsScroll
-                                     && (contentHeight > height + 4)
-                                     && !root.panelUsesInnerScroll
+                        interactive: false
 
                         onContentHeightChanged: {
                             if (contentHeight <= height + 4)
@@ -3340,13 +3329,15 @@ Item {
 
                         ColumnLayout {
                             id: panelStack
-                            width: panelFlick.width - ((root.panelNeedsScroll && panelFlick.contentHeight > panelFlick.height + 4) ? 10 : 0)
+                            width: panelFlick.width
+                            height: panelFlick.height
                             spacing: 6
 
                             // ===== POSITION =====
                             ColumnLayout {
                                 visible: root.activeMenu === "position"
                                 Layout.fillWidth: true
+                                Layout.fillHeight: true
                                 spacing: 10
 
                                 Text {
@@ -3754,7 +3745,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "display"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 12
 
                                 RowLayout {
@@ -3778,7 +3769,7 @@ Item {
                                     boundsBehavior: Flickable.StopAtBounds
                                     flickableDirection: Flickable.VerticalFlick
                                     contentWidth: width
-                                    contentHeight: displayBodyCol.implicitHeight
+                                    contentHeight: Math.max(displayBodyCol.implicitHeight, height)
                                     interactive: contentHeight > height + 4
                                     ScrollBar.vertical: ScrollBar {
                                         policy: displayBodyFlick.contentHeight > displayBodyFlick.height + 4
@@ -3794,6 +3785,7 @@ Item {
                                     ColumnLayout {
                                         id: displayBodyCol
                                         width: displayBodyFlick.width
+                                        height: Math.max(implicitHeight, displayBodyFlick.height)
                                         spacing: 12
 
                                 // Current monitor indicator
@@ -4273,12 +4265,73 @@ Item {
                                     font.family: bar.fontFamily
                                 }
 
+                                Flickable {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    Layout.minimumHeight: 72
+                                    clip: true
+                                    boundsBehavior: Flickable.StopAtBounds
+                                    flickableDirection: Flickable.VerticalFlick
+                                    contentWidth: width
+                                    contentHeight: dispResFlow.implicitHeight
+                                    ScrollBar.vertical: ScrollBar {
+                                        policy: contentHeight > height + 4 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                                        width: 6
+                                        contentItem: Rectangle {
+                                            implicitWidth: 4
+                                            radius: 2
+                                            color: bar.accent
+                                            opacity: 0.5
+                                        }
+                                    }
+                                    Flow {
+                                        id: dispResFlow
+                                        width: parent.width
+                                        spacing: 6
+                                        Repeater {
+                                            model: {
+                                                void root.displayTick
+                                                return root.displayFilteredList || []
+                                            }
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                required property int index
+                                                readonly property bool selected: index === root.displayResIndex
+                                                width: dispResLbl.implicitWidth + 14
+                                                height: 26
+                                                radius: root.chipR
+                                                color: selected
+                                                       ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                       : (dispResMa.containsMouse ? bar.glassHover : Qt.rgba(1, 1, 1, 0.04))
+                                                border.width: 1
+                                                border.color: selected ? root.activeLabelColor() : bar.pillBorder
+                                                Text {
+                                                    id: dispResLbl
+                                                    anchors.centerIn: parent
+                                                    text: String(modelData.res || "").replace("x", "×")
+                                                    color: selected ? root.activeLabelColor() : bar.text
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: dispResMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.displayOnResIndexChanged(index)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                     } // displayBodyCol
                                 } // displayBodyFlick
 
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 26
                                         Layout.preferredWidth: Math.max(72, nvidiaPanelRow.implicitWidth + 14)
@@ -4342,7 +4395,6 @@ Item {
                                             onClicked: root.refreshDisplay()
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -4351,7 +4403,7 @@ Item {
                                 id: wallpaperPanel
                                 visible: root.activeMenu === "wallpaper"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 8
 
                                     RowLayout {
@@ -4715,6 +4767,7 @@ Item {
                                     RowLayout {
                                         Layout.fillWidth: true
                                         spacing: 6
+                                        Item { Layout.fillWidth: true }
                                         Rectangle {
                                             Layout.preferredHeight: 26
                                             Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
@@ -4738,7 +4791,6 @@ Item {
                                                 onClicked: root.refreshWallpapers()
                                             }
                                         }
-                                        Item { Layout.fillWidth: true }
                                     }
                             }
 
@@ -4746,7 +4798,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "widgets" || root.activeMenu === "sizes"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 7
 
                                 RowLayout {
@@ -5134,6 +5186,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: addDivLbl.implicitWidth + 12
@@ -5218,7 +5271,6 @@ Item {
                                             }
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -5226,7 +5278,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "launch"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 RowLayout {
@@ -5629,6 +5681,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: resetLaunchLbl.implicitWidth + 12
@@ -5657,7 +5710,6 @@ Item {
                                             }
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -5665,7 +5717,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "autostart"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 RowLayout {
@@ -6078,6 +6130,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: refreshAsLbl.implicitWidth + 12
@@ -6101,7 +6154,6 @@ Item {
                                             onClicked: root.refreshAutostart()
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -6109,7 +6161,7 @@ Item {
                             ColumnLayout {
                                 visible: root.activeMenu === "options"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 8
 
                                 RowLayout {
@@ -9266,6 +9318,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: refreshOptLbl.implicitWidth + 12
@@ -9289,7 +9342,6 @@ Item {
                                             onClicked: root.refreshOptions()
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -9298,7 +9350,7 @@ Item {
                                 id: mimePanel
                                 visible: root.activeMenu === "mime"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(320, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 Text {
@@ -9345,6 +9397,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 26
                                         Layout.preferredWidth: mimeReloadLbl.implicitWidth + 14
@@ -9373,7 +9426,6 @@ Item {
                                             }
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             }
 
@@ -9383,7 +9435,7 @@ Item {
                                 visible: root.activeMenu === "services"
                                 Layout.fillWidth: true
                                 // Fixed tall panel; ServicesView scrolls internally (no outer double-scroll)
-                                Layout.preferredHeight: Math.max(320, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 RowLayout {
@@ -9467,7 +9519,7 @@ Item {
                                 visible: root.activeMenu === "audio"
                                 Layout.fillWidth: true
                                 // Fixed tall panel; AudioMonitorView scrolls internally
-                                Layout.preferredHeight: Math.max(320, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 RowLayout {
@@ -9559,7 +9611,7 @@ Item {
                                 id: keybindsPanel
                                 visible: root.activeMenu === "keybinds"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(320, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 6
 
                                 Text {
@@ -9626,7 +9678,7 @@ Item {
                                 visible: root.activeMenu === "colors"
                                 Layout.fillWidth: true
                                 // Fill the panel height so title + tabs stay fixed; body scrolls inside
-                                Layout.preferredHeight: root.panelMaxH - 24
+                                Layout.fillHeight: true
                                 Layout.minimumHeight: 280
                                 spacing: 8
 
@@ -12106,6 +12158,7 @@ Item {
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: resetThemeLbl.implicitWidth + 12
@@ -12135,7 +12188,6 @@ Item {
                                             }
                                         }
                                     }
-                                    Item { Layout.fillWidth: true }
                                 }
                             } // themesPanel
 
@@ -12144,7 +12196,7 @@ Item {
                                 id: clockPanel
                                 visible: root.activeMenu === "clock"
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: Math.max(280, root.panelMaxH - 12)
+                                Layout.fillHeight: true
                                 spacing: 8
 
                                 Text {

@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control tabs fill the window; actions bottom-right
+
+- Every control-bar tab fills the Hyprland window. Footer actions (Refresh, Reset, NVIDIA, Apply, …) sit at the **bottom right**.
+- Display lists available resolutions in the remaining space.
+
 ## 2026-09 — Control bar fills the window; stepper arrows grouped
 
 - Opening the control strip starts on **Position**. The panel fills the window so the tab bar stays at the bottom (Hyprland owns the size).

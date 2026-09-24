@@ -326,7 +326,6 @@ Item {
         anchors.fill: parent
         spacing: 6
 
-        // Header actions
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -342,56 +341,6 @@ Item {
                 font.pixelSize: 11
                 font.family: root.fontFamily
                 elide: Text.ElideRight
-            }
-
-            Rectangle {
-                Layout.preferredHeight: 26
-                Layout.preferredWidth: refreshLbl.implicitWidth + 14
-                radius: 6
-                color: refreshMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.12)
-                opacity: root.loading ? 0.5 : 1
-                Text {
-                    id: refreshLbl
-                    anchors.centerIn: parent
-                    text: root.loading ? "…" : "Refresh"
-                    color: root.accentColor
-                    font.pixelSize: 11
-                    font.family: root.fontFamily
-                }
-                MouseArea {
-                    id: refreshMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: !root.loading && !root.saving
-                    onClicked: root.refresh()
-                }
-            }
-
-            Rectangle {
-                Layout.preferredHeight: 26
-                Layout.preferredWidth: reloadLbl.implicitWidth + 14
-                radius: 6
-                color: reloadMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
-                border.width: 1
-                border.color: Qt.rgba(1, 1, 1, 0.12)
-                Text {
-                    id: reloadLbl
-                    anchors.centerIn: parent
-                    text: "Reload Hypr"
-                    color: root.accentColor
-                    font.pixelSize: 11
-                    font.family: root.fontFamily
-                }
-                MouseArea {
-                    id: reloadMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.reloadHypr()
-                }
             }
         }
 
@@ -839,6 +788,60 @@ Item {
             font.pixelSize: 9
             font.family: root.fontMono
             elide: Text.ElideMiddle
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Item { Layout.fillWidth: true }
+            Rectangle {
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: refreshLbl.implicitWidth + 14
+                radius: 6
+                color: refreshMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+                opacity: root.loading ? 0.5 : 1
+                Text {
+                    id: refreshLbl
+                    anchors.centerIn: parent
+                    text: root.loading ? "…" : "Refresh"
+                    color: root.accentColor
+                    font.pixelSize: 11
+                    font.family: root.fontFamily
+                }
+                MouseArea {
+                    id: refreshMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !root.loading && !root.saving
+                    onClicked: root.refresh()
+                }
+            }
+            Rectangle {
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: reloadLbl.implicitWidth + 14
+                radius: 6
+                color: reloadMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                border.width: 1
+                border.color: Qt.rgba(1, 1, 1, 0.12)
+                Text {
+                    id: reloadLbl
+                    anchors.centerIn: parent
+                    text: "Reload Hypr"
+                    color: root.accentColor
+                    font.pixelSize: 11
+                    font.family: root.fontFamily
+                }
+                MouseArea {
+                    id: reloadMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.reloadHypr()
+                }
+            }
         }
     }
 }
