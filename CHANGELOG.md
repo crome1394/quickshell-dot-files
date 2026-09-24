@@ -2,6 +2,12 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Audio top-align, all display modes, layout previews
+
+- Audio: Input Devices align to the top of the column; Refresh / pw-top / Restart audio sit on the panel bottom-right.
+- Display chips list every resolution at every supported refresh rate.
+- Position: Classic vs Dual are monitor mockups; select then **Apply**.
+
 ## 2026-09 — Control tabs fill the window; actions bottom-right
 
 - Every control-bar tab fills the Hyprland window. Footer actions (Refresh, Reset, NVIDIA, Apply, …) sit at the **bottom right**.

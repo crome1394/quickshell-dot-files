@@ -894,9 +894,14 @@ Item {
         }
     }
 
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 6
+
     Flickable {
         id: audioScroll
-        anchors.fill: parent
+        Layout.fillWidth: true
+        Layout.fillHeight: true
         contentWidth: width
         contentHeight: mainCol.implicitHeight + 8
         clip: true
@@ -1329,10 +1334,12 @@ Item {
         // Devices — size to content; outer view Flickable scrolls
         RowLayout {
             Layout.fillWidth: true
+            Layout.alignment: Qt.AlignTop
             spacing: root.sectionSpacing
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: sinksOuterCol.implicitHeight + root.cardMargin * 2
                 Layout.minimumHeight: 120
                 radius: root.cardRadius
@@ -1768,6 +1775,7 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
+                Layout.alignment: Qt.AlignTop
                 Layout.preferredHeight: sourcesOuterCol.implicitHeight + root.cardMargin * 2
                 Layout.minimumHeight: 120
                 radius: root.cardRadius
@@ -2285,6 +2293,9 @@ Item {
             }
         }
 
+        } // mainCol
+    } // audioScroll
+
         RowLayout {
             visible: root.showTools
             Layout.fillWidth: true
@@ -2368,8 +2379,6 @@ Item {
                     onClicked: root.restartSoundSystem()
                 }
             }
-        }
-
         }
     }
 }

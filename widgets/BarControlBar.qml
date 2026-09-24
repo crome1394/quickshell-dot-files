@@ -455,10 +455,32 @@ Item {
         root._closedAtMs = Date.now()
     }
 
+    property string layoutModeDraft: ""
+    function layoutModeChoice() {
+        const d = String(root.layoutModeDraft || "")
+        if (d === "classic" || d === "dual")
+            return d
+        return (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
+    }
+    function layoutModeDirty() {
+        const live = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
+        return root.layoutModeChoice() !== live
+    }
+    function applyLayoutModeDraft() {
+        const mode = root.layoutModeChoice()
+        if (typeof bar.setBarLayoutMode === "function")
+            bar.setBarLayoutMode(mode)
+        root.layoutModeDraft = ""
+        root.menuTick++
+        Qt.callLater(root.reposition)
+    }
+
     function show() {
         root.menuTick++
         if (!root.activeMenu.length)
             root.activeMenu = "position"
+        if (root.activeMenu === "position")
+            root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
         controlPopup.visible = true
         root.scheduleReposition()
     }
@@ -511,6 +533,8 @@ Item {
             root.activeMenu = ""
         else
             root.activeMenu = name
+        if (root.activeMenu === "position")
+            root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
         if (root.activeMenu === "options")
             root.refreshOptions()
         if (root.activeMenu === "clock") {
@@ -1917,6 +1941,52 @@ Item {
         if (root.displayResIndex >= out.length)
             root.displayResIndex = Math.max(0, out.length - 1)
         return out
+    }
+
+    // Every resolution × each of its EDID refresh rates (not filtered by the dropdown).
+    function displayAllModeChips() {
+        void root.displayTick
+        const all = root.displayResolutions || []
+        const out = []
+        for (let i = 0; i < all.length; i++) {
+            const e = all[i]
+            if (!e || !e.res)
+                continue
+            const rates = e.rates || []
+            if (!rates.length) {
+                out.push({ res: String(e.res), rate: 0, label: String(e.res).replace("x", "×") })
+                continue
+            }
+            for (let j = 0; j < rates.length; j++) {
+                const r = Number(rates[j])
+                out.push({
+                    res: String(e.res),
+                    rate: r,
+                    label: String(e.res).replace("x", "×") + " · " + root.displayFormatRate(r) + " Hz"
+                })
+            }
+        }
+        return out
+    }
+
+    function displaySelectMode(res, rate) {
+        const r = Number(rate) || 0
+        if (r > 0)
+            root.displaySelectedRate = r
+        root.displayRebuildFilter()
+        root.displayResIndex = root.displayFindResIndex(root.displayFilteredList, String(res || ""))
+        root.displayNotifyUi()
+    }
+
+    function displayModeChipSelected(res, rate) {
+        void root.displayTick
+        if (String(root.displayPendingRes()) !== String(res || ""))
+            return false
+        const a = Number(root.displayPendingRate()) || 0
+        const b = Number(rate) || 0
+        if (b <= 0)
+            return true
+        return root.displayRateNear(a, b)
     }
 
     function displayResEntry() {
@@ -3365,39 +3435,52 @@ Item {
                                     font.bold: true
                                     font.family: bar.fontFamily
                                 }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Select a layout, then Apply. Classic is one bar; Dual is a thin top bar and a bottom bar."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
 
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 52
-                                    Layout.minimumHeight: 52
-                                    spacing: 8
+                                    Layout.preferredHeight: 168
+                                    Layout.minimumHeight: 168
+                                    spacing: 12
 
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        Layout.preferredHeight: 52
-                                        Layout.minimumHeight: 52
                                         radius: root.chipR
-                                        color: (bar.barLayoutMode !== "dual")
+                                        color: (root.layoutModeChoice() === "classic")
                                                ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
                                                : (modeClassicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
                                         border.width: bar.controlBorderWidth
-                                        border.color: (bar.barLayoutMode !== "dual") ? root.activeLabelColor() : bar.pillBorder
+                                        border.color: (root.layoutModeChoice() === "classic") ? root.activeLabelColor() : bar.pillBorder
                                         ColumnLayout {
                                             anchors.fill: parent
-                                            anchors.leftMargin: 12
-                                            anchors.rightMargin: 12
-                                            anchors.topMargin: 8
-                                            anchors.bottomMargin: 8
-                                            spacing: 0
-                                            Text {
-                                                text: "Classic"
-                                                font.pixelSize: 13
-                                                font.bold: bar.barLayoutMode !== "dual"
-                                                font.family: bar.fontFamily
-                                                color: bar.barLayoutMode !== "dual" ? root.activeLabelColor() : bar.text
+                                            anchors.margins: 12
+                                            spacing: 8
+                                            MonitorLayoutPreview {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                mode: "classic"
+                                                selected: root.layoutModeChoice() === "classic"
+                                                barColor: bar.accent
+                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
+                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
                                             }
                                             Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "Classic"
+                                                font.pixelSize: 13
+                                                font.bold: root.layoutModeChoice() === "classic"
+                                                font.family: bar.fontFamily
+                                                color: root.layoutModeChoice() === "classic" ? root.activeLabelColor() : bar.text
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
                                                 text: "One bar · L / C / R"
                                                 font.pixelSize: 10
                                                 font.family: bar.fontFamily
@@ -3410,10 +3493,8 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                if (typeof bar.setBarLayoutMode === "function")
-                                                    bar.setBarLayoutMode("classic")
+                                                root.layoutModeDraft = "classic"
                                                 root.menuTick++
-                                                Qt.callLater(root.reposition)
                                             }
                                         }
                                     }
@@ -3421,29 +3502,34 @@ Item {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        Layout.preferredHeight: 52
-                                        Layout.minimumHeight: 52
                                         radius: root.chipR
-                                        color: (bar.barLayoutMode === "dual")
+                                        color: (root.layoutModeChoice() === "dual")
                                                ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
                                                : (modeDualMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
                                         border.width: bar.controlBorderWidth
-                                        border.color: (bar.barLayoutMode === "dual") ? root.activeLabelColor() : bar.pillBorder
+                                        border.color: (root.layoutModeChoice() === "dual") ? root.activeLabelColor() : bar.pillBorder
                                         ColumnLayout {
                                             anchors.fill: parent
-                                            anchors.leftMargin: 12
-                                            anchors.rightMargin: 12
-                                            anchors.topMargin: 8
-                                            anchors.bottomMargin: 8
-                                            spacing: 0
-                                            Text {
-                                                text: "Dual"
-                                                font.pixelSize: 13
-                                                font.bold: bar.barLayoutMode === "dual"
-                                                font.family: bar.fontFamily
-                                                color: bar.barLayoutMode === "dual" ? root.activeLabelColor() : bar.text
+                                            anchors.margins: 12
+                                            spacing: 8
+                                            MonitorLayoutPreview {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                mode: "dual"
+                                                selected: root.layoutModeChoice() === "dual"
+                                                barColor: bar.accent
+                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
+                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
                                             }
                                             Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "Dual"
+                                                font.pixelSize: 13
+                                                font.bold: root.layoutModeChoice() === "dual"
+                                                font.family: bar.fontFamily
+                                                color: root.layoutModeChoice() === "dual" ? root.activeLabelColor() : bar.text
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
                                                 text: "Top + bottom · centered"
                                                 font.pixelSize: 10
                                                 font.family: bar.fontFamily
@@ -3456,17 +3542,15 @@ Item {
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
                                             onClicked: {
-                                                if (typeof bar.setBarLayoutMode === "function")
-                                                    bar.setBarLayoutMode("dual")
+                                                root.layoutModeDraft = "dual"
                                                 root.menuTick++
-                                                Qt.callLater(root.reposition)
                                             }
                                         }
                                     }
                                 }
 
                                 Text {
-                                    visible: bar.barLayoutMode !== "dual"
+                                    visible: root.layoutModeChoice() !== "dual"
                                     text: "Edge"
                                     color: bar.text
                                     font.pixelSize: 12
@@ -3475,7 +3559,7 @@ Item {
                                 }
 
                                 RowLayout {
-                                    visible: bar.barLayoutMode !== "dual"
+                                    visible: root.layoutModeChoice() !== "dual"
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 52
                                     Layout.minimumHeight: 52
@@ -3736,6 +3820,45 @@ Item {
                                                 if (typeof bar.setBarSizeScale === "function")
                                                     bar.setBarSizeScale(Math.round(v) / 100)
                                             }
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillHeight: true }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Item { Layout.fillWidth: true }
+                                    Rectangle {
+                                        Layout.preferredHeight: 32
+                                        Layout.preferredWidth: Math.max(88, applyLayoutLbl.implicitWidth + 20)
+                                        radius: root.chipR
+                                        enabled: root.layoutModeDirty()
+                                        opacity: enabled ? 1 : 0.45
+                                        color: enabled
+                                               ? (applyLayoutMa.containsMouse
+                                                  ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.28))
+                                                  : Qt.rgba(0, 0.77, 0.96, 0.18))
+                                               : Qt.rgba(0.12, 0.12, 0.14, 0.55)
+                                        border.width: 1
+                                        border.color: enabled ? root.activeLabelColor() : bar.dividerStrong
+                                        Text {
+                                            id: applyLayoutLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: parent.enabled ? root.activeLabelColor() : bar.overlay
+                                            font.pixelSize: 12
+                                            font.bold: parent.enabled
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: applyLayoutMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            enabled: parent.enabled
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.applyLayoutModeDraft()
                                         }
                                     }
                                 }
@@ -4290,14 +4413,10 @@ Item {
                                         width: parent.width
                                         spacing: 6
                                         Repeater {
-                                            model: {
-                                                void root.displayTick
-                                                return root.displayFilteredList || []
-                                            }
+                                            model: root.displayAllModeChips()
                                             delegate: Rectangle {
                                                 required property var modelData
-                                                required property int index
-                                                readonly property bool selected: index === root.displayResIndex
+                                                readonly property bool selected: root.displayModeChipSelected(modelData.res, modelData.rate)
                                                 width: dispResLbl.implicitWidth + 14
                                                 height: 26
                                                 radius: root.chipR
@@ -4309,7 +4428,7 @@ Item {
                                                 Text {
                                                     id: dispResLbl
                                                     anchors.centerIn: parent
-                                                    text: String(modelData.res || "").replace("x", "×")
+                                                    text: modelData.label || ""
                                                     color: selected ? root.activeLabelColor() : bar.text
                                                     font.pixelSize: 11
                                                     font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
@@ -4319,7 +4438,7 @@ Item {
                                                     anchors.fill: parent
                                                     hoverEnabled: true
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.displayOnResIndexChanged(index)
+                                                    onClicked: root.displaySelectMode(modelData.res, modelData.rate)
                                                 }
                                             }
                                         }
