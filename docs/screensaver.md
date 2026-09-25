@@ -4,6 +4,23 @@ Idle fullscreen **mpv** loop. It does **not** use compositor DPMS (that blanks t
 
 Prefs: `~/.config/hypr/screensaver.conf` (written by Options → Screensaver). Hypridle listener is patched by `scripts/screensaver-config.sh` (also installed as `~/.local/bin/screensaver-config.sh`). Player: `scripts/screensaver.sh` → `~/.local/bin/screensaver.sh`.
 
+Mouse / click / Esc dismiss lives in **git**, not `~/.config/mpv` (that tree is empty after a reinstall). Source files:
+
+| Git | Installed copy |
+|-----|----------------|
+| `scripts/screensaver.sh` | `~/.local/bin/screensaver.sh` |
+| `scripts/screensaver-config.sh` | `~/.local/bin/screensaver-config.sh` |
+| `scripts/screensaver-mpv/input.conf` | `~/.local/share/screensaver/input.conf` |
+| `scripts/screensaver-mpv/quit-on-input.lua` | `~/.local/share/screensaver/quit-on-input.lua` |
+
+After clone or pull:
+
+```bash
+~/.config/quickshell/scripts/install-screensaver-helpers.sh
+```
+
+The player looks in the git tree first, then `~/.local/share/screensaver`. Super+L / hypridle call `~/.local/bin`, so copy the helpers or they stay on the last install.
+
 ## Idle vs video
 
 Browser tabs (YouTube, X, Facebook, Rumble, …) often set Wayland/D-Bus **idle-inhibit** without going fullscreen. Hypridle is set to **ignore** those inhibitors so the timeout still fires.
@@ -29,4 +46,8 @@ Needs `ddcutil` on PATH and **DDC/CI** enabled in the monitor OSD. If DDC fails,
 
 ## Apply
 
-Options → Screensaver → **Apply** writes `screensaver.conf` and reloads hypridle. Copy `scripts/screensaver-config.sh` and `scripts/screensaver.sh` to `~/.local/bin/` after pulling so hypridle and Super+L keep using the helpers.
+Options → Screensaver → **Apply** writes `screensaver.conf` and reloads hypridle. Run `scripts/install-screensaver-helpers.sh` after pulling so hypridle and Super+L keep using the helpers (player + mouse-dismiss lua).
+
+## Dismiss
+
+Fullscreen mpv can swallow pointer events, so hypridle `on-resume` is not enough. The lua script quits after the pointer moves more than 8px (1s grace so the first warp does not dismiss). Clicks, wheel, Esc, q, Space, Enter also quit. `--stop-screensaver=no` still lets hypridle stop the saver if the compositor sees the input.

@@ -22,7 +22,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 - **Sys Stats** — per-metric load colors (CPU / Memory / GPU); left-click popups with session Show graphs and pin-to-desktop history
 - **Network** — per-adapter on/off + Enable after disconnect; Options for full IP, last octet, and device name on the bar
 - **Themes** — colors, opacity, fonts, per-metric thresholds; **Save as preset** (colors) and **Save setup** (colors + layout)
-- **Screensaver** — idle mpv (no DPMS); tab video does not block; fullscreen does unless Always start; optional DDC dim / exit brightness
+- **Screensaver** — idle mpv (no DPMS); mouse/click/Esc dismiss; tab video does not block; fullscreen does unless Always start; optional DDC dim / exit brightness
 - Net · BT · Audio (combined pill), workspaces, tray, notifications (history, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
 
@@ -36,6 +36,8 @@ Quickshell (`qs`), Hyprland, and helpers used by scripts (`jq`, `nmcli`, PipeWir
 git clone git@github.com:crome1394/quickshell-dot-files.git ~/.config/quickshell
 cd ~/.config/quickshell
 qs --daemonize -n
+# Screensaver (hypridle / Super+L): player + mouse-dismiss files
+./scripts/install-screensaver-helpers.sh
 # Or from this worktree:  qs -p shell.qml
 ```
 
@@ -94,7 +96,7 @@ Full tables: [docs/ipc.md](docs/ipc.md)
 | [Control bar](docs/control-bar.md) | Panels, Wallpaper, Themes, Display, MIME, Dock, Screensaver |
 | [Config tokens](docs/config.md) | `Config.qml` reference |
 | [IPC](docs/ipc.md) | All IPC targets |
-| [Screensaver](docs/screensaver.md) | Idle mpv, tab vs fullscreen, DDC dim |
+| [Screensaver](docs/screensaver.md) | Idle mpv, mouse dismiss, tab vs fullscreen, DDC dim |
 | [Audio](docs/audio.md) · [Network](docs/network.md) · [Bluetooth](docs/bluetooth.md) | Connectivity pills |
 | [FreshRSS](docs/freshrss.md) · [Workspaces](docs/workspaces.md) · [Inspector](docs/inspector.md) | Feature guides |
 | [Changelog](CHANGELOG.md) | Upgrade notes |

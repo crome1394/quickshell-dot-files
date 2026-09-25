@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Screensaver mouse dismiss in git
+
+- Mouse / click / Esc dismiss files live in `scripts/screensaver-mpv/` (not `~/.config/mpv`, which a reinstall wipes).
+- After clone/pull: `scripts/install-screensaver-helpers.sh` copies the player, config helper, and mpv input/lua.
+
 ## 2026-09 — Docs: floating control bar
 
 - README and [docs/control-bar.md](docs/control-bar.md) cover the movable **Bar control** window, Position mockups + Apply, Display res×Hz chips, slider steppers, and bottom-right tab actions.
