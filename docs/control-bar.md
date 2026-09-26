@@ -111,7 +111,7 @@ Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Networ
 | Section | Controls | Persistence |
 |---------|----------|-------------|
 | **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · **Tooltips** (delay + per-widget T/B/L/R) · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
-| **Workspaces** | Magic pill · only-active · **default workspace** count, order, icon/text, and **font** · **Apply** / **Undo** · startup workspace · close magic on start | `bar-layout.json` |
+| **Workspaces** | Magic pill · only-active · **default workspace** count, order, icon/text, **emoji font**, and **emoji size** · **Apply** / **Undo** · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |

@@ -4,7 +4,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Workspace font, Apply, Undo
 
-- Options → **Workspaces**: each default pill has its own font (or **Bar font**). **‹ ›** beside the font list step to the previous or next face. Count, order, label, and font stay on the panel until **Apply**. **Undo** drops those edits, or reverts the last Apply.
+- Options → **Workspaces**: each default pill has its own font (or **Bar font**) and emoji size. The font and size apply to the emoji only; the workspace number stays on the bar font. **‹ ›** step through faces. **− +** change the emoji size. Count, order, label, font, and size stay on the panel until **Apply**. **Undo** drops those edits, or reverts the last Apply.
 
 ## 2026-09 — Control bar names, workspace rows, reopen
 

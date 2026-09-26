@@ -551,7 +551,14 @@ Rectangle {
                                 return bar.wsLabelForId(id)
                             return bar.wsIconForId(id)
                         }
-                        font.pixelSize: bar.wsIconSize
+                        font.pixelSize: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            if (isSpecial || !bar || typeof bar.wsFontPxForId !== "function")
+                                return bar.wsIconSize
+                            const px = bar.wsFontPxForId(modelData ? modelData.id : 0)
+                            return px >= 8 ? px : bar.wsIconSize
+                        }
                         color: isActive ? bar.wsActiveText :
                                (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)
                                           : (bar.wsInactiveText !== undefined ? bar.wsInactiveText : bar.text))
@@ -570,14 +577,7 @@ Rectangle {
                         text: modelData ? modelData.id : ""
                         font.pixelSize: bar.wsNumberSize || 15
                         font.bold: true
-                        font.family: {
-                            void bar.wsSlots
-                            void bar.hasWsSlots
-                            if (!bar || typeof bar.wsFontForId !== "function")
-                                return bar.fontFamily
-                            const custom = bar.wsFontForId(modelData ? modelData.id : 0)
-                            return (custom && String(custom).length) ? custom : bar.fontFamily
-                        }
+                        font.family: bar.fontFamily
                         color: isActive ? bar.wsActiveText :
                                (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)
                                           : (bar.wsInactiveText !== undefined ? bar.wsInactiveText : bar.text))

@@ -1030,7 +1030,8 @@ Item {
             out.push({
                 id: Math.round(Number(s.id)) || 0,
                 label: String(s.label || ""),
-                font: String(s.font || "")
+                font: String(s.font || ""),
+                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0
             })
         }
         return out
@@ -1040,7 +1041,8 @@ Item {
         const parts = []
         for (let i = 0; i < list.length; i++) {
             const s = list[i] || {}
-            parts.push(Math.round(Number(s.id)) + "\t" + String(s.label || "") + "\t" + String(s.font || ""))
+            const px = (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0
+            parts.push(Math.round(Number(s.id)) + "\t" + String(s.label || "") + "\t" + String(s.font || "") + "\t" + px)
         }
         return parts.join("\n")
     }
@@ -1080,11 +1082,11 @@ Item {
                 if (id < 0)
                     break
                 const label = (bar && typeof bar.wsIconForId === "function") ? bar.wsIconForId(id) : String(id)
-                cur.push({ id: id, label: label, font: "" })
+                cur.push({ id: id, label: label, font: "", fontPx: 0 })
             }
         })
     }
-    function setWsDraftFace(index, label, font) {
+    function setWsDraftFace(index, label, font, fontPx) {
         root.mutateWsDraft(function(cur) {
             const i = Math.round(Number(index))
             if (i < 0 || i >= cur.length)
@@ -1103,7 +1105,29 @@ Item {
                     name = name.substring(0, 120)
                 cur[i].font = name
             }
+            if (fontPx !== undefined && fontPx !== null) {
+                cur[i].fontPx = (bar && typeof bar.wsFontPxClamp === "function")
+                    ? bar.wsFontPxClamp(fontPx) : 0
+            }
         })
+    }
+    function wsEmojiPx(fontPx) {
+        const n = (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(fontPx) : 0
+        if (n >= 8)
+            return n
+        const fallback = (bar && bar.wsIconSize) ? Math.round(Number(bar.wsIconSize)) : 18
+        return Math.max(8, Math.min(32, fallback))
+    }
+    function stepWsDraftFontPx(index, delta, labelText) {
+        const rows = root.wsSlotRows()
+        const i = Math.round(Number(index))
+        if (i < 0 || i >= rows.length)
+            return
+        const cur = root.wsEmojiPx(rows[i].fontPx)
+        const next = Math.max(8, Math.min(32, cur + Math.round(Number(delta) || 0)))
+        if (next === cur)
+            return
+        root.setWsDraftFace(i, labelText, rows[i].font, next)
     }
     function moveWsDraft(index, delta) {
         root.mutateWsDraft(function(cur) {
@@ -1132,7 +1156,7 @@ Item {
             if (id < 0)
                 return
             const label = (bar && typeof bar.wsIconForId === "function") ? bar.wsIconForId(id) : String(id)
-            cur.push({ id: id, label: label, font: "" })
+            cur.push({ id: id, label: label, font: "", fontPx: 0 })
         })
     }
     function applyWsDraft() {
@@ -1209,7 +1233,8 @@ Item {
                 index: i,
                 id: slots[i].id,
                 label: String(slots[i].label || ""),
-                font: String(slots[i].font || "")
+                font: String(slots[i].font || ""),
+                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(slots[i].fontPx) : 0
             })
         }
         return rows
@@ -7325,7 +7350,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Each row is an icon or short text plus a font. ‹ › step through faces for that symbol. Bar font uses the bar’s font. The bar stays as it is until Apply. Undo drops unapplied edits, or reverts the last Apply."
+                                    text: "The font and size change the emoji only. The workspace number stays on the bar font. ‹ › step through faces. − + change the emoji size (8–32). The bar stays as it is until Apply."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -7335,8 +7360,9 @@ Item {
                                     delegate: Rectangle {
                                         id: wsSlotRow
                                         required property var modelData
+                                        readonly property int emojiPx: root.wsEmojiPx(modelData.fontPx)
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 84
+                                        Layout.preferredHeight: Math.max(84, emojiPx + 62)
                                         radius: root.chipR
                                         color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                         border.width: 1
@@ -7363,12 +7389,12 @@ Item {
                                             TextField {
                                                 id: wsSlotLabelField
                                                 Layout.fillWidth: true
-                                                Layout.preferredHeight: 28
+                                                Layout.preferredHeight: Math.max(28, wsSlotRow.emojiPx + 8)
                                                 selectByMouse: true
                                                 placeholderText: "icon or text"
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
-                                                font.pixelSize: 14
+                                                font.pixelSize: wsSlotRow.emojiPx
                                                 font.family: wsSlotRow.modelData.font.length ? wsSlotRow.modelData.font : bar.fontFamily
                                                 text: wsSlotRow.modelData.label
                                                 horizontalAlignment: Text.AlignHCenter
@@ -7577,6 +7603,60 @@ Item {
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: root.stepWsDraftFont(wsSlotRow.modelData.index, 1, wsSlotLabelField.text)
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: 26
+                                            Layout.preferredHeight: 28
+                                            radius: 4
+                                            opacity: root.wsEmojiPx(wsSlotRow.modelData.fontPx) <= 8 ? 0.35 : 1
+                                            color: wsSizeDownMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "−"
+                                                color: bar.subtext
+                                                font.pixelSize: 16
+                                            }
+                                            MouseArea {
+                                                id: wsSizeDownMa
+                                                anchors.fill: parent
+                                                enabled: root.wsEmojiPx(wsSlotRow.modelData.fontPx) > 8
+                                                hoverEnabled: true
+                                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                onClicked: root.stepWsDraftFontPx(wsSlotRow.modelData.index, -1, wsSlotLabelField.text)
+                                            }
+                                        }
+                                        Text {
+                                            text: String(root.wsEmojiPx(wsSlotRow.modelData.fontPx))
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                            horizontalAlignment: Text.AlignHCenter
+                                            Layout.preferredWidth: 22
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: 26
+                                            Layout.preferredHeight: 28
+                                            radius: 4
+                                            opacity: root.wsEmojiPx(wsSlotRow.modelData.fontPx) >= 32 ? 0.35 : 1
+                                            color: wsSizeUpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "+"
+                                                color: bar.subtext
+                                                font.pixelSize: 16
+                                            }
+                                            MouseArea {
+                                                id: wsSizeUpMa
+                                                anchors.fill: parent
+                                                enabled: root.wsEmojiPx(wsSlotRow.modelData.fontPx) < 32
+                                                hoverEnabled: true
+                                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                onClicked: root.stepWsDraftFontPx(wsSlotRow.modelData.index, 1, wsSlotLabelField.text)
                                             }
                                         }
                                         }

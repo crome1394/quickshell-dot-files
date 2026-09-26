@@ -1531,7 +1531,7 @@ ShellRoot {
                 let font = String(raw.font || "").trim()
                 if (font.length > 120)
                     font = font.substring(0, 120)
-                out.push({ id: id, label: label, font: font })
+                out.push({ id: id, label: label, font: font, fontPx: bar.wsFontPxClamp(raw.fontPx) })
             }
             return out
         }
@@ -1543,7 +1543,7 @@ ShellRoot {
                 n = 10
             const out = []
             for (let i = 1; i <= n; i++)
-                out.push({ id: i, label: bar.wsIconForId(i), font: "" })
+                out.push({ id: i, label: bar.wsIconForId(i), font: "", fontPx: 0 })
             return out
         }
         function wsSlotsEffective() {
@@ -1568,6 +1568,22 @@ ShellRoot {
                     return String(slots[i].font || "")
             }
             return ""
+        }
+        // 0 means “use bar.wsIconSize”. Explicit sizes are 8–32 px and apply to the emoji only.
+        function wsFontPxClamp(v) {
+            const n = Math.round(Number(v))
+            if (n >= 8 && n <= 32)
+                return n
+            return 0
+        }
+        function wsFontPxForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return bar.wsFontPxClamp(slots[i].fontPx)
+            }
+            return 0
         }
         function nextFreeWsId(slots) {
             const used = {}
@@ -1602,7 +1618,7 @@ ShellRoot {
                     const id = bar.nextFreeWsId(cur)
                     if (id < 0)
                         break
-                    cur.push({ id: id, label: bar.wsIconForId(id), font: "" })
+                    cur.push({ id: id, label: bar.wsIconForId(id), font: "", fontPx: 0 })
                 }
                 root.wsSlots = cur
                 n = cur.length || 1
@@ -1617,7 +1633,7 @@ ShellRoot {
             const id = bar.nextFreeWsId(base)
             if (id < 0)
                 return
-            base.push({ id: id, label: bar.wsIconForId(id), font: "" })
+            base.push({ id: id, label: bar.wsIconForId(id), font: "", fontPx: 0 })
             bar.commitWsSlots(base)
         }
         function removeWsSlot(index) {
@@ -1644,7 +1660,12 @@ ShellRoot {
             const i = Math.round(Number(index))
             if (i < 0 || i >= base.length)
                 return
-            base[i] = { id: base[i].id, label: String(label || ""), font: String(base[i].font || "") }
+            base[i] = {
+                id: base[i].id,
+                label: String(label || ""),
+                font: String(base[i].font || ""),
+                fontPx: bar.wsFontPxClamp(base[i].fontPx)
+            }
             bar.commitWsSlots(base)
         }
         function setWsSlotFont(index, font) {
@@ -1652,7 +1673,12 @@ ShellRoot {
             const i = Math.round(Number(index))
             if (i < 0 || i >= base.length)
                 return
-            base[i] = { id: base[i].id, label: base[i].label, font: String(font || "") }
+            base[i] = {
+                id: base[i].id,
+                label: base[i].label,
+                font: String(font || ""),
+                fontPx: bar.wsFontPxClamp(base[i].fontPx)
+            }
             bar.commitWsSlots(base)
         }
         function setWsShowOnlyActive(enabled) {
