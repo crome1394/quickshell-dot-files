@@ -605,6 +605,10 @@ Item {
             "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
         }
         root.optionsTab = allowed[t] ? t : "bar"
+        if (root.optionsTab === "workspaces") {
+            root.refreshSystemFonts()
+            root.ensureWsDraft()
+        }
         if (typeof optionsBodyFlick !== "undefined" && optionsBodyFlick) {
             optionsBodyFlick.contentY = 0
             if (optionsBodyFlick.returnToBounds)
@@ -1011,18 +1015,187 @@ Item {
         Qt.callLater(root.refreshOptions)
     }
 
+    // Draft of the default workspace rows. The bar updates on Apply.
+    property var wsDraft: []
+    property int wsDraftTick: 0
+    property bool _wsDraftReady: false
+    property var wsUndoSnapshot: []
+    property bool wsUndoHasSnapshot: false
+
+    function cloneWsSlots(slots) {
+        const out = []
+        const list = slots || []
+        for (let i = 0; i < list.length; i++) {
+            const s = list[i] || {}
+            out.push({
+                id: Math.round(Number(s.id)) || 0,
+                label: String(s.label || ""),
+                font: String(s.font || "")
+            })
+        }
+        return out
+    }
+    function wsSlotsSignature(slots) {
+        const list = slots || []
+        const parts = []
+        for (let i = 0; i < list.length; i++) {
+            const s = list[i] || {}
+            parts.push(Math.round(Number(s.id)) + "\t" + String(s.label || "") + "\t" + String(s.font || ""))
+        }
+        return parts.join("\n")
+    }
+    function seedWsDraft() {
+        const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
+        root.wsDraft = root.cloneWsSlots(live)
+        root.wsDraftTick++
+    }
+    function wsDraftDirty() {
+        void root.wsDraftTick
+        const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
+        return root.wsSlotsSignature(root.wsDraft) !== root.wsSlotsSignature(live)
+    }
+    function ensureWsDraft() {
+        if (!root._wsDraftReady || !root.wsDraftDirty())
+            root.seedWsDraft()
+        root._wsDraftReady = true
+    }
+    function mutateWsDraft(mutator) {
+        const cur = root.cloneWsSlots(root.wsDraft)
+        if (typeof mutator === "function")
+            mutator(cur)
+        root.wsDraft = cur
+        root.wsDraftTick++
+    }
+    function setWsDraftCount(count) {
+        let n = Math.round(Number(count))
+        if (!(n >= 1))
+            n = 1
+        if (n > 10)
+            n = 10
+        root.mutateWsDraft(function(cur) {
+            while (cur.length > n)
+                cur.pop()
+            while (cur.length < n) {
+                const id = (bar && typeof bar.nextFreeWsId === "function") ? bar.nextFreeWsId(cur) : -1
+                if (id < 0)
+                    break
+                const label = (bar && typeof bar.wsIconForId === "function") ? bar.wsIconForId(id) : String(id)
+                cur.push({ id: id, label: label, font: "" })
+            }
+        })
+    }
+    function setWsDraftFace(index, label, font) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= cur.length)
+                return
+            if (label !== undefined && label !== null) {
+                let text = String(label).trim()
+                if (text.length > 6)
+                    text = text.substring(0, 6)
+                if (!text.length && bar && typeof bar.wsIconForId === "function")
+                    text = bar.wsIconForId(cur[i].id)
+                cur[i].label = text
+            }
+            if (font !== undefined && font !== null) {
+                let name = String(font).trim()
+                if (name.length > 120)
+                    name = name.substring(0, 120)
+                cur[i].font = name
+            }
+        })
+    }
+    function moveWsDraft(index, delta) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            const j = i + Math.round(Number(delta))
+            if (i < 0 || j < 0 || i >= cur.length || j >= cur.length)
+                return
+            const tmp = cur[i]
+            cur[i] = cur[j]
+            cur[j] = tmp
+        })
+    }
+    function removeWsDraft(index) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            if (cur.length <= 1 || i < 0 || i >= cur.length)
+                return
+            cur.splice(i, 1)
+        })
+    }
+    function addWsDraft() {
+        root.mutateWsDraft(function(cur) {
+            if (cur.length >= 10)
+                return
+            const id = (bar && typeof bar.nextFreeWsId === "function") ? bar.nextFreeWsId(cur) : -1
+            if (id < 0)
+                return
+            const label = (bar && typeof bar.wsIconForId === "function") ? bar.wsIconForId(id) : String(id)
+            cur.push({ id: id, label: label, font: "" })
+        })
+    }
+    function applyWsDraft() {
+        if (!root.wsDraftDirty() || !bar || typeof bar.commitWsSlots !== "function")
+            return
+        const live = bar.wsSlotsEffective()
+        root.wsUndoSnapshot = root.cloneWsSlots(live)
+        root.wsUndoHasSnapshot = true
+        bar.commitWsSlots(root.wsDraft)
+        root.seedWsDraft()
+    }
+    function undoWsDraft() {
+        if (root.wsDraftDirty()) {
+            root.seedWsDraft()
+            return
+        }
+        if (!root.wsUndoHasSnapshot || !bar || typeof bar.commitWsSlots !== "function")
+            return
+        bar.commitWsSlots(root.wsUndoSnapshot)
+        root.wsUndoHasSnapshot = false
+        root.wsUndoSnapshot = []
+        root.seedWsDraft()
+    }
+    function wsUndoEnabled() {
+        void root.wsDraftTick
+        return root.wsDraftDirty() || root.wsUndoHasSnapshot
+    }
+    function wsFontChoices() {
+        void root.systemFontFamilies
+        const list = root.systemFontFamilies || []
+        const out = ["Bar font"]
+        for (let i = 0; i < list.length; i++)
+            out.push(String(list[i]))
+        return out
+    }
+    function wsFontComboIndex(fontName) {
+        void root.systemFontFamilies
+        const name = String(fontName || "").trim()
+        if (!name.length)
+            return 0
+        const idx = root.fontIndexFor(name)
+        return idx < 0 ? 0 : idx + 1
+    }
+    function wsFontFromCombo(index) {
+        if (!(index > 0))
+            return ""
+        const list = root.systemFontFamilies || []
+        const i = index - 1
+        if (i < 0 || i >= list.length)
+            return ""
+        return String(list[i])
+    }
     function wsSlotRows() {
+        void root.wsDraftTick
         void root.optionsTick
-        void root.menuTick
-        if (!bar || typeof bar.wsSlotsEffective !== "function")
-            return []
-        const slots = bar.wsSlotsEffective() || []
+        const slots = root.wsDraft || []
         const rows = []
         for (let i = 0; i < slots.length; i++) {
             rows.push({
                 index: i,
                 id: slots[i].id,
-                label: String(slots[i].label || "")
+                label: String(slots[i].label || ""),
+                font: String(slots[i].font || "")
             })
         }
         return rows
@@ -7129,16 +7302,16 @@ Item {
                                             from: 1
                                             to: 10
                                             stepSize: 1
-                                            value: Math.max(1, (bar && bar.wsMinimumShown) || 1)
-                                            onValueEdited: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
-                                            onValueCommitted: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
+                                            value: Math.max(1, root.wsSlotRows().length || 1)
+                                            onValueEdited: (v) => root.setWsDraftCount(Math.round(v))
+                                            onValueCommitted: (v) => root.setWsDraftCount(Math.round(v))
                                         }
                                     }
                                 }
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Icon or short text on each pill (up to 6 characters). ↑↓ changes bar order. Add appends the next workspace. Lowering the count removes the last row."
+                                    text: "Each row is an icon or short text plus a font. Bar font uses the bar’s font. The bar stays as it is until Apply. Undo drops unapplied edits, or reverts the last Apply."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -7149,15 +7322,20 @@ Item {
                                         id: wsSlotRow
                                         required property var modelData
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
+                                        Layout.preferredHeight: 84
                                         radius: root.chipR
                                         color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                         border.width: 1
                                         border.color: bar.dividerStrong
-                                        RowLayout {
+                                        ColumnLayout {
                                             anchors.fill: parent
                                             anchors.leftMargin: 8
                                             anchors.rightMargin: 6
+                                            anchors.topMargin: 6
+                                            anchors.bottomMargin: 6
+                                            spacing: 4
+                                        RowLayout {
+                                            Layout.fillWidth: true
                                             spacing: 6
                                             Text {
                                                 text: String(wsSlotRow.modelData.id)
@@ -7177,7 +7355,7 @@ Item {
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
                                                 font.pixelSize: 14
-                                                font.family: bar.fontFamily
+                                                font.family: wsSlotRow.modelData.font.length ? wsSlotRow.modelData.font : bar.fontFamily
                                                 text: wsSlotRow.modelData.label
                                                 horizontalAlignment: Text.AlignHCenter
                                                 background: Rectangle {
@@ -7187,9 +7365,8 @@ Item {
                                                     border.color: parent.activeFocus ? bar.accent : bar.pillBorder
                                                 }
                                                 onEditingFinished: {
-                                                    if (text !== wsSlotRow.modelData.label && bar && bar.setWsSlotLabel)
-                                                        bar.setWsSlotLabel(wsSlotRow.modelData.index, text)
-                                                    root.optionsTick++
+                                                    if (text !== wsSlotRow.modelData.label)
+                                                        root.setWsDraftFace(wsSlotRow.modelData.index, text, wsSlotRow.modelData.font)
                                                 }
                                             }
                                             Rectangle {
@@ -7212,11 +7389,7 @@ Item {
                                                     enabled: wsSlotRow.modelData.index > 0
                                                     hoverEnabled: true
                                                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                                    onClicked: {
-                                                        if (bar && bar.moveWsSlot)
-                                                            bar.moveWsSlot(wsSlotRow.modelData.index, -1)
-                                                        root.optionsTick++
-                                                    }
+                                                    onClicked: root.moveWsDraft(wsSlotRow.modelData.index, -1)
                                                 }
                                             }
                                             Rectangle {
@@ -7239,11 +7412,7 @@ Item {
                                                     enabled: wsSlotRow.modelData.index < root.wsSlotRows().length - 1
                                                     hoverEnabled: true
                                                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                                    onClicked: {
-                                                        if (bar && bar.moveWsSlot)
-                                                            bar.moveWsSlot(wsSlotRow.modelData.index, 1)
-                                                        root.optionsTick++
-                                                    }
+                                                    onClicked: root.moveWsDraft(wsSlotRow.modelData.index, 1)
                                                 }
                                             }
                                             Rectangle {
@@ -7267,13 +7436,90 @@ Item {
                                                     enabled: root.wsSlotRows().length > 1
                                                     hoverEnabled: true
                                                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                                    onClicked: {
-                                                        if (bar && bar.removeWsSlot)
-                                                            bar.removeWsSlot(wsSlotRow.modelData.index)
-                                                        root.optionsTick++
-                                                    }
+                                                    onClicked: root.removeWsDraft(wsSlotRow.modelData.index)
                                                 }
                                             }
+                                        }
+                                        ComboBox {
+                                            id: wsFontCombo
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 28
+                                            model: root.wsFontChoices()
+                                            currentIndex: root.wsFontComboIndex(wsSlotRow.modelData.font)
+                                            onActivated: function(index) {
+                                                root.setWsDraftFace(
+                                                    wsSlotRow.modelData.index,
+                                                    wsSlotLabelField.text,
+                                                    root.wsFontFromCombo(index))
+                                            }
+                                            contentItem: Text {
+                                                leftPadding: 8
+                                                rightPadding: wsFontCombo.indicator.width + 10
+                                                text: {
+                                                    const f = wsSlotRow.modelData.font
+                                                    return f.length ? f : "Bar font"
+                                                }
+                                                font.pixelSize: 12
+                                                font.family: wsSlotRow.modelData.font.length ? wsSlotRow.modelData.font : bar.fontFamily
+                                                color: bar.text
+                                                verticalAlignment: Text.AlignVCenter
+                                                elide: Text.ElideRight
+                                            }
+                                            background: Rectangle {
+                                                radius: root.chipR
+                                                color: root.optFieldBg
+                                                border.width: 1
+                                                border.color: wsFontCombo.popup.visible ? bar.accent : bar.pillBorder
+                                            }
+                                            indicator: Text {
+                                                x: wsFontCombo.width - width - 8
+                                                y: (wsFontCombo.height - height) / 2
+                                                text: wsFontCombo.popup.visible ? "▴" : "▾"
+                                                color: bar.subtext
+                                                font.pixelSize: 11
+                                            }
+                                            popup: Popup {
+                                                y: wsFontCombo.height + 2
+                                                width: wsFontCombo.width
+                                                implicitHeight: Math.min(280, contentItem.implicitHeight + 4)
+                                                padding: 2
+                                                contentItem: ListView {
+                                                    clip: true
+                                                    implicitHeight: contentHeight
+                                                    model: wsFontCombo.popup.visible ? wsFontCombo.delegateModel : null
+                                                    currentIndex: wsFontCombo.highlightedIndex
+                                                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                                                }
+                                                background: Rectangle {
+                                                    radius: 8
+                                                    color: bar.glassPopupBg !== undefined ? bar.glassPopupBg : Qt.rgba(0.06, 0.08, 0.12, 0.96)
+                                                    border.width: 1
+                                                    border.color: bar.glassPopupBorder !== undefined ? bar.glassPopupBorder : bar.pillBorder
+                                                }
+                                            }
+                                            delegate: ItemDelegate {
+                                                width: wsFontCombo.width
+                                                height: 30
+                                                required property int index
+                                                required property string modelData
+                                                highlighted: wsFontCombo.highlightedIndex === index
+                                                contentItem: Text {
+                                                    text: modelData === "Bar font" ? "Bar font" : modelData
+                                                    color: bar.text
+                                                    font.family: modelData === "Bar font" ? bar.fontFamily : modelData
+                                                    font.pixelSize: 13
+                                                    elide: Text.ElideRight
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    leftPadding: 8
+                                                }
+                                                background: Rectangle {
+                                                    color: parent.highlighted
+                                                           ? (bar.controlActiveBg !== undefined ? bar.controlActiveBg : Qt.rgba(0, 0.7, 0.75, 0.35))
+                                                           : "transparent"
+                                                    radius: 4
+                                                }
+                                            }
+                                        }
                                         }
                                     }
                                 }
@@ -7300,12 +7546,69 @@ Item {
                                         enabled: root.wsSlotRows().length < 10
                                         hoverEnabled: true
                                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                        onClicked: {
-                                            if (bar && bar.addWsSlot)
-                                                bar.addWsSlot()
-                                            root.optionsTick++
+                                        onClicked: root.addWsDraft()
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wsApplyLbl.implicitWidth + 18
+                                        opacity: root.wsDraftDirty() ? 1 : 0.4
+                                        radius: root.chipR
+                                        color: wsApplyMa.containsMouse && root.wsDraftDirty()
+                                               ? bar.glassHover
+                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: root.wsDraftDirty() ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: wsApplyLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: root.wsDraftDirty() ? bar.accent : bar.subtext
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wsApplyMa
+                                            anchors.fill: parent
+                                            enabled: root.wsDraftDirty()
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.applyWsDraft()
                                         }
                                     }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: wsUndoLbl.implicitWidth + 18
+                                        opacity: root.wsUndoEnabled() ? 1 : 0.4
+                                        radius: root.chipR
+                                        color: wsUndoMa.containsMouse && root.wsUndoEnabled()
+                                               ? bar.glassHover
+                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: wsUndoLbl
+                                            anchors.centerIn: parent
+                                            text: "Undo"
+                                            color: bar.subtext
+                                            font.pixelSize: 12
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wsUndoMa
+                                            anchors.fill: parent
+                                            enabled: root.wsUndoEnabled()
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.undoWsDraft()
+                                        }
+                                    }
+                                    Item { Layout.fillWidth: true }
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true

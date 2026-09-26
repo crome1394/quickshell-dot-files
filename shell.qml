@@ -1528,7 +1528,10 @@ ShellRoot {
                     label = label.substring(0, 6)
                 if (!label.length)
                     label = bar.wsIconForId(id)
-                out.push({ id: id, label: label })
+                let font = String(raw.font || "").trim()
+                if (font.length > 120)
+                    font = font.substring(0, 120)
+                out.push({ id: id, label: label, font: font })
             }
             return out
         }
@@ -1540,7 +1543,7 @@ ShellRoot {
                 n = 10
             const out = []
             for (let i = 1; i <= n; i++)
-                out.push({ id: i, label: bar.wsIconForId(i) })
+                out.push({ id: i, label: bar.wsIconForId(i), font: "" })
             return out
         }
         function wsSlotsEffective() {
@@ -1556,6 +1559,15 @@ ShellRoot {
                     return slots[i].label
             }
             return bar.wsIconForId(n)
+        }
+        function wsFontForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return String(slots[i].font || "")
+            }
+            return ""
         }
         function nextFreeWsId(slots) {
             const used = {}
@@ -1590,7 +1602,7 @@ ShellRoot {
                     const id = bar.nextFreeWsId(cur)
                     if (id < 0)
                         break
-                    cur.push({ id: id, label: bar.wsIconForId(id) })
+                    cur.push({ id: id, label: bar.wsIconForId(id), font: "" })
                 }
                 root.wsSlots = cur
                 n = cur.length || 1
@@ -1605,7 +1617,7 @@ ShellRoot {
             const id = bar.nextFreeWsId(base)
             if (id < 0)
                 return
-            base.push({ id: id, label: bar.wsIconForId(id) })
+            base.push({ id: id, label: bar.wsIconForId(id), font: "" })
             bar.commitWsSlots(base)
         }
         function removeWsSlot(index) {
@@ -1632,7 +1644,15 @@ ShellRoot {
             const i = Math.round(Number(index))
             if (i < 0 || i >= base.length)
                 return
-            base[i] = { id: base[i].id, label: String(label || "") }
+            base[i] = { id: base[i].id, label: String(label || ""), font: String(base[i].font || "") }
+            bar.commitWsSlots(base)
+        }
+        function setWsSlotFont(index, font) {
+            const base = bar.wsSlotsEffective().slice()
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= base.length)
+                return
+            base[i] = { id: base[i].id, label: base[i].label, font: String(font || "") }
             bar.commitWsSlots(base)
         }
         function setWsShowOnlyActive(enabled) {
@@ -4164,6 +4184,10 @@ ShellRoot {
         function setWsSlotLabel(index: int, label: string): void {
             if (bar && bar.setWsSlotLabel)
                 bar.setWsSlotLabel(index, label)
+        }
+        function setWsSlotFont(index: int, font: string): void {
+            if (bar && bar.setWsSlotFont)
+                bar.setWsSlotFont(index, font)
         }
     }
 }

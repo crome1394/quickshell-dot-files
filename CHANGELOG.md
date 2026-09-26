@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Workspace font, Apply, Undo
+
+- Options → **Workspaces**: each default pill has its own font (or **Bar font**). Count, order, label, and font stay on the panel until **Apply**. **Undo** drops those edits, or reverts the last Apply.
+
 ## 2026-09 — Control bar names, workspace rows, reopen
 
 - Widgets tab: **Application Menu**, **Application Launcher**, **Config Menu Icon**, **System Stat Bars**. The bottom tab **Launch** is **App Launcher**.

@@ -555,7 +555,14 @@ Rectangle {
                         color: isActive ? bar.wsActiveText :
                                (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)
                                           : (bar.wsInactiveText !== undefined ? bar.wsInactiveText : bar.text))
-                        font.family: bar.fontFamily
+                        font.family: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            if (isSpecial || !bar || typeof bar.wsFontForId !== "function")
+                                return bar.fontFamily
+                            const custom = bar.wsFontForId(modelData ? modelData.id : 0)
+                            return (custom && String(custom).length) ? custom : bar.fontFamily
+                        }
                         font.bold: true
                     }
                     Text {
@@ -563,6 +570,14 @@ Rectangle {
                         text: modelData ? modelData.id : ""
                         font.pixelSize: bar.wsNumberSize || 15
                         font.bold: true
+                        font.family: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            if (!bar || typeof bar.wsFontForId !== "function")
+                                return bar.fontFamily
+                            const custom = bar.wsFontForId(modelData ? modelData.id : 0)
+                            return (custom && String(custom).length) ? custom : bar.fontFamily
+                        }
                         color: isActive ? bar.wsActiveText :
                                (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)
                                           : (bar.wsInactiveText !== undefined ? bar.wsInactiveText : bar.text))

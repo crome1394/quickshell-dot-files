@@ -7,7 +7,7 @@ Workspace pill behavior is configured in `Config.qml` and applied by `widgets/Wo
 | Setting | Default | IPC (`shell` target) | Description |
 |---------|---------|----------------------|-------------|
 | `wsShowSpecialPill` | `true` | `setShowMagicWorkspacePill` / `toggleShowMagicWorkspacePill` | Show the magic-space pill (🪄) before workspace 1 |
-| `wsMinimumShown` | `3` | `setWsMinimumShown` | How many default numbered pills to keep. Clamped to 1–10. Options → Workspaces can also set each pill’s icon or short text and their order (`addWsSlot`, `removeWsSlot`, `moveWsSlot`, `setWsSlotLabel`) |
+| `wsMinimumShown` | `3` | `setWsMinimumShown` | How many default numbered pills to keep. Clamped to 1–10. Options → Workspaces edits each pill’s icon or short text, font, and order, then **Apply** ( **Undo** discards the draft or reverts the last Apply). IPC: `addWsSlot`, `removeWsSlot`, `moveWsSlot`, `setWsSlotLabel`, `setWsSlotFont` |
 | `wsShowOnlyActive` | `false` | `setWsShowOnlyActive` | When `true`, only show numbered workspaces that are occupied or active (plus extras above `wsMinimumShown` that qualify) |
 | `wsStartupWorkspace` | `1` | `setWsStartupWorkspace` | Hyprland workspace to focus when `qs` starts (`0` = leave unchanged). Clamped to 0–10; applies on next `qs` start |
 | `wsStartupCloseMagic` | `true` | `setWsStartupCloseMagic` | Close the magic overlay on `qs` start before applying `wsStartupWorkspace`. Applies on next `qs` start |
