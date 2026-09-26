@@ -215,19 +215,19 @@ ShellRoot {
 
     // Catalog for BarControlBar menus (id → label + visibility property name)
     readonly property var widgetCatalog: [
-        { id: "launcher",      label: "Launcher",      vis: "showLauncherPill" },
-        { id: "quickLaunch",   label: "Quick Launch",  vis: "showQuickLaunchPill" },
+        { id: "launcher",      label: "Application Menu",      vis: "showLauncherPill" },
+        { id: "quickLaunch",   label: "Application Launcher",  vis: "showQuickLaunchPill" },
         { id: "freshRss",      label: "FreshRSS",      vis: "showFreshRssPill" },
         { id: "media",         label: "Media",         vis: "showMediaWidget" },
         { id: "workspaces",    label: "Workspaces",    vis: "showWorkspacesPill" },
-        { id: "stats",         label: "Sys Stats",     vis: "showStatsWidget" },
+        { id: "stats",         label: "System Stat Bars",     vis: "showStatsWidget" },
         { id: "tray",          label: "System Tray",   vis: "showTrayPill" },
         { id: "connectivity",  label: "Net · BT · Audio", vis: "connectivity" },
         { id: "clock",         label: "Clock",         vis: "showClockPill" },
         { id: "notifications", label: "Notifications", vis: "showNotificationPill" },
         { id: "killTarget",    label: "Kill Target",   vis: "showKillTargetPill" },
         { id: "hyprInsp",      label: "Hypr Inspector", vis: "showHyprInspPill" },
-        { id: "controlBar",    label: "Config menu",   vis: "showControlBarPill" },
+        { id: "controlBar",    label: "Config Menu Icon",   vis: "showControlBarPill" },
         { id: "power",         label: "Power",         vis: "showPowerPill" }
     ]
 
@@ -236,6 +236,9 @@ ShellRoot {
     property bool wsShowOnlyActive: false
     property int  wsStartupWorkspace: 0   // 0 = do not touch focus (safe for qs reload)
     property bool wsStartupCloseMagic: false
+    // Ordered default workspace pills: [{ id, label }]. Empty until Options saves a custom set.
+    property bool hasWsSlots: false
+    property var wsSlots: []
 
     // Optional startup focus (Config.wsStartupWorkspace > 0 only).
     // IMPORTANT: Quickshell reloads re-run this whole tree — treating reload like login
@@ -587,6 +590,8 @@ ShellRoot {
                 property bool wsShowOnlyActive: false
                 property int  wsStartupWorkspace: 0
                 property bool wsStartupCloseMagic: false
+                property bool hasWsSlots: false
+                property string wsSlotsJson: ""
                 property bool hasStatPrefs: false
                 property bool showStatCpu: true
                 property bool showStatMem: true
@@ -732,6 +737,18 @@ ShellRoot {
                     root.wsShowOnlyActive = barLayoutAdapter.wsShowOnlyActive
                     root.wsStartupWorkspace = Math.max(0, Math.min(10, barLayoutAdapter.wsStartupWorkspace))
                     root.wsStartupCloseMagic = barLayoutAdapter.wsStartupCloseMagic
+                }
+                if (barLayoutAdapter.hasWsSlots && barLayoutAdapter.wsSlotsJson
+                        && barLayoutAdapter.wsSlotsJson.length > 2) {
+                    try {
+                        const parsedSlots = JSON.parse(barLayoutAdapter.wsSlotsJson)
+                        const cleanSlots = bar.sanitizeWsSlots(parsedSlots)
+                        if (cleanSlots.length) {
+                            root.wsSlots = cleanSlots
+                            root.hasWsSlots = true
+                            root.wsMinimumShown = cleanSlots.length
+                        }
+                    } catch (e) {}
                 }
                 bar.applyUiScale()
                 Qt.callLater(function() { bar.applyWidgetLayout() })
@@ -1329,6 +1346,12 @@ ShellRoot {
             barLayoutAdapter.wsShowOnlyActive = root.wsShowOnlyActive
             barLayoutAdapter.wsStartupWorkspace = root.wsStartupWorkspace
             barLayoutAdapter.wsStartupCloseMagic = root.wsStartupCloseMagic
+            barLayoutAdapter.hasWsSlots = !!root.hasWsSlots
+            try {
+                barLayoutAdapter.wsSlotsJson = JSON.stringify(root.wsSlots || [])
+            } catch (e) {
+                barLayoutAdapter.wsSlotsJson = "[]"
+            }
             barLayoutAdapter.hasStatPrefs = true
             barLayoutAdapter.showStatCpu = root.showStatCpu
             barLayoutAdapter.showStatMem = root.showStatMem
@@ -1490,14 +1513,127 @@ ShellRoot {
             root.showMagicWorkspacePill = !!enabled
             persistBarLayout()
         }
-        function setWsMinimumShown(count) {
-            let n = Number(count)
+        function sanitizeWsSlots(slots) {
+            const used = {}
+            const out = []
+            const list = slots || []
+            for (let i = 0; i < list.length && out.length < 10; i++) {
+                const raw = list[i] || {}
+                let id = Math.round(Number(raw.id))
+                if (!(id >= 1) || id > 10 || used[id])
+                    continue
+                used[id] = true
+                let label = String(raw.label || "").trim()
+                if (label.length > 6)
+                    label = label.substring(0, 6)
+                if (!label.length)
+                    label = bar.wsIconForId(id)
+                out.push({ id: id, label: label })
+            }
+            return out
+        }
+        function defaultWsSlots(count) {
+            let n = Math.round(Number(count))
             if (!(n >= 1))
                 n = 1
             if (n > 10)
                 n = 10
-            root.wsMinimumShown = Math.round(n)
+            const out = []
+            for (let i = 1; i <= n; i++)
+                out.push({ id: i, label: bar.wsIconForId(i) })
+            return out
+        }
+        function wsSlotsEffective() {
+            if (root.hasWsSlots && root.wsSlots && root.wsSlots.length)
+                return bar.sanitizeWsSlots(root.wsSlots)
+            return bar.defaultWsSlots(root.wsMinimumShown)
+        }
+        function wsLabelForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n && slots[i].label)
+                    return slots[i].label
+            }
+            return bar.wsIconForId(n)
+        }
+        function nextFreeWsId(slots) {
+            const used = {}
+            const list = slots || []
+            for (let i = 0; i < list.length; i++)
+                used[Math.round(Number(list[i].id))] = true
+            for (let id = 1; id <= 10; id++) {
+                if (!used[id])
+                    return id
+            }
+            return -1
+        }
+        function commitWsSlots(slots) {
+            const clean = bar.sanitizeWsSlots(slots)
+            const next = clean.length ? clean : bar.defaultWsSlots(1)
+            root.wsSlots = next
+            root.hasWsSlots = true
+            root.wsMinimumShown = next.length
             persistBarLayout()
+        }
+        function setWsMinimumShown(count) {
+            let n = Math.round(Number(count))
+            if (!(n >= 1))
+                n = 1
+            if (n > 10)
+                n = 10
+            if (root.hasWsSlots) {
+                const cur = bar.sanitizeWsSlots(root.wsSlots).slice()
+                while (cur.length > n)
+                    cur.pop()
+                while (cur.length < n) {
+                    const id = bar.nextFreeWsId(cur)
+                    if (id < 0)
+                        break
+                    cur.push({ id: id, label: bar.wsIconForId(id) })
+                }
+                root.wsSlots = cur
+                n = cur.length || 1
+            }
+            root.wsMinimumShown = n
+            persistBarLayout()
+        }
+        function addWsSlot() {
+            const base = bar.wsSlotsEffective().slice()
+            if (base.length >= 10)
+                return
+            const id = bar.nextFreeWsId(base)
+            if (id < 0)
+                return
+            base.push({ id: id, label: bar.wsIconForId(id) })
+            bar.commitWsSlots(base)
+        }
+        function removeWsSlot(index) {
+            const base = bar.wsSlotsEffective().slice()
+            const i = Math.round(Number(index))
+            if (base.length <= 1 || i < 0 || i >= base.length)
+                return
+            base.splice(i, 1)
+            bar.commitWsSlots(base)
+        }
+        function moveWsSlot(index, delta) {
+            const base = bar.wsSlotsEffective().slice()
+            const i = Math.round(Number(index))
+            const j = i + Math.round(Number(delta))
+            if (i < 0 || j < 0 || i >= base.length || j >= base.length)
+                return
+            const tmp = base[i]
+            base[i] = base[j]
+            base[j] = tmp
+            bar.commitWsSlots(base)
+        }
+        function setWsSlotLabel(index, label) {
+            const base = bar.wsSlotsEffective().slice()
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= base.length)
+                return
+            base[i] = { id: base[i].id, label: String(label || "") }
+            bar.commitWsSlots(base)
         }
         function setWsShowOnlyActive(enabled) {
             root.wsShowOnlyActive = !!enabled
@@ -2827,6 +2963,8 @@ ShellRoot {
         property alias wsShowOnlyActive: root.wsShowOnlyActive
         property alias wsStartupWorkspace: root.wsStartupWorkspace
         property alias wsStartupCloseMagic: root.wsStartupCloseMagic
+        property alias hasWsSlots: root.hasWsSlots
+        property alias wsSlots: root.wsSlots
         property alias showMagicWorkspacePill: root.showMagicWorkspacePill
         property alias showControlBarPill: root.showControlBarPill
         property alias showColorPresets: root.showColorPresets
@@ -3087,9 +3225,38 @@ ShellRoot {
                     Translate { y: launcherDock.jumpY }
                 ]
                 radius: bar.pillRadius
-                color: launcherMouse.containsMouse ? bar.glassHover : bar.pillBg
+                color: launcherMouse.containsMouse || appMenuOpen ? bar.glassHover : bar.pillBg
                 border.width: bar.controlBorderWidth
-                border.color: launcherMouse.containsMouse ? bar.accent : bar.pillBorder
+                border.color: launcherMouse.containsMouse || appMenuOpen ? bar.accent : bar.pillBorder
+
+                // Click toggles the drawer (rofi-app-drawer closes it when it is open).
+                property bool appMenuOpen: false
+                property int _appMenuWatch: 0
+                function toggleAppMenu() {
+                    launcherDock.jump()
+                    Quickshell.execDetached(["sh", "-c", bar.launcherCommand])
+                    launcherPill._appMenuWatch = 8
+                }
+                Component.onCompleted: launcherPill._appMenuWatch = 2
+                Timer {
+                    interval: 280
+                    repeat: true
+                    running: launcherPill.appMenuOpen || launcherPill._appMenuWatch > 0
+                    onTriggered: {
+                        if (launcherPill._appMenuWatch > 0)
+                            launcherPill._appMenuWatch -= 1
+                        if (!appMenuProbe.running)
+                            appMenuProbe.running = true
+                    }
+                }
+                Io.Process {
+                    id: appMenuProbe
+                    command: ["pgrep", "-x", "rofi"]
+                    running: false
+                    onExited: (code) => {
+                        launcherPill.appMenuOpen = (code === 0)
+                    }
+                }
 
                 // Drawn 3×3 grid (same idea as 󰀻) so it fills the box like Quick
                 // Launch images — nerd-font glyphs keep empty em-square padding.
@@ -3098,7 +3265,7 @@ ShellRoot {
                     readonly property int _sz: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
                     readonly property int _gap: Math.max(2, Math.round(_sz * 0.15))
                     readonly property int _cell: Math.max(2, Math.floor((_sz - 2 * _gap) / 3))
-                    readonly property color _c: launcherMouse.containsMouse
+                    readonly property color _c: launcherMouse.containsMouse || launcherPill.appMenuOpen
                         ? bar.accent
                         : (bar.iconColor !== undefined ? bar.iconColor : bar.subtext)
 
@@ -3128,10 +3295,7 @@ ShellRoot {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        launcherDock.jump()
-                        Quickshell.execDetached(["sh", "-c", bar.launcherCommand])
-                    }
+                    onClicked: launcherPill.toggleAppMenu()
                 }
 
                 BarToolTip {
@@ -3984,6 +4148,22 @@ ShellRoot {
                 bar.setWsStartupCloseMagic(enabled)
             else
                 root.wsStartupCloseMagic = enabled
+        }
+        function addWsSlot(): void {
+            if (bar && bar.addWsSlot)
+                bar.addWsSlot()
+        }
+        function removeWsSlot(index: int): void {
+            if (bar && bar.removeWsSlot)
+                bar.removeWsSlot(index)
+        }
+        function moveWsSlot(index: int, delta: int): void {
+            if (bar && bar.moveWsSlot)
+                bar.moveWsSlot(index, delta)
+        }
+        function setWsSlotLabel(index: int, label: string): void {
+            if (bar && bar.setWsSlotLabel)
+                bar.setWsSlotLabel(index, label)
         }
     }
 }

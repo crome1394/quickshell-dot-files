@@ -2,7 +2,7 @@
 
 # Bar control strip (`BarControlBar.qml`)
 
-Open via the **Config menu** gear or **right-click empty bar chrome**. It is a movable Hyprland window (title **Bar control**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Bar control)$"` (and optionally `class = org.quickshell`); size and placement are compositor-owned.
+Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Closing Bar control with **Super+C** or Hyprland’s window ✕ used to leave it unable to open again; the gear icon clears that and maps the window. The in-panel ✕ and Esc still close it. It is a movable Hyprland window (title **Bar control**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Bar control)$"` (and optionally `class = org.quickshell`); size and placement are compositor-owned.
 
 | Panel | What it does |
 |-------|----------------|
@@ -12,7 +12,7 @@ Open via the **Config menu** gear or **right-click empty bar chrome**. It is a m
 | **Widgets** | Dual layout: **Top bar** and **Bottom bar** sections (classic: Left / Center / Right). Order inside a section is left-to-right on that bar. Each row: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
 | **Options** | Behavior prefs (not layout) — **tabs** per section (table below); only the active tab scrolls |
 | **Themes** | Live colors/opacity, text roles, **Fonts**, per-metric thresholds, liquid presets; **Save as preset** (colors) and **Save setup** (colors + layout) — see Themes subsection |
-| **Launch** | Quick Launch pins (installed apps or custom) |
+| **App Launcher** | Application Launcher pins (installed apps or custom) |
 | **Autostart** | XDG `~/.config/autostart` (see Autostart subsection) |
 | **MIME** | Preferred applications / file-type defaults (see MIME subsection) |
 | **Services** | systemd user/system units — filter, select, **Start / Stop / Restart** (reuses Inspector `ServicesView`) |
@@ -111,12 +111,12 @@ Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Networ
 | Section | Controls | Persistence |
 |---------|----------|-------------|
 | **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · **Tooltips** (delay + per-widget T/B/L/R) · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
-| **Workspaces** | Magic pill · only-active · min pills · startup workspace · close magic on start | `bar-layout.json` |
+| **Workspaces** | Magic pill · only-active · **default workspace** count, order, and icon/text · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
 | **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
-| **Dock** | Apply to Quick Launch or **All icons** · Off / Magnify / Jump / Both · magnify amount · neighbor spread · jump height. Stats and volume meters stay still. | `bar-layout.json` |
+| **Dock** | Apply to **Application Launcher** or **All icons** · Off / Magnify / Jump / Both · magnify amount · neighbor spread · jump height. Stats and volume meters stay still. | `bar-layout.json` |
 | **Screensaver** | Auto-start · **Always start after idle** · idle minutes · **Dim on start** (DDC %, G9) · **Brightness on exit** (set % or restore previous) · **video path** · **script** · **Browse** / **Preview** / **Apply**. Tab video does not block; fullscreen does unless Always start is on. | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
 

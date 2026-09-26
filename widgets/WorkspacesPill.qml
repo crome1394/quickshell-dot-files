@@ -250,41 +250,67 @@ Rectangle {
         return entry.id === focusedWs.id;
     }
 
+    function slotList() {
+        if (bar && typeof bar.wsSlotsEffective === "function") {
+            const slots = bar.wsSlotsEffective()
+            if (slots && slots.length)
+                return slots
+        }
+        const minimum = Math.max(1, bar.wsMinimumShown || 1)
+        const out = []
+        for (let i = 1; i <= minimum; i++)
+            out.push({ id: i, label: "" })
+        return out
+    }
+
     function updateShownWorkspaces() {
-        const wsById = {};
-        const idsToShow = {};
+        const wsById = {}
 
         if (Hyprland.workspaces && Hyprland.workspaces.values) {
             Hyprland.workspaces.values.forEach(function(w) {
-                if (!w || w.id <= 0) return;
-                wsById[w.id] = w;
-                if (shouldShowExtraWorkspace(w)) idsToShow[w.id] = true;
-            });
-        }
-
-        // config.wsShowOnlyActive false → always show pills 1..wsMinimumShown
-        if (!bar.wsShowOnlyActive) {
-            const minimum = Math.max(1, bar.wsMinimumShown || 1);
-            for (let i = 1; i <= minimum; i++) {
-                idsToShow[i] = true;
-            }
+                if (!w || w.id <= 0) return
+                wsById[w.id] = w
+            })
         }
 
         const focusedId = (Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id > 0)
             ? Hyprland.focusedWorkspace.id
-            : 1;
+            : 0
 
-        const sortedIds = Object.keys(idsToShow).map(Number).sort(function(a, b) { return a - b; });
-        const result = [];
-        if (bar.showMagicWorkspacePill) {
-            result.push(root.makeSpecialWorkspaceEntry());
+        // Default pills follow Options order and labels. Occupied workspaces
+        // that are not in that list still append, in id order.
+        const slots = root.slotList()
+        const inSlot = {}
+        const result = []
+        if (bar.showMagicWorkspacePill)
+            result.push(root.makeSpecialWorkspaceEntry())
+        for (let i = 0; i < slots.length; i++) {
+            const id = Math.round(Number(slots[i] && slots[i].id))
+            if (!(id >= 1))
+                continue
+            inSlot[id] = true
+            const w = wsById[id]
+            if (bar.wsShowOnlyActive) {
+                const occupied = w && root.shouldShowExtraWorkspace(w)
+                if (!occupied && focusedId !== id)
+                    continue
+            }
+            result.push(w || root.makePlaceholderWorkspace(id, focusedId))
         }
-        for (let i = 0; i < sortedIds.length; i++) {
-            const id = sortedIds[i];
-            result.push(wsById[id] || root.makePlaceholderWorkspace(id, focusedId));
+        const extraIds = []
+        const keys = Object.keys(wsById)
+        for (let i = 0; i < keys.length; i++) {
+            const id = Number(keys[i])
+            if (inSlot[id])
+                continue
+            if (root.shouldShowExtraWorkspace(wsById[id]))
+                extraIds.push(id)
         }
+        extraIds.sort(function(a, b) { return a - b })
+        for (let i = 0; i < extraIds.length; i++)
+            result.push(wsById[extraIds[i]])
 
-        root.shownWorkspaces = result;
+        root.shownWorkspaces = result
     }
 
     // Match ~/.config/hypr/scripts/cycle-workspace.sh — cycle Hyprland workspaces
@@ -372,6 +398,10 @@ Rectangle {
     Connections {
         target: bar
         function onShowMagicWorkspacePillChanged() { root.updateShownWorkspaces(); }
+        function onWsMinimumShownChanged() { root.updateShownWorkspaces(); }
+        function onWsShowOnlyActiveChanged() { root.updateShownWorkspaces(); }
+        function onWsSlotsChanged() { root.updateShownWorkspaces(); }
+        function onHasWsSlotsChanged() { root.updateShownWorkspaces(); }
     }
 
     // Brief delay so refreshMonitors() can populate lastIpcObject before we read it.
@@ -456,7 +486,7 @@ Rectangle {
                 }
                 property bool isHovered: wsMouse.containsMouse
 
-                width: root._btnW
+                width: Math.max(root._btnW, Math.min(Math.round(root._btnW * 2.6), wsFace.implicitWidth + 12))
                 height: root._btnH
                 radius: bar.workspaceRadius
                 color: isActive ? bar.wsActiveBg :
@@ -505,13 +535,22 @@ Rectangle {
                 }
 
                 Row {
+                    id: wsFace
                     anchors.centerIn: parent
                     spacing: 3
 
                     Text {
-                        text: isSpecial
-                              ? bar.wsIconSpecial
-                              : bar.wsIconForId(modelData ? modelData.id : 0)
+                        text: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsMinimumShown
+                            if (isSpecial)
+                                return bar.wsIconSpecial
+                            const id = modelData ? modelData.id : 0
+                            if (bar && typeof bar.wsLabelForId === "function")
+                                return bar.wsLabelForId(id)
+                            return bar.wsIconForId(id)
+                        }
                         font.pixelSize: bar.wsIconSize
                         color: isActive ? bar.wsActiveText :
                                (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)

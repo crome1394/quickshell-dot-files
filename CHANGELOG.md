@@ -2,6 +2,13 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar names, workspace rows, reopen
+
+- Widgets tab: **Application Menu**, **Application Launcher**, **Config Menu Icon**, **System Stat Bars**. The bottom tab **Launch** is **App Launcher**.
+- Options → **Workspaces**: default count, per-workspace icon or short text, add, remove, and reorder. Saved in `bar-layout.json`.
+- **Super+C** (and Hyprland’s window ✕) no longer leaves Bar control unable to open. The in-panel ✕ and the gear icon were already fine.
+- The **Application Menu** pill toggles the app drawer: click opens it, click again closes it, and the icon stays lit while it is open.
+
 ## 2026-09 — Screensaver mouse dismiss in git
 
 - Mouse / click / Esc dismiss files live in `scripts/screensaver-mpv/` (not `~/.config/mpv`, which a reinstall wipes).

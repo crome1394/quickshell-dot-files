@@ -8,7 +8,7 @@
 // Single FloatingWindow (movable like the Hypr inspector). Expandable panel
 // on top; toolbar buttons
 // along the bottom: Position · Display · Wallpaper · Widgets · Options ·
-// Themes · Launch · Autostart · MIME · Services · Audio · Keybinds · Clock
+// Themes · App Launcher · Autostart · MIME · Services · Audio · Keybinds · Clock
 // Widgets = layout; Options = behavior prefs; Themes = bar/widget theme;
 // MIME = preferred applications / file-type defaults (MimeAppsView);
 // Services = systemd; Audio = devices/ports/AEC (AudioMonitorView);
@@ -37,6 +37,8 @@ Item {
 
     property double _closedAtMs: 0
     readonly property int _reopenGuardMs: 220
+    // Set while show() clears wants-visible so that pulse does not wipe the open menu.
+    property bool _remapHold: false
     readonly property bool open: {
         if (!controlPopup.visible)
             return false
@@ -498,11 +500,18 @@ Item {
             } catch (e) {}
             return
         }
-        // Remap if qs still thinks we are visible after the backing window died
-        // (opening Hypr inspector first). Same-frame visible=true is a no-op.
-        if (controlPopup.visible)
-            controlPopup.visible = false
+        // Super+C and the compositor ✕ hide the surface but leave FloatingWindow's
+        // wants-visible flag set. `visible` then reads false, and assigning true
+        // does not map a window until that flag is cleared. The inspector can
+        // also drop the backing surface while `visible` stays true; same-frame
+        // visible=true is a no-op, so the map happens on the next frame.
+        const menu = root.activeMenu
+        root._remapHold = true
+        controlPopup.visible = false
         Qt.callLater(function() {
+            root._remapHold = false
+            if (!root.activeMenu.length)
+                root.activeMenu = menu.length ? menu : "position"
             controlPopup.visible = true
             root.scheduleReposition()
             try {
@@ -700,16 +709,16 @@ Item {
 
     function tooltipAlignTargets() {
         return [
-            { id: "launcher", label: "Launcher" },
-            { id: "quickLaunch", label: "Quick Launch" },
+            { id: "launcher", label: "Application Menu" },
+            { id: "quickLaunch", label: "Application Launcher" },
             { id: "freshRss", label: "FreshRSS" },
-            { id: "stats", label: "Sys Stats" },
+            { id: "stats", label: "System Stat Bars" },
             { id: "network", label: "Network" },
             { id: "bluetooth", label: "Bluetooth" },
             { id: "notifications", label: "Notifications" },
             { id: "killTarget", label: "Kill Target" },
             { id: "hyprInsp", label: "Hypr Inspector" },
-            { id: "controlBar", label: "Config menu" },
+            { id: "controlBar", label: "Config Menu Icon" },
             { id: "power", label: "Power" }
         ]
     }
@@ -1000,6 +1009,23 @@ Item {
             break
         }
         Qt.callLater(root.refreshOptions)
+    }
+
+    function wsSlotRows() {
+        void root.optionsTick
+        void root.menuTick
+        if (!bar || typeof bar.wsSlotsEffective !== "function")
+            return []
+        const slots = bar.wsSlotsEffective() || []
+        const rows = []
+        for (let i = 0; i < slots.length; i++) {
+            rows.push({
+                index: i,
+                id: slots[i].id,
+                label: String(slots[i].label || "")
+            })
+        }
+        return rows
     }
 
     function chipBg(active, hovered) {
@@ -3255,10 +3281,12 @@ Item {
         minimumSize: Qt.size(520, 360)
 
         onClosed: {
-            root.activeMenu = ""
-            root._closedAtMs = Date.now()
-            if (controlPopup.visible)
-                controlPopup.visible = false
+            if (!root._remapHold) {
+                root.activeMenu = ""
+                root._closedAtMs = Date.now()
+            }
+            // Clear wants-visible even when the getter is already false.
+            controlPopup.visible = false
         }
 
         Shortcut {
@@ -3273,10 +3301,13 @@ Item {
                 root.scheduleReposition()
                 return
             }
+            if (root._remapHold)
+                return
             if (root.activeMenu === "wallpaper"
                     && typeof wpDropArea !== "undefined" && wpDropArea
                     && wpDropArea.containsDrag) {
                 Qt.callLater(function() {
+                    controlPopup.visible = false
                     controlPopup.visible = true
                     root.activeMenu = "wallpaper"
                     root.scheduleReposition()
@@ -5434,7 +5465,7 @@ Item {
                                     Layout.fillWidth: true
                                     Text {
                                         Layout.fillWidth: true
-                                        text: "Quick Launch"
+                                        text: "Application Launcher"
                                         color: bar.text
                                         font.pixelSize: bar.popupTitleSize
                                         font.bold: true
@@ -6950,7 +6981,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Saved to bar layout"
+                                    text: "Saved to bar layout. Default rows stay on the bar, in the order below. Occupied workspaces outside that list still appear after them."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -7086,7 +7117,7 @@ Item {
                                         anchors.bottomMargin: 6
                                         spacing: 2
                                         Text {
-                                            text: "Minimum workspace pills"
+                                            text: "Default workspaces"
                                             color: bar.text
                                             font.pixelSize: 12
                                             font.family: bar.fontFamily
@@ -7095,12 +7126,184 @@ Item {
                                             bar: bar
                                             fieldBg: root.optFieldBg
                                             fieldBgFocus: root.optFieldBgFocus
-                                            from: 0
+                                            from: 1
                                             to: 10
                                             stepSize: 1
-                                            value: (bar && bar.wsMinimumShown) || 0
+                                            value: Math.max(1, (bar && bar.wsMinimumShown) || 1)
                                             onValueEdited: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
                                             onValueCommitted: (v) => root.setOptNumber("setWsMinimumShown", Math.round(v))
+                                        }
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Icon or short text on each pill (up to 6 characters). ↑↓ changes bar order. Add appends the next workspace. Lowering the count removes the last row."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Repeater {
+                                    model: root.wsSlotRows()
+                                    delegate: Rectangle {
+                                        id: wsSlotRow
+                                        required property var modelData
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 8
+                                            anchors.rightMargin: 6
+                                            spacing: 6
+                                            Text {
+                                                text: String(wsSlotRow.modelData.id)
+                                                color: bar.subtext
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                                Layout.preferredWidth: 16
+                                                horizontalAlignment: Text.AlignHCenter
+                                            }
+                                            TextField {
+                                                id: wsSlotLabelField
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 28
+                                                selectByMouse: true
+                                                placeholderText: "icon or text"
+                                                color: bar.text
+                                                placeholderTextColor: bar.subtext
+                                                font.pixelSize: 14
+                                                font.family: bar.fontFamily
+                                                text: wsSlotRow.modelData.label
+                                                horizontalAlignment: Text.AlignHCenter
+                                                background: Rectangle {
+                                                    radius: root.chipR
+                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                    border.width: 1
+                                                    border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                }
+                                                onEditingFinished: {
+                                                    if (text !== wsSlotRow.modelData.label && bar && bar.setWsSlotLabel)
+                                                        bar.setWsSlotLabel(wsSlotRow.modelData.index, text)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: 24
+                                                Layout.preferredHeight: 24
+                                                radius: 4
+                                                opacity: wsSlotRow.modelData.index <= 0 ? 0.35 : 1
+                                                color: wsUpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "↑"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 12
+                                                }
+                                                MouseArea {
+                                                    id: wsUpMa
+                                                    anchors.fill: parent
+                                                    enabled: wsSlotRow.modelData.index > 0
+                                                    hoverEnabled: true
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (bar && bar.moveWsSlot)
+                                                            bar.moveWsSlot(wsSlotRow.modelData.index, -1)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: 24
+                                                Layout.preferredHeight: 24
+                                                radius: 4
+                                                opacity: wsSlotRow.modelData.index >= root.wsSlotRows().length - 1 ? 0.35 : 1
+                                                color: wsDnMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "↓"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 12
+                                                }
+                                                MouseArea {
+                                                    id: wsDnMa
+                                                    anchors.fill: parent
+                                                    enabled: wsSlotRow.modelData.index < root.wsSlotRows().length - 1
+                                                    hoverEnabled: true
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (bar && bar.moveWsSlot)
+                                                            bar.moveWsSlot(wsSlotRow.modelData.index, 1)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: 24
+                                                Layout.preferredHeight: 24
+                                                radius: 4
+                                                opacity: root.wsSlotRows().length <= 1 ? 0.35 : 1
+                                                color: wsRmMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.18) : "transparent"
+                                                border.width: 1
+                                                border.color: root.offRed
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "✕"
+                                                    color: root.offRed
+                                                    font.pixelSize: 12
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    id: wsRmMa
+                                                    anchors.fill: parent
+                                                    enabled: root.wsSlotRows().length > 1
+                                                    hoverEnabled: true
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (bar && bar.removeWsSlot)
+                                                            bar.removeWsSlot(wsSlotRow.modelData.index)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.preferredHeight: 28
+                                    Layout.preferredWidth: wsAddLbl.implicitWidth + 16
+                                    Layout.alignment: Qt.AlignLeft
+                                    opacity: root.wsSlotRows().length >= 10 ? 0.4 : 1
+                                    radius: root.chipR
+                                    color: wsAddMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                    border.width: 1
+                                    border.color: bar.pillBorder
+                                    Text {
+                                        id: wsAddLbl
+                                        anchors.centerIn: parent
+                                        text: "Add workspace"
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    MouseArea {
+                                        id: wsAddMa
+                                        anchors.fill: parent
+                                        enabled: root.wsSlotRows().length < 10
+                                        hoverEnabled: true
+                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                        onClicked: {
+                                            if (bar && bar.addWsSlot)
+                                                bar.addWsSlot()
+                                            root.optionsTick++
                                         }
                                     }
                                 }
@@ -8458,7 +8661,7 @@ Item {
                                     spacing: 6
                                     Repeater {
                                         model: [
-                                            { id: "quicklaunch", label: "Quick Launch" },
+                                            { id: "quicklaunch", label: "Application Launcher" },
                                             { id: "icons", label: "All icons" }
                                         ]
                                         delegate: Rectangle {
@@ -13102,7 +13305,7 @@ Item {
                             { id: "widgets",   label: "Widgets" },
                             { id: "options",   label: "Options" },
                             { id: "colors",    label: "Themes" },
-                            { id: "launch",    label: "Launch" },
+                            { id: "launch",    label: "App Launcher" },
                             { id: "autostart", label: "Autostart" },
                             { id: "mime",      label: "MIME" },
                             { id: "services",  label: "Services" },

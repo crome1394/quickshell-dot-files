@@ -59,16 +59,16 @@ Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**).
 
 | Zone | Widgets |
 |------|---------|
-| **Left** | Launcher, Quick Launch, FreshRSS, Media |
+| **Left** | Application Menu, Application Launcher, FreshRSS, Media |
 | **Center** | Workspaces |
-| **Right** | Sys Stats, Tray, Net·BT·Audio, Clock, Notifications, Config, Power |
+| **Right** | System Stat Bars, Tray, Net·BT·Audio, Clock, Notifications, Config Menu Icon, Power |
 
 **Dual** (top + bottom, centered; glass hugs the widget row):
 
 | Bar | Widgets |
 |------|---------|
 | **Top** | Clock, Workspaces, Tray, Notifications, Power |
-| **Bottom** | Sys Stats, Launcher, Quick Launch, FreshRSS, Config, Net·BT·Audio |
+| **Bottom** | System Stat Bars, Application Menu, Application Launcher, FreshRSS, Config Menu Icon, Net·BT·Audio |
 
 Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B in Dual). Theme in **Themes**. Options for gauges, graphs, applets, dock, screensaver. **Save setup** (Themes → Presets) snapshots colors plus this layout.
 
