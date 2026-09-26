@@ -14,7 +14,6 @@ Rectangle {
 
     required property var bar
     required property Item barBg
-    property bool mediaActive: false
 
     // Horizontal scale only. Scale section widths, gauges, and fonts together so
     // labels/values never stack on top of each other when shrunk.
@@ -69,7 +68,7 @@ Rectangle {
     Layout.preferredWidth: _pillW
     Layout.preferredHeight: bar.pillHeight
     Layout.alignment: Qt.AlignVCenter
-    visible: !mediaActive && sysStatsReady && _nSec > 0
+    visible: sysStatsReady && _nSec > 0
     implicitWidth: Layout.preferredWidth
     implicitHeight: Layout.preferredHeight
     radius: bar.pillRadius

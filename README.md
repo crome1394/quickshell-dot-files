@@ -59,7 +59,7 @@ Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**).
 
 | Zone | Widgets |
 |------|---------|
-| **Left** | Application Menu, Application Launcher, FreshRSS, Media |
+| **Left** | Application Menu, Application Launcher, FreshRSS |
 | **Center** | Workspaces |
 | **Right** | System Stat Bars, Tray, Net·BT·Audio, Clock, Notifications, Config Menu Icon, Power |
 

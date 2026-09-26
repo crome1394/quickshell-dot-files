@@ -720,7 +720,6 @@ Item {
             { id: "network", label: "Network" },
             { id: "bluetooth", label: "Bluetooth" },
             { id: "notifications", label: "Notifications" },
-            { id: "killTarget", label: "Kill Target" },
             { id: "hyprInsp", label: "Hypr Inspector" },
             { id: "controlBar", label: "Config Menu Icon" },
             { id: "power", label: "Power" }
@@ -1585,6 +1584,45 @@ Item {
         if (bar && typeof bar.setThemeFontRoleScale === "function")
             bar.setThemeFontRoleScale(role, p / 100)
         root.colorsTick++
+    }
+
+    // Themes → Fonts. delta -1 / +1 wraps the installed face list.
+    function stepThemeFont(kind, delta) {
+        root.refreshSystemFonts()
+        const list = root.systemFontFamilies || []
+        const n = list.length
+        if (n < 1)
+            return
+        let name = ""
+        if (kind === "ui")
+            name = root.currentUiFontName()
+        else if (kind === "mono")
+            name = root.currentMonoFontName()
+        else
+            name = root.currentRoleFontName(kind)
+        let idx = root.fontIndexFor(name)
+        if (idx < 0)
+            idx = 0
+        idx = ((idx + Math.round(Number(delta) || 0)) % n + n) % n
+        if (kind === "ui")
+            root.applyUiFontFromCombo(idx)
+        else if (kind === "mono")
+            root.applyMonoFontFromCombo(idx)
+        else
+            root.applyRoleFontFromCombo(kind, idx)
+    }
+
+    // Same 70–150% range as the old size slider. UI uses the global font scale.
+    function stepThemeFontScale(kind, delta) {
+        const cur = root.currentRoleFontScalePct(kind)
+        const next = Math.max(70, Math.min(150, cur + Math.round(Number(delta) || 0)))
+        if (next === cur)
+            return
+        root.pushThemeUndo()
+        if (kind === "ui")
+            root.applyFontScalePct(next)
+        else
+            root.applyRoleFontScalePct(kind, next)
     }
 
     function currentRoleFontScalePct(role) {
@@ -9034,7 +9072,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Mac-style hover. Stats and volume meters stay still. All icons includes launcher, tray, workspaces, FreshRSS, net/BT, bell, kill, inspector, config, and power."
+                                    text: "Mac-style hover. Stats and volume meters stay still. All icons includes launcher, tray, workspaces, FreshRSS, net/BT, bell, inspector, config, and power."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -11757,7 +11795,7 @@ Item {
                                     Text {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Font on the left · size on the right. UI keeps a Nerd Font first for icons. Role fonts inherit UI when unset. Saves with the theme."
+                                        text: "‹ › cycle the typeface. − + change its size (70–150%). UI keeps a Nerd Font first for icons. Role fonts inherit UI when unset. Saves with the theme."
                                         color: bar.subtext
                                         font.pixelSize: bar.popupHintSize
                                         font.family: (bar.fontSecondaryResolved !== undefined) ? bar.fontSecondaryResolved : bar.fontFamily
@@ -11894,20 +11932,74 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                OptValueSlider {
-                                                    bar: bar
-                                                    fieldBg: root.optFieldBg
-                                                    fieldBgFocus: root.optFieldBgFocus
-                                                    from: 70
-                                                    to: 150
-                                                    stepSize: 1
-                                                    suffix: "%"
-                                                    value: root.currentRoleFontScalePct("ui")
-                                                    onValueEdited: (v) => {
-                                                        root.pushThemeUndo()
-                                                        root.applyFontScalePct(v)
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: uiFontPrevMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "‹"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: uiFontPrevMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("ui", -1)
                                                     }
-                                                    onValueCommitted: (v) => root.applyFontScalePct(v)
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: uiFontNextMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "›"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: uiFontNextMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("ui", 1)
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("ui") <= 70 ? 0.35 : 1
+                                                    color: uiSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: uiSizeDownMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("ui") > 70
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("ui", -1)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: root.currentRoleFontScalePct("ui") + "%"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    Layout.preferredWidth: 44
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("ui") >= 150 ? 0.35 : 1
+                                                    color: uiSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: uiSizeUpMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("ui") < 150
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("ui", 1)
+                                                    }
                                                 }
                                             }
                                         }
@@ -12021,20 +12113,74 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                OptValueSlider {
-                                                    bar: bar
-                                                    fieldBg: root.optFieldBg
-                                                    fieldBgFocus: root.optFieldBgFocus
-                                                    from: 70
-                                                    to: 150
-                                                    stepSize: 1
-                                                    suffix: "%"
-                                                    value: root.currentRoleFontScalePct("mono")
-                                                    onValueEdited: (v) => {
-                                                        root.pushThemeUndo()
-                                                        root.applyRoleFontScalePct("mono", v)
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: monoFontPrevMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "‹"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: monoFontPrevMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("mono", -1)
                                                     }
-                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("mono", v)
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: monoFontNextMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "›"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: monoFontNextMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("mono", 1)
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("mono") <= 70 ? 0.35 : 1
+                                                    color: monoSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: monoSizeDownMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("mono") > 70
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("mono", -1)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: root.currentRoleFontScalePct("mono") + "%"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    Layout.preferredWidth: 44
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("mono") >= 150 ? 0.35 : 1
+                                                    color: monoSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: monoSizeUpMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("mono") < 150
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("mono", 1)
+                                                    }
                                                 }
                                             }
                                         }
@@ -12159,20 +12305,74 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                OptValueSlider {
-                                                    bar: bar
-                                                    fieldBg: root.optFieldBg
-                                                    fieldBgFocus: root.optFieldBgFocus
-                                                    from: 70
-                                                    to: 150
-                                                    stepSize: 1
-                                                    suffix: "%"
-                                                    value: root.currentRoleFontScalePct("main")
-                                                    onValueEdited: (v) => {
-                                                        root.pushThemeUndo()
-                                                        root.applyRoleFontScalePct("main", v)
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: mainFontPrevMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "‹"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: mainFontPrevMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("main", -1)
                                                     }
-                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("main", v)
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: mainFontNextMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "›"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: mainFontNextMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("main", 1)
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("main") <= 70 ? 0.35 : 1
+                                                    color: mainSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: mainSizeDownMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("main") > 70
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("main", -1)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: root.currentRoleFontScalePct("main") + "%"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    Layout.preferredWidth: 44
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("main") >= 150 ? 0.35 : 1
+                                                    color: mainSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: mainSizeUpMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("main") < 150
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("main", 1)
+                                                    }
                                                 }
                                             }
                                         }
@@ -12286,20 +12486,74 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                OptValueSlider {
-                                                    bar: bar
-                                                    fieldBg: root.optFieldBg
-                                                    fieldBgFocus: root.optFieldBgFocus
-                                                    from: 70
-                                                    to: 150
-                                                    stepSize: 1
-                                                    suffix: "%"
-                                                    value: root.currentRoleFontScalePct("secondary")
-                                                    onValueEdited: (v) => {
-                                                        root.pushThemeUndo()
-                                                        root.applyRoleFontScalePct("secondary", v)
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: secFontPrevMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "‹"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: secFontPrevMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("secondary", -1)
                                                     }
-                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("secondary", v)
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: secFontNextMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "›"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: secFontNextMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("secondary", 1)
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("secondary") <= 70 ? 0.35 : 1
+                                                    color: secSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: secSizeDownMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("secondary") > 70
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("secondary", -1)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: root.currentRoleFontScalePct("secondary") + "%"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    Layout.preferredWidth: 44
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("secondary") >= 150 ? 0.35 : 1
+                                                    color: secSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: secSizeUpMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("secondary") < 150
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("secondary", 1)
+                                                    }
                                                 }
                                             }
                                         }
@@ -12413,20 +12667,74 @@ Item {
                                                 anchors.leftMargin: 8
                                                 anchors.rightMargin: 8
                                                 spacing: 4
-                                                OptValueSlider {
-                                                    bar: bar
-                                                    fieldBg: root.optFieldBg
-                                                    fieldBgFocus: root.optFieldBgFocus
-                                                    from: 70
-                                                    to: 150
-                                                    stepSize: 1
-                                                    suffix: "%"
-                                                    value: root.currentRoleFontScalePct("bar")
-                                                    onValueEdited: (v) => {
-                                                        root.pushThemeUndo()
-                                                        root.applyRoleFontScalePct("bar", v)
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: barFontPrevMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "‹"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: barFontPrevMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("bar", -1)
                                                     }
-                                                    onValueCommitted: (v) => root.applyRoleFontScalePct("bar", v)
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    color: barFontNextMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "›"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: barFontNextMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.stepThemeFont("bar", 1)
+                                                    }
+                                                }
+                                                Item { Layout.fillWidth: true }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("bar") <= 70 ? 0.35 : 1
+                                                    color: barSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: barSizeDownMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("bar") > 70
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("bar", -1)
+                                                    }
+                                                }
+                                                Text {
+                                                    text: root.currentRoleFontScalePct("bar") + "%"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    Layout.preferredWidth: 44
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 26
+                                                    Layout.fillHeight: true
+                                                    radius: 4
+                                                    opacity: root.currentRoleFontScalePct("bar") >= 150 ? 0.35 : 1
+                                                    color: barSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                    Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                    MouseArea {
+                                                        id: barSizeUpMa
+                                                        anchors.fill: parent
+                                                        enabled: root.currentRoleFontScalePct("bar") < 150
+                                                        hoverEnabled: true
+                                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                        onClicked: root.stepThemeFontScale("bar", 1)
+                                                    }
                                                 }
                                             }
                                         }

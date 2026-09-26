@@ -14,7 +14,6 @@ Edit `Config.qml` to change:
 - Sys Stats per-metric load colors (`statCpuTier*`, `statMemTier*`, `statGpuTier*`)
 - **Notification bell** daemon commands (`notification*`)
 - **Power menu** session commands (`power*Command`, `powerMenuActions`)
-- **Kill Target** pill (`killTargetIcon`, `showKillTargetPill`, etc.)
 - Workspace pill count, active-only mode, magic pill default, startup focus, and workspace colors (search **WORKSPACES**; IPC: `setWsMinimumShown`, `setWsShowOnlyActive`, `setWsStartupWorkspace`, `setWsStartupCloseMagic`)
 - System Stats pill and metrics popups (search **SYS STATS PILL** and `popupStats*`)
 - Inspector sizing and semantic colors (search `insp*` properties)
@@ -109,9 +108,5 @@ Search for **QUICK LAUNCH**. Edit the `quickLaunchApps` list — one object per 
 Open windows light a Mac-dock-style accent **dot** on the pill’s bottom edge (any workspace, including magic). Focused is the same size dot, brighter — icons stay center-aligned with the rest of the bar. Matching uses `matchClass` if set, otherwise the `gtk-launch` id or the command’s binary name against Hyprland `class` / `initialClass` / Wayland `appId`. `steam_app_*` windows do not count as Steam.
 
 Also tune `quickLaunchIcon` (size), `quickLaunchSpacing`, and `quickLaunchPaddingH`. Running-dot color is `qlRunningDot` (Themes → Theming / Options → Dock). Dock hover: Options → Dock (`dockEffect` off/magnify/jump/both, `dockScope` quicklaunch/icons).
-
-## Kill Target pill (`Config.qml`)
-
-Search for **KILL TARGET PILL**. Set `showKillTargetPill: true` to show the bar icon (default is hidden). Tune `killTargetIcon`, `killTargetTooltip`, and `killTargetOverlayDim` (screen dimming while picking). Kills use SIGTERM via `process-control.sh` — only processes owned by your user; root-owned apps are rejected with an error message.
 
 ---

@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Theme font steppers; Media and Kill Target removed
+
+- Themes → **Fonts**: **‹ ›** cycle each typeface. **− +** change its size (70–150%).
+- **Media** and **Kill Target** are no longer bar widgets. System stat bars stay visible on their own.
+
 ## 2026-09 — Workspace font, Apply, Undo
 
 - Options → **Workspaces**: each default pill has its own font (or **Bar font**) and emoji size. The font and size apply to the emoji only; the workspace number stays on the bar font. **‹ ›** step through faces. **− +** change the emoji size. Count, order, label, font, and size stay on the panel until **Apply**. **Undo** drops those edits, or reverts the last Apply.

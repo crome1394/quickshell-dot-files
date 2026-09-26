@@ -4,7 +4,7 @@
 //
 // Widget logic lives in:
 //   - widgets/*.qml      (self-contained pills and menus)
-//   - components/*.qml   (reusable pieces like VolumeBar, CavaVisualizer)
+//   - components/*.qml   (reusable pieces like VolumeBar)
 //   - Config.qml      (colors, spacing, metrics, workspace behavior)
 //   - widgets/HyprConfigInsp.qml (Hyprland Config Inspector overlay)
 //
@@ -12,9 +12,7 @@
 //   - qs ipc call hyprConfigInsp toggle
 //   - qs ipc call freshRss toggle / refresh / show / hide
 //   - qs ipc call shell setShowFreshRssPill true / toggleShowFreshRssPill
-//   - qs ipc call shell setShowMediaWidget true
 //   - qs ipc call shell setShowStatsWidget false
-//   - qs ipc call shell toggleShowMediaWidget
 //   - qs ipc call shell toggleShowStatsWidget
 //   - qs ipc call shell setShowMagicWorkspacePill true
 //   - qs ipc call shell toggleShowMagicWorkspacePill
@@ -50,8 +48,6 @@
 //   - qs ipc call sysStatsPill setMetricsLiveUpdates false
 //   - qs ipc call sysStatsPill setCpuLiveUpdates false
 //   - qs ipc call sysStatsPill setMemLiveUpdates false
-//   - qs ipc call killTargetPill activatePickMode
-//   - qs ipc call shell setShowKillTargetPill true
 //   - qs ipc call sysStatsPill toggleGpuLiveUpdates
 //   - qs ipc call shell setWsMinimumShown 7
 //   - qs ipc call shell setWsShowOnlyActive true
@@ -91,7 +87,7 @@
 // state/bar-layout.json (each mode keeps its own widget order).
 //
 // Classic default:
-//   LEFT:   App Launcher, Quick Launch, FreshRSS, Media Player
+//   LEFT:   App Launcher, Quick Launch, FreshRSS
 //   CENTER: Workspaces
 //   RIGHT:  System Stats, System Tray, Connectivity (Network+Bluetooth+Audio),
 //           Clock, Notifications, Power
@@ -122,7 +118,6 @@ ShellRoot {
     // --- Widget visibility (config defaults in Config.qml; IPC overrides until qs restart) ---
     property bool showLauncherPill: true
     property bool showQuickLaunchPill: true
-    property bool showMediaWidget: false
     property bool showWorkspacesPill: true
     property bool showStatsWidget: true
     property bool showTrayPill: true
@@ -132,7 +127,6 @@ ShellRoot {
     property bool showClockPill: true
     property bool showNotificationPill: true
     property bool showPowerPill: true
-    property bool showKillTargetPill: false
     property bool showFreshRssPill: true
     property bool showHyprInspPill: false
     property bool showControlBarPill: true       // Bar control / config menu icon on the bar
@@ -200,15 +194,13 @@ ShellRoot {
     // User/IPC show* flags stay as preferences; density gates actual visibility.
     property bool densityHideQuickLaunch: false
     property bool densityHideStats: false
-    property bool densityHideSecondary: false   // FreshRSS, media, kill-target
+    property bool densityHideSecondary: false   // FreshRSS
     property bool densityHideConnectivity: false  // Network + Bluetooth
 
     // Effective visibility helpers (preference AND density)
     readonly property bool effQuickLaunch: showQuickLaunchPill && !densityHideQuickLaunch
     readonly property bool effStats: showStatsWidget && !densityHideStats
     readonly property bool effFreshRss: showFreshRssPill && !densityHideSecondary
-    readonly property bool effMedia: showMediaWidget && !densityHideSecondary
-    readonly property bool effKillTarget: showKillTargetPill && !densityHideSecondary
     readonly property bool effNetwork: showNetworkPill && !densityHideConnectivity
     readonly property bool effBluetooth: showBluetoothPill && !densityHideConnectivity
     readonly property bool effConnectivity: effNetwork || effBluetooth
@@ -218,14 +210,12 @@ ShellRoot {
         { id: "launcher",      label: "Application Menu",      vis: "showLauncherPill" },
         { id: "quickLaunch",   label: "Application Launcher",  vis: "showQuickLaunchPill" },
         { id: "freshRss",      label: "FreshRSS",      vis: "showFreshRssPill" },
-        { id: "media",         label: "Media",         vis: "showMediaWidget" },
         { id: "workspaces",    label: "Workspaces",    vis: "showWorkspacesPill" },
         { id: "stats",         label: "System Stat Bars",     vis: "showStatsWidget" },
         { id: "tray",          label: "System Tray",   vis: "showTrayPill" },
         { id: "connectivity",  label: "Net · BT · Audio", vis: "connectivity" },
         { id: "clock",         label: "Clock",         vis: "showClockPill" },
         { id: "notifications", label: "Notifications", vis: "showNotificationPill" },
-        { id: "killTarget",    label: "Kill Target",   vis: "showKillTargetPill" },
         { id: "hyprInsp",      label: "Hypr Inspector", vis: "showHyprInspPill" },
         { id: "controlBar",    label: "Config Menu Icon",   vis: "showControlBarPill" },
         { id: "power",         label: "Power",         vis: "showPowerPill" }
@@ -312,7 +302,6 @@ ShellRoot {
         Component.onCompleted: {
             root.showLauncherPill = cfg.showLauncherPill
             root.showQuickLaunchPill = cfg.showQuickLaunchPill
-            root.showMediaWidget = cfg.showMediaPill
             root.showWorkspacesPill = cfg.showWorkspacesPill
             root.showStatsWidget = cfg.showStatsPill
             root.showTrayPill = cfg.showTrayPill
@@ -322,7 +311,6 @@ ShellRoot {
             root.showClockPill = cfg.showClockPill
             root.showNotificationPill = cfg.showNotificationPill
             root.showPowerPill = cfg.showPowerPill
-            root.showKillTargetPill = cfg.showKillTargetPill
             root.showFreshRssPill = cfg.showFreshRssPill
             root.showHyprInspPill = cfg.showHyprInspPill
             root.showControlBarPill = cfg.showControlBarPill
@@ -568,7 +556,6 @@ ShellRoot {
                 property string widgetScalesJson: ""
                 property bool showLauncherPill: true
                 property bool showQuickLaunchPill: true
-                property bool showMediaWidget: false
                 property bool showWorkspacesPill: true
                 property bool showStatsWidget: true
                 property bool showTrayPill: true
@@ -578,7 +565,6 @@ ShellRoot {
                 property bool showClockPill: true
                 property bool showNotificationPill: true
                 property bool showPowerPill: true
-                property bool showKillTargetPill: false
                 property bool showFreshRssPill: true
                 property bool showHyprInspPill: false
                 property bool showControlBarPill: true
@@ -653,7 +639,6 @@ ShellRoot {
                 // Visibility (only apply keys that exist in the adapter defaults)
                 root.showLauncherPill = barLayoutAdapter.showLauncherPill
                 root.showQuickLaunchPill = barLayoutAdapter.showQuickLaunchPill
-                root.showMediaWidget = barLayoutAdapter.showMediaWidget
                 root.showWorkspacesPill = barLayoutAdapter.showWorkspacesPill
                 root.showStatsWidget = barLayoutAdapter.showStatsWidget
                 root.showTrayPill = barLayoutAdapter.showTrayPill
@@ -663,7 +648,6 @@ ShellRoot {
                 root.showClockPill = barLayoutAdapter.showClockPill
                 root.showNotificationPill = barLayoutAdapter.showNotificationPill
                 root.showPowerPill = barLayoutAdapter.showPowerPill
-                root.showKillTargetPill = barLayoutAdapter.showKillTargetPill
                 root.showFreshRssPill = barLayoutAdapter.showFreshRssPill
                 root.showHyprInspPill = barLayoutAdapter.showHyprInspPill
                 root.showControlBarPill = barLayoutAdapter.showControlBarPill
@@ -1324,7 +1308,6 @@ ShellRoot {
             }
             barLayoutAdapter.showLauncherPill = root.showLauncherPill
             barLayoutAdapter.showQuickLaunchPill = root.showQuickLaunchPill
-            barLayoutAdapter.showMediaWidget = root.showMediaWidget
             barLayoutAdapter.showWorkspacesPill = root.showWorkspacesPill
             barLayoutAdapter.showStatsWidget = root.showStatsWidget
             barLayoutAdapter.showTrayPill = root.showTrayPill
@@ -1334,7 +1317,6 @@ ShellRoot {
             barLayoutAdapter.showClockPill = root.showClockPill
             barLayoutAdapter.showNotificationPill = root.showNotificationPill
             barLayoutAdapter.showPowerPill = root.showPowerPill
-            barLayoutAdapter.showKillTargetPill = root.showKillTargetPill
             barLayoutAdapter.showFreshRssPill = root.showFreshRssPill
             barLayoutAdapter.showHyprInspPill = root.showHyprInspPill
             barLayoutAdapter.showControlBarPill = root.showControlBarPill
@@ -1885,7 +1867,6 @@ ShellRoot {
             case "launcher": return launcherPill
             case "quickLaunch": return quickLaunchPill
             case "freshRss": return freshRssPill
-            case "media": return mediaPill
             case "workspaces": return workspacesPill
             case "stats": return sysStatsPill
             case "tray": return trayPill
@@ -1893,7 +1874,6 @@ ShellRoot {
             case "audio": return null  // audio lives inside connectivityPill
             case "clock": return clockPill
             case "notifications": return notificationBell
-            case "killTarget": return killTargetPill
             case "hyprInsp": return hyprInspPill
             case "controlBar": return controlBarPill
             case "power": return powerMenu
@@ -2036,7 +2016,6 @@ ShellRoot {
             case "launcher": return root.showLauncherPill
             case "quickLaunch": return root.showQuickLaunchPill
             case "freshRss": return root.showFreshRssPill
-            case "media": return root.showMediaWidget
             case "workspaces": return root.showWorkspacesPill
             case "stats": return root.showStatsWidget
             case "tray": return root.showTrayPill
@@ -2046,7 +2025,6 @@ ShellRoot {
             case "audio": return root.showAudioPill
             case "clock": return root.showClockPill
             case "notifications": return root.showNotificationPill
-            case "killTarget": return root.showKillTargetPill
             case "hyprInsp": return root.showHyprInspPill
             case "controlBar": return root.showControlBarPill
             case "power": return root.showPowerPill
@@ -2069,7 +2047,6 @@ ShellRoot {
             case "launcher": root.showLauncherPill = on; break
             case "quickLaunch": root.showQuickLaunchPill = on; break
             case "freshRss": root.showFreshRssPill = on; break
-            case "media": root.showMediaWidget = on; break
             case "workspaces": root.showWorkspacesPill = on; break
             case "stats": root.showStatsWidget = on; break
             case "tray": root.showTrayPill = on; break
@@ -2083,7 +2060,6 @@ ShellRoot {
             case "audio": root.showAudioPill = on; break
             case "clock": root.showClockPill = on; break
             case "notifications": root.showNotificationPill = on; break
-            case "killTarget": root.showKillTargetPill = on; break
             case "hyprInsp": root.showHyprInspPill = on; break
             case "controlBar": root.showControlBarPill = on; break
             case "power": root.showPowerPill = on; break
@@ -2782,7 +2758,6 @@ ShellRoot {
         readonly property alias iconSizeLauncher: cfg.iconSizeLauncher
         readonly property alias iconSizePopup: cfg.iconSizePopup
         readonly property alias iconSizePower: cfg.iconSizePower
-        readonly property alias iconSizeMediaArt: cfg.iconSizeMediaArt
         readonly property alias iconSizeTray: cfg.iconSizeTray
         readonly property alias quickLaunchIcon: cfg.quickLaunchIcon
         readonly property alias quickLaunchSpacing: cfg.quickLaunchSpacing
@@ -2813,8 +2788,6 @@ ShellRoot {
         // --- Popup sizes
         readonly property alias popupAudioWidth: cfg.popupAudioWidth
         readonly property alias popupAudioHeight: cfg.popupAudioHeight
-        readonly property alias popupMediaWidth: cfg.popupMediaWidth
-        readonly property alias popupMediaHeight: cfg.popupMediaHeight
         readonly property alias popupPowerWidth: cfg.popupPowerWidth
         readonly property alias popupPowerHeight: cfg.popupPowerHeight
         readonly property alias popupContextMenuWidth: cfg.popupContextMenuWidth
@@ -2935,9 +2908,6 @@ ShellRoot {
         readonly property alias iconNetworkOff: cfg.iconNetworkOff
         readonly property alias iconNetworkPortal: cfg.iconNetworkPortal
         readonly property alias iconPower: cfg.iconPower
-        readonly property alias killTargetIcon: cfg.killTargetIcon
-        readonly property alias killTargetTooltip: cfg.killTargetTooltip
-        readonly property alias killTargetOverlayDim: cfg.killTargetOverlayDim
         readonly property alias iconLock: cfg.iconLock
         readonly property alias iconLogout: cfg.iconLogout
         readonly property alias iconReboot: cfg.iconReboot
@@ -3078,14 +3048,6 @@ ShellRoot {
         function statUtilColor(util, metric) { return cfg.statUtilColor(util, metric) }
         function statTempColor(temp) { return cfg.statTempColor(temp) }
 
-        // --- Cava visualizer
-        readonly property alias cavaBarCount: cfg.cavaBarCount
-        readonly property alias cavaBarGap: cfg.cavaBarGap
-        readonly property alias cavaInactive: cfg.cavaInactive
-        readonly property alias cavaActive: cfg.cavaActive
-        readonly property alias cavaAnimFast: cfg.cavaAnimFast
-        readonly property alias cavaAnimSlow: cfg.cavaAnimSlow
-
         // --- Dividers
         readonly property alias divider: cfg.divider
         readonly property alias dividerStrong: cfg.dividerStrong
@@ -3108,7 +3070,6 @@ ShellRoot {
         readonly property alias menuBtnRadio: cfg.menuBtnRadio
 
         // --- Z layers
-        readonly property alias zMediaPill: cfg.zMediaPill
         readonly property alias zSysStats: cfg.zSysStats
 
         Rectangle {
@@ -3369,15 +3330,6 @@ ShellRoot {
                 bar: bar
             }
 
-            // ─ Media Player ─
-            MediaPill {
-                id: mediaPill
-                parent: widgetPool
-                visible: root.effMedia
-                bar: bar
-                barBg: barBg
-            }
-
             // ─ Workspaces ─
             WorkspacesPill {
                 id: workspacesPill
@@ -3393,7 +3345,6 @@ ShellRoot {
                 visible: root.effStats
                 bar: bar
                 barBg: barBg
-                mediaActive: mediaPill.hasMedia
             }
 
             // ─ System Tray ─
@@ -3485,14 +3436,6 @@ ShellRoot {
                 visible: root.showNotificationPill
                 bar: bar
                 barBg: barBg
-            }
-
-            // ─ Kill Target ─
-            KillTargetPill {
-                id: killTargetPill
-                parent: widgetPool
-                visible: root.effKillTarget
-                bar: bar
             }
 
             // ─ Hyprland Config Inspector ─
@@ -3877,16 +3820,6 @@ ShellRoot {
         }
 
         Io.IpcHandler {
-            target: "killTargetPill"
-            function activatePickMode() {
-                if (killTargetPill && killTargetPill.activatePickMode) killTargetPill.activatePickMode()
-            }
-            function cancelPickMode() {
-                if (killTargetPill && killTargetPill.cancelPickMode) killTargetPill.cancelPickMode()
-            }
-        }
-
-        Io.IpcHandler {
             target: "sysStatsPill"
             function setCpuLiveUpdates(enabled: bool) {
                 if (sysStatsPill && sysStatsPill.setCpuLiveUpdates) sysStatsPill.setCpuLiveUpdates(enabled)
@@ -4018,12 +3951,6 @@ ShellRoot {
         function toggleShowQuickLaunchPill(): void {
             bar.toggleWidgetVisible("quickLaunch")
         }
-        function setShowMediaWidget(enabled: bool): void {
-            bar.setWidgetVisible("media", enabled)
-        }
-        function toggleShowMediaWidget(): void {
-            bar.toggleWidgetVisible("media")
-        }
         function setShowWorkspacesPill(enabled: bool): void {
             bar.setWidgetVisible("workspaces", enabled)
         }
@@ -4138,17 +4065,11 @@ ShellRoot {
         function setTooltipDelay(ms: string): void {
             bar.setTooltipDelay(ms)
         }
-        function setShowKillTargetPill(enabled: bool): void {
-            bar.setWidgetVisible("killTarget", enabled)
-        }
         function setShowFreshRssPill(enabled: bool): void {
             bar.setWidgetVisible("freshRss", enabled)
         }
         function toggleShowFreshRssPill(): void {
             bar.toggleWidgetVisible("freshRss")
-        }
-        function toggleShowKillTargetPill(): void {
-            bar.toggleWidgetVisible("killTarget")
         }
         function setShowHyprInspPill(enabled: bool): void {
             bar.setWidgetVisible("hyprInsp", enabled)

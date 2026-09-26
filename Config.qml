@@ -1663,7 +1663,7 @@ QtObject {
     // Deprioritized (auto-hidden below width thresholds, widest first):
     //   1) Quick Launch
     //   2) Sys stats (CPU / Memory / GPU)
-    //   3) Secondary: FreshRSS, media, kill-target
+    //   3) Secondary: FreshRSS
     //   4) Connectivity: Network + Bluetooth capsule
     //
     // Thresholds are logical screen width (px). Tune if a machine feels too aggressive.
@@ -1765,7 +1765,6 @@ QtObject {
     readonly property int iconSizeLauncher:    sp(26)
     readonly property int iconSizePopup:       sp(17)   // Icons inside popups (audio controls row)
     readonly property int iconSizePower:       sp(32)   // Big icons in the power menu grid
-    readonly property int iconSizeMediaArt:    sp(42)   // Placeholder music note when no album art
     readonly property int quickLaunchIcon:     sp(20)   // Quick launch row icon size
     readonly property int quickLaunchSpacing:  sp(10)   // Gap between quick-launch icons
     readonly property int quickLaunchPaddingH: sp(10)   // Left/right padding inside the pill
@@ -1864,8 +1863,6 @@ QtObject {
     // AudioPill: streams summary, device + profile, volume, L/R, VU, echo cancel, tools.
     readonly property int popupAudioWidth:     popupW(520)   // AudioPill device/volume popup
     readonly property int popupAudioHeight:    popupH(620)
-    readonly property int popupMediaWidth:     popupW(520)   // MediaPill player controls popup
-    readonly property int popupMediaHeight:    popupH(470)
     readonly property int popupPowerWidth:     popupW(560)   // PowerMenu full grid (left-click)
     readonly property int popupPowerHeight:    popupH(192)
     readonly property int popupContextMenuWidth:  popupW(220)   // Compact right-click menus (bell, power)
@@ -1961,7 +1958,6 @@ QtObject {
     readonly property string launcherCommand: "~/.local/bin/rofi-app-drawer"
     readonly property string launcherTooltip: "Application Menu"
     readonly property bool showQuickLaunchPill:     true   // QuickLaunchPill.qml
-    readonly property bool showMediaPill:           false  // MediaPill.qml (hidden by default)
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
     readonly property bool showStatsPill:           true   // SysStatsPill.qml
     readonly property bool showTrayPill:             true   // SystemTrayPill.qml
@@ -1971,7 +1967,6 @@ QtObject {
     readonly property bool showClockPill:           true   // ClockPill.qml
     readonly property bool showNotificationPill:     true   // NotificationBell.qml
     readonly property bool showPowerPill:           true   // PowerMenu.qml
-    readonly property bool showKillTargetPill:    false  // KillTargetPill.qml (click-to-kill picker)
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
     readonly property bool showRadarPill:          false  // RadarPill.qml (removed from bar; set true + re-add in shell.qml to restore)
     readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
@@ -2035,21 +2030,19 @@ QtObject {
         { id: "launcher",      zone: "left" },
         { id: "quickLaunch",   zone: "left" },
         { id: "freshRss",      zone: "left" },
-        { id: "media",         zone: "left" },
         { id: "workspaces",    zone: "center" },
         { id: "stats",         zone: "right" },
         { id: "tray",          zone: "right" },
         { id: "connectivity",  zone: "right" },
         { id: "clock",         zone: "right" },
         { id: "notifications", zone: "right" },
-        { id: "killTarget",    zone: "right" },
         { id: "hyprInsp",      zone: "right" },
         { id: "controlBar",    zone: "right" },
         { id: "power",         zone: "right" }
     ]
 
     // Dual layout (two centered bars). zone: "top" | "bottom".
-    // Hidden-by-default pills (media, killTarget, hyprInsp) stay in the catalog so
+    // Hidden-by-default pills (hyprInsp) stay in the catalog so
     // the Widgets panel can show them on either bar.
     readonly property var defaultDualWidgetLayout: [
         { id: "clock",         zone: "top" },
@@ -2057,9 +2050,7 @@ QtObject {
         { id: "tray",          zone: "top" },
         { id: "notifications", zone: "top" },
         { id: "power",         zone: "top" },
-        { id: "killTarget",    zone: "top" },
         { id: "hyprInsp",      zone: "top" },
-        { id: "media",         zone: "top" },
         { id: "stats",         zone: "bottom" },
         { id: "launcher",      zone: "bottom" },
         { id: "quickLaunch",   zone: "bottom" },
@@ -2170,18 +2161,6 @@ QtObject {
     ]
     readonly property int notificationSyncIntervalMs: 2500  // Ms between sync script runs
     readonly property color notificationDndAccent: muted  // Warning red pill border + bell when DND is on
-
-    // =========================================================================
-    // KILL TARGET PILL (widgets/KillTargetPill.qml — xkill-style window picker)
-    // =========================================================================
-    // Click the pill to arm pick mode, then click any window to close its app.
-    // Sends SIGTERM to the window's process (same safety rules as the inspector
-    // Processes tab). Escape, right-click, or clicking empty desktop cancels.
-
-    readonly property string killTargetIcon: "🎯"   // 󰍣Crosshair / target icon on the bar pill
-    readonly property string killTargetTooltip: "Click to pick a window and kill its app · Esc cancels"
-    // Darkening applied to each monitor while pick mode is active (0 = invisible overlay).
-    readonly property real killTargetOverlayDim: 0.12
 
     // =========================================================================
     // POWER MENU (widgets/PowerMenu.qml — session actions)
@@ -2602,17 +2581,6 @@ QtObject {
     }
 
     // =========================================================================
-    // CAVA VISUALIZER (MediaPill background waveform)
-    // =========================================================================
-    // Animated bars behind the media pill when music is playing.
-    readonly property int  cavaBarCount:     40   // Number of vertical bars
-    readonly property int  cavaBarGap:        1   // Pixels between bars
-    readonly property color cavaInactive:    Qt.rgba(1, 1, 1, 0.18)  // Bar color when silent
-    readonly property color cavaActive:      Qt.rgba(0.0, 0.94, 0.88, 0.42)  // Vivid teal when audio plays
-    readonly property int  cavaAnimFast:     95   // Animation speed (ms) when media is playing
-    readonly property int  cavaAnimSlow:    420   // Animation speed (ms) when idle (saves CPU)
-
-    // =========================================================================
     // SYSTEM MONITORING (SysMonService + HyprConfigInsp sysmon tabs)
     // =========================================================================
     // Shared tokens for live metrics in HyprConfigInsp (CPU/GPU/Memory/Temperature tabs)
@@ -2861,7 +2829,6 @@ QtObject {
     // =========================================================================
     // Z-LAYERS (only the global ones that matter across components)
     // =========================================================================
-    readonly property int zMediaPill:  5
     readonly property int zSysStats:   5
     // Most other z usage is local (z: -1 for click-eaters)
 

@@ -9,7 +9,6 @@ Every bar pill can be hidden or shown. Defaults live in `Config.qml` (search for
 | `showLauncherPill` | `true` | `setShowLauncherPill` / `toggleShowLauncherPill` | App Launcher (inline) |
 | `showQuickLaunchPill` | `true` | `setShowQuickLaunchPill` / `toggleShowQuickLaunchPill` | Quick Launch |
 | `showFreshRssPill` | `true` | `setShowFreshRssPill` / `toggleShowFreshRssPill` | FreshRSS |
-| `showMediaPill` | `false` | `setShowMediaWidget` / `toggleShowMediaWidget` | Media Player |
 | `showWorkspacesPill` | `true` | `setShowWorkspacesPill` / `toggleShowWorkspacesPill` | Workspaces strip |
 | `showStatsPill` | `true` | `setShowStatsWidget` / `toggleShowStatsWidget` | System Stats |
 | `showTrayPill` | `true` | `setShowTrayPill` / `toggleShowTrayPill` | System Tray |
@@ -18,7 +17,6 @@ Every bar pill can be hidden or shown. Defaults live in `Config.qml` (search for
 | `showAudioPill` | `true` | `setShowAudioPill` / `toggleShowAudioPill` | Audio |
 | `showClockPill` | `true` | `setShowClockPill` / `toggleShowClockPill` | Clock |
 | `showNotificationPill` | `true` | `setShowNotificationPill` / `toggleShowNotificationPill` | Notifications |
-| `showKillTargetPill` | `false` | `setShowKillTargetPill` / `toggleShowKillTargetPill` | Kill Target |
 | `showHyprInspPill` | `false` | `setShowHyprInspPill` / `toggleShowHyprInspPill` | Hypr Inspector |
 | `showControlBarPill` | `true` | `setShowControlBarPill` / `toggleShowControlBarPill` | Config menu gear |
 | `showPowerPill` | `true` | `setShowPowerPill` / `toggleShowPowerPill` | Power |
@@ -41,7 +39,6 @@ qs ipc call shell setTooltipDelay 400
 
 # Config.qml defaults apply when bar-layout has no override
 showAudioPill: false
-showMediaPill: true
 ```
 
 Zone dividers hide automatically when a neighboring pill is off. Run `qs ipc show` for the full command list.
@@ -80,7 +77,6 @@ Some bar widgets expose actions beyond show/hide. These work from scripts, Hyprl
 | `bluetoothPill` | `renameDevice` | Set BlueZ alias (`address` + `name`) |
 | `bluetoothPill` | `setCardProfile` | Set PipeWire profile for a MAC (`address` + profile name) |
 | `notificationBell` | `toggleDoNotDisturb` | Toggle Do Not Disturb for the configured notification daemon |
-| `killTargetPill` | `activatePickMode` / `cancelPickMode` | Arm or cancel the click-to-kill picker (same as clicking the pill) |
 | `sysStatsPill` | `setMetricsLiveUpdates` | Pause (`false`) or resume (`true`) metrics-popup polling for all CPU/Memory/GPU sections |
 | `sysStatsPill` | `setCpuLiveUpdates` / `setMemLiveUpdates` / `setGpuLiveUpdates` | Pause or resume metrics-popup polling for one section |
 | `sysStatsPill` | `toggleMetricsLiveUpdates` | Toggle metrics-popup polling for all sections |
@@ -110,8 +106,6 @@ qs ipc call notificationBell toggleDoNotDisturb
 qs ipc call sysStatsPill setMetricsLiveUpdates false
 qs ipc call sysStatsPill toggleMetricsLiveUpdates
 qs ipc call sysStatsPill setCpuLiveUpdates false
-qs ipc call shell setShowKillTargetPill true
-qs ipc call killTargetPill activatePickMode
 ```
 
 Metrics-popup IPC pauses sparklines, gauges, and process lists in the right-click dropdowns — not the compact CPU/Memory/GPU stats on the bar pill. Takes effect immediately while a popup is open; otherwise the paused state applies the next time you open that section. When `popupStatsPersistPause` is `true` in `Config.qml`, the choice is saved to `state/popup-stats.json`.
@@ -124,7 +118,6 @@ Metrics-popup IPC pauses sparklines, gauges, and process lists in the right-clic
 SUPER + C   →   qs ipc call clockPill showCalendar
 SUPER + N   →   qs ipc call notificationBell toggleDoNotDisturb
 SUPER + M   →   qs ipc call sysStatsPill toggleMetricsLiveUpdates
-SUPER + X   →   qs ipc call killTargetPill activatePickMode
 # Optional: bind echo cancel / Bluetooth / Network
 # SUPER + ALT + E   →   qs ipc call audioPill toggleEchoCancel
 # SUPER + ALT + B   →   qs ipc call bluetoothPill togglePopup
