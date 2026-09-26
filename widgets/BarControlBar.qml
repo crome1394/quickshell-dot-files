@@ -1185,6 +1185,20 @@ Item {
             return ""
         return String(list[i])
     }
+    // delta -1 = previous face, +1 = next. Wraps through Bar font and the installed list.
+    function stepWsDraftFont(index, delta, labelText) {
+        const choices = root.wsFontChoices()
+        const n = choices.length
+        if (n < 2)
+            return
+        const rows = root.wsSlotRows()
+        const i = Math.round(Number(index))
+        if (i < 0 || i >= rows.length)
+            return
+        let idx = root.wsFontComboIndex(rows[i].font) + Math.round(Number(delta) || 0)
+        idx = ((idx % n) + n) % n
+        root.setWsDraftFace(i, labelText, root.wsFontFromCombo(idx))
+    }
     function wsSlotRows() {
         void root.wsDraftTick
         void root.optionsTick
@@ -7311,7 +7325,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Each row is an icon or short text plus a font. Bar font uses the bar’s font. The bar stays as it is until Apply. Undo drops unapplied edits, or reverts the last Apply."
+                                    text: "Each row is an icon or short text plus a font. ‹ › step through faces for that symbol. Bar font uses the bar’s font. The bar stays as it is until Apply. Undo drops unapplied edits, or reverts the last Apply."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -7440,6 +7454,9 @@ Item {
                                                 }
                                             }
                                         }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 4
                                         ComboBox {
                                             id: wsFontCombo
                                             Layout.fillWidth: true
@@ -7519,6 +7536,49 @@ Item {
                                                     radius: 4
                                                 }
                                             }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: 26
+                                            Layout.preferredHeight: 28
+                                            radius: 4
+                                            color: wsFontPrevMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "‹"
+                                                color: bar.subtext
+                                                font.pixelSize: 16
+                                            }
+                                            MouseArea {
+                                                id: wsFontPrevMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.stepWsDraftFont(wsSlotRow.modelData.index, -1, wsSlotLabelField.text)
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: 26
+                                            Layout.preferredHeight: 28
+                                            radius: 4
+                                            color: wsFontNextMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: "›"
+                                                color: bar.subtext
+                                                font.pixelSize: 16
+                                            }
+                                            MouseArea {
+                                                id: wsFontNextMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.stepWsDraftFont(wsSlotRow.modelData.index, 1, wsSlotLabelField.text)
+                                            }
+                                        }
                                         }
                                         }
                                     }
