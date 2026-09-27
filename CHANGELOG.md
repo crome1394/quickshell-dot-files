@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Top bar and bottom bar
+
+- Options → **Bar** uses the monitor pictures again. Classic and Dual are those buttons.
+- Dual splits into **Top bar** and **Bottom bar**. Each has its own span, size, and widget alignment (left, center, or right).
+
 ## 2026-09 — Audio view, bar layout, tooltips
 
 - Options → **Audio**: default pill view is **Speaker**, **Microphone**, or **Both**. It is saved and restored. Right-click still cycles it.

@@ -6495,30 +6495,52 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Layout, edge, and size. The bar is the top strip (or the only strip in Classic). The panel is the bottom strip in Dual."
+                                    text: "Pick a layout, then Apply. Dual has a Top bar and a Bottom bar, each with its own size, width, and alignment."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    Layout.preferredHeight: 168
+                                    Layout.minimumHeight: 168
+                                    spacing: 12
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 36
+                                        Layout.fillHeight: true
                                         radius: root.chipR
                                         color: (root.layoutModeChoice() === "classic")
                                                ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
                                                : (barModeClassicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: 1
+                                        border.width: bar.controlBorderWidth
                                         border.color: (root.layoutModeChoice() === "classic") ? bar.accent : bar.pillBorder
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Classic"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.bold: root.layoutModeChoice() === "classic"
-                                            font.family: bar.fontFamily
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 6
+                                            MonitorLayoutPreview {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                mode: "classic"
+                                                selected: root.layoutModeChoice() === "classic"
+                                                barColor: bar.accent
+                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
+                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "Classic"
+                                                font.pixelSize: 13
+                                                font.bold: root.layoutModeChoice() === "classic"
+                                                font.family: bar.fontFamily
+                                                color: root.layoutModeChoice() === "classic" ? bar.accent : bar.text
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "One bar"
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                color: bar.subtext
+                                            }
                                         }
                                         MouseArea {
                                             id: barModeClassicMa
@@ -6530,20 +6552,40 @@ Item {
                                     }
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 36
+                                        Layout.fillHeight: true
                                         radius: root.chipR
                                         color: (root.layoutModeChoice() === "dual")
                                                ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
                                                : (barModeDualMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: 1
+                                        border.width: bar.controlBorderWidth
                                         border.color: (root.layoutModeChoice() === "dual") ? bar.accent : bar.pillBorder
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "Dual"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.bold: root.layoutModeChoice() === "dual"
-                                            font.family: bar.fontFamily
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 10
+                                            spacing: 6
+                                            MonitorLayoutPreview {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                mode: "dual"
+                                                selected: root.layoutModeChoice() === "dual"
+                                                barColor: bar.accent
+                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
+                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "Dual"
+                                                font.pixelSize: 13
+                                                font.bold: root.layoutModeChoice() === "dual"
+                                                font.family: bar.fontFamily
+                                                color: root.layoutModeChoice() === "dual" ? bar.accent : bar.text
+                                            }
+                                            Text {
+                                                Layout.alignment: Qt.AlignHCenter
+                                                text: "Top bar and bottom bar"
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                color: bar.subtext
+                                            }
                                         }
                                         MouseArea {
                                             id: barModeDualMa
@@ -6553,9 +6595,14 @@ Item {
                                             onClicked: { root.layoutModeDraft = "dual"; root.menuTick++ }
                                         }
                                     }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Item { Layout.fillWidth: true }
                                     Rectangle {
-                                        Layout.preferredHeight: 36
-                                        Layout.preferredWidth: barLayoutApplyLbl.implicitWidth + 16
+                                        Layout.preferredHeight: 32
+                                        Layout.preferredWidth: barLayoutApplyLbl.implicitWidth + 18
                                         radius: root.chipR
                                         enabled: root.layoutModeDirty()
                                         opacity: enabled ? 1 : 0.45
@@ -6629,6 +6676,14 @@ Item {
                                         }
                                     }
                                 }
+                                Text {
+                                    text: root.layoutModeChoice() === "dual" ? "Top bar" : "Bar"
+                                    color: bar.text
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                    Layout.topMargin: 4
+                                }
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
@@ -6636,6 +6691,7 @@ Item {
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                     border.width: 1
                                     border.color: bar.dividerStrong
+                                    visible: root.layoutModeChoice() === "dual"
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.leftMargin: 10
@@ -6644,9 +6700,9 @@ Item {
                                         ColumnLayout {
                                             Layout.fillWidth: true
                                             spacing: 0
-                                            Text { text: "Bar spans the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                            Text { text: "Span the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
                                             Text {
-                                                text: "Full width. Off, a Dual top bar hugs its widgets."
+                                                text: "Off hugs the widgets. On uses the full width."
                                                 color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
                                                 elide: Text.ElideRight; Layout.fillWidth: true
                                             }
@@ -6678,53 +6734,6 @@ Item {
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 0
-                                            Text { text: "Panel spans the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
-                                            Text {
-                                                text: "Bottom strip in Dual. Off hugs its widgets."
-                                                color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
-                                                elide: Text.ElideRight; Layout.fillWidth: true
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.preferredWidth: root.optToggleW
-                                            Layout.preferredHeight: root.optToggleH
-                                            Layout.alignment: Qt.AlignVCenter
-                                            radius: 4
-                                            border.width: 1
-                                            border.color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
-                                            color: "transparent"
-                                            Text {
-                                                anchors.centerIn: parent
-                                                text: (bar.panelSpanFull === true) ? "✓" : "✕"
-                                                color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
-                                                font.pixelSize: 14; font.bold: true
-                                            }
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (typeof bar.setPanelSpanFull === "function")
-                                                        bar.setPanelSpanFull(!(bar.panelSpanFull === true))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
                                     Layout.preferredHeight: 48
                                     radius: root.chipR
                                     color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
@@ -6738,7 +6747,7 @@ Item {
                                         anchors.bottomMargin: 6
                                         spacing: 2
                                         Text {
-                                            text: "Panel size"
+                                            text: "Size"
                                             color: bar.text
                                             font.pixelSize: 12
                                             font.family: bar.fontFamily
@@ -6751,21 +6760,218 @@ Item {
                                             to: 140
                                             stepSize: 5
                                             suffix: "%"
-                                            value: {
-                                                void root.optionsTick
-                                                if (!bar)
-                                                    return 100
-                                                const s = Number(bar.panelSizeScale) || 0
-                                                return (s >= 0.8) ? Math.round(s * 100) : root.optBarSizePct()
-                                            }
+                                            value: root.optBarSizePct()
                                             onValueEdited: (v) => {
-                                                if (typeof bar.setPanelSizeScale === "function")
-                                                    bar.setPanelSizeScale(Math.round(v) / 100)
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                                 root.optionsTick++
+                                                root.menuTick++
+                                                Qt.callLater(root.reposition)
                                             }
                                             onValueCommitted: (v) => {
-                                                if (typeof bar.setPanelSizeScale === "function")
-                                                    bar.setPanelSizeScale(Math.round(v) / 100)
+                                                if (typeof bar.setBarSizeScale === "function")
+                                                    bar.setBarSizeScale(Math.round(v) / 100)
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: "Widget alignment"
+                                    color: bar.subtext
+                                    font.pixelSize: 11
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "left", label: "Left" },
+                                            { id: "center", label: "Center" },
+                                            { id: "right", label: "Right" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool on: ((bar.topBarAlign === "left" || bar.topBarAlign === "right") ? bar.topBarAlign : "center") === modelData.id
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 32
+                                            radius: root.chipR
+                                            color: on ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                      : (topAlignMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                            border.width: 1
+                                            border.color: on ? bar.accent : bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.bold: on
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: topAlignMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (bar && typeof bar.setTopBarAlign === "function")
+                                                        bar.setTopBarAlign(modelData.id)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ColumnLayout {
+                                    visible: root.layoutModeChoice() === "dual"
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        text: "Bottom bar"
+                                        color: bar.text
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                        Layout.topMargin: 6
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text { text: "Span the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                                Text {
+                                                    text: "Off hugs the widgets. On uses the full width."
+                                                    color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.panelSpanFull === true) ? "✓" : "✕"
+                                                    color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14; font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (typeof bar.setPanelSpanFull === "function")
+                                                            bar.setPanelSpanFull(!(bar.panelSpanFull === true))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 48
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        ColumnLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            anchors.topMargin: 6
+                                            anchors.bottomMargin: 6
+                                            spacing: 2
+                                            Text {
+                                                text: "Size"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                            }
+                                            OptValueSlider {
+                                                bar: bar
+                                                fieldBg: root.optFieldBg
+                                                fieldBgFocus: root.optFieldBgFocus
+                                                from: 80
+                                                to: 140
+                                                stepSize: 5
+                                                suffix: "%"
+                                                value: {
+                                                    void root.optionsTick
+                                                    if (!bar)
+                                                        return 100
+                                                    const s = Number(bar.panelSizeScale) || 0
+                                                    return (s >= 0.8) ? Math.round(s * 100) : root.optBarSizePct()
+                                                }
+                                                onValueEdited: (v) => {
+                                                    if (typeof bar.setPanelSizeScale === "function")
+                                                        bar.setPanelSizeScale(Math.round(v) / 100)
+                                                    root.optionsTick++
+                                                }
+                                                onValueCommitted: (v) => {
+                                                    if (typeof bar.setPanelSizeScale === "function")
+                                                        bar.setPanelSizeScale(Math.round(v) / 100)
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        text: "Widget alignment"
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Repeater {
+                                            model: [
+                                                { id: "left", label: "Left" },
+                                                { id: "center", label: "Center" },
+                                                { id: "right", label: "Right" }
+                                            ]
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property bool on: ((bar.bottomBarAlign === "left" || bar.bottomBarAlign === "right") ? bar.bottomBarAlign : "center") === modelData.id
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 32
+                                                radius: root.chipR
+                                                color: on ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                          : (botAlignMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                                border.width: 1
+                                                border.color: on ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: modelData.label
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.bold: on
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: botAlignMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setBottomBarAlign === "function")
+                                                            bar.setBottomBarAlign(modelData.id)
+                                                        root.optionsTick++
+                                                    }
+                                                }
                                             }
                                         }
                                     }
@@ -6985,50 +7191,6 @@ Item {
                                                         Qt.callLater(root.reposition)
                                                     }
                                                 }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 48
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        anchors.topMargin: 6
-                                        anchors.bottomMargin: 6
-                                        spacing: 2
-                                        Text {
-                                            text: "Bar size"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
-                                            Layout.fillWidth: true
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 80
-                                            to: 140
-                                            stepSize: 5
-                                            suffix: "%"
-                                            value: root.optBarSizePct()
-                                            onValueEdited: (v) => {
-                                                if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(v) / 100)
-                                                root.optionsTick++
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                            onValueCommitted: (v) => {
-                                                if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(v) / 100)
                                             }
                                         }
                                     }

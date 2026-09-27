@@ -184,6 +184,9 @@ ShellRoot {
     property real panelSizeScale: 0
     // Audio pill view: 0 speaker, 1 microphone, 2 both.
     property int audioViewMode: 2
+    // Widget cluster on each strip: "left" | "center" | "right".
+    property string topBarAlign: "center"
+    property string bottomBarAlign: "center"
 
     // Runtime layout: [{ id, zone }, ...] — classic: left|center|right; dual: top|bottom
     property var widgetLayout: []
@@ -499,6 +502,37 @@ ShellRoot {
         property alias panelSpanFull: root.panelSpanFull
         property alias panelSizeScale: root.panelSizeScale
         property alias audioViewMode: root.audioViewMode
+        property alias topBarAlign: root.topBarAlign
+        property alias bottomBarAlign: root.bottomBarAlign
+        function coerceAlign(v) {
+            var s = String(v || "")
+            return (s === "left" || s === "right") ? s : "center"
+        }
+        function alignX(align, parentW, itemW, margin) {
+            var a = bar.coerceAlign(align)
+            var m = Number(margin) || 0
+            var w = Number(itemW) || 0
+            var pw = Number(parentW) || 0
+            if (a === "left")
+                return m
+            if (a === "right")
+                return Math.max(m, pw - w - m)
+            return Math.max(0, Math.round((pw - w) / 2))
+        }
+        function setTopBarAlign(v) {
+            var next = bar.coerceAlign(v)
+            if (root.topBarAlign === next)
+                return
+            root.topBarAlign = next
+            persistBarLayout()
+        }
+        function setBottomBarAlign(v) {
+            var next = bar.coerceAlign(v)
+            if (root.bottomBarAlign === next)
+                return
+            root.bottomBarAlign = next
+            persistBarLayout()
+        }
 
         function setBarSizeScale(scale) {
             var v = Number(scale)
@@ -594,6 +628,8 @@ ShellRoot {
                 property bool panelSpanFull: false
                 property real panelSizeScale: 0
                 property int audioViewMode: 2
+                property string topBarAlign: "center"
+                property string bottomBarAlign: "center"
                 property real uiScaleManual: 0
                 property int barEdgeMargin: 0
                 property real barSizeScale: 1.0
@@ -680,6 +716,8 @@ ShellRoot {
                 root.panelSizeScale = (panelScale >= 0.8 && panelScale <= 1.4) ? panelScale : 0
                 const audioView = Math.round(Number(barLayoutAdapter.audioViewMode))
                 root.audioViewMode = (audioView === 0 || audioView === 1 || audioView === 2) ? audioView : 2
+                root.topBarAlign = bar.coerceAlign(barLayoutAdapter.topBarAlign)
+                root.bottomBarAlign = bar.coerceAlign(barLayoutAdapter.bottomBarAlign)
                 // Manual scale from state overrides Config default when present.
                 if (barLayoutAdapter.uiScaleManual >= 0)
                     cfg.uiScaleManual = barLayoutAdapter.uiScaleManual
@@ -1356,6 +1394,8 @@ ShellRoot {
                     ? root.panelSizeScale : 0
             barLayoutAdapter.audioViewMode = (root.audioViewMode === 0 || root.audioViewMode === 1)
                     ? root.audioViewMode : 2
+            barLayoutAdapter.topBarAlign = bar.coerceAlign(root.topBarAlign)
+            barLayoutAdapter.bottomBarAlign = bar.coerceAlign(root.bottomBarAlign)
             barLayoutAdapter.uiScaleManual = cfg.uiScaleManual
             barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
             barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
@@ -3245,7 +3285,7 @@ ShellRoot {
             anchors.bottom: parent.bottom
             anchors.topMargin: bar.barIsTopEdge ? 0 : bar.barContentVMargin
             anchors.bottomMargin: bar.barIsTopEdge ? bar.barContentVMargin : 0
-            x: spanWidth ? bar.sideMargin : Math.round((parent.width - hugW) / 2)
+            x: spanWidth ? bar.sideMargin : bar.alignX(root.topBarAlign, parent.width, hugW, bar.sideMargin)
             width: spanWidth ? Math.max(0, parent.width - 2 * bar.sideMargin) : hugW
             radius: bar.barRadius
             topLeftRadius: (bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
@@ -3353,8 +3393,8 @@ ShellRoot {
             RowLayout {
                 id: centerZone
                 z: 1
-                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
+                x: bar.alignX(root.topBarAlign, parent.width, width, bar.barContentHMargin)
                 spacing: bar.widgetSpacing
             }
 
@@ -4065,7 +4105,7 @@ ShellRoot {
             anchors.bottom: parent.bottom
             anchors.topMargin: bar.barContentVMargin
             anchors.bottomMargin: 0
-            x: spanWidth ? bar.sideMargin : Math.round((parent.width - hugW) / 2)
+            x: spanWidth ? bar.sideMargin : bar.alignX(root.bottomBarAlign, parent.width, hugW, bar.sideMargin)
             width: spanWidth ? Math.max(0, parent.width - 2 * bar.sideMargin) : hugW
             radius: bar.barRadius
             topLeftRadius: bar.barRadius
@@ -4104,8 +4144,8 @@ ShellRoot {
             RowLayout {
                 id: bottomCenterZone
                 z: 1
-                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
+                x: bar.alignX(root.bottomBarAlign, parent.width, width, bar.barContentHMargin)
                 spacing: bar.widgetSpacing
             }
         }
