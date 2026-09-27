@@ -64,6 +64,14 @@ Item {
     property int optionsTick: 0
     // Options sub-tabs (one section per tab instead of a long scroll)
     property string optionsTab: "bar"
+    // False when the open Options page belongs to a widget that is turned off.
+    readonly property bool optionsTabReachable: optionsSectionVisible(optionsTab)
+    onOptionsTabReachableChanged: {
+        if (!optionsTabReachable)
+            setOptionsTab("bar")
+    }
+    readonly property int widgetVisWatch: bar ? bar.widgetVisTick : 0
+    onWidgetVisWatchChanged: ensureWidgetSurfaces()
     // Themes panel state (activeMenu id remains "colors" for compatibility)
     property int colorsTick: 0
     property string colorsPickerKey: ""
@@ -573,8 +581,13 @@ Item {
             root.activeMenu = name
         if (root.activeMenu === "position")
             root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
-        if (root.activeMenu === "options")
-            root.refreshOptions()
+        if (root.activeMenu === "options" || root.activeMenu === "launch"
+                || root.activeMenu === "audio" || root.activeMenu === "clock"
+                || root.activeMenu === "colors") {
+            if (root.activeMenu === "options")
+                root.refreshOptions()
+            root.ensureWidgetSurfaces()
+        }
         if (root.activeMenu === "clock") {
             root.clockTab = "region"
             root.clockFormatDraft = root.currentClockFormat()
@@ -600,13 +613,125 @@ Item {
         root.scheduleReposition()
     }
 
+    // User's widget switch (not the narrow-screen density hide). Pages that are
+    // not a widget — Bar, Tooltips, Dock, Screensaver — stay.
+    function widgetShown(id) {
+        if (bar)
+            void bar.widgetVisTick
+        if (!bar || typeof bar.getWidgetVisible !== "function")
+            return true
+        return !!bar.getWidgetVisible(id)
+    }
+
+    // Dock edits hover for every icon pill. Hide it only when all of those pills are off.
+    function dockSettingsVisible() {
+        const ids = ["launcher", "quickLaunch", "freshRss", "workspaces", "tray",
+                     "network", "bluetooth", "notifications", "hyprInsp", "controlBar", "power"]
+        for (let i = 0; i < ids.length; i++) {
+            if (root.widgetShown(ids[i]))
+                return true
+        }
+        return false
+    }
+
+    function optionsSectionVisible(id) {
+        const tab = String(id || "")
+        if (tab === "bar" || tab === "tooltips" || tab === "screensaver")
+            return true
+        if (tab === "dock")
+            return root.dockSettingsVisible()
+        const widget = {
+            "appmenu": "launcher",
+            "workspaces": "workspaces",
+            "audio": "audio",
+            "network": "network",
+            "bluetooth": "bluetooth",
+            "stats": "stats",
+            "freshrss": "freshRss"
+        }[tab]
+        if (!widget)
+            return true
+        return root.widgetShown(widget)
+    }
+
+    function optionsTabModel() {
+        const all = [
+            { id: "bar", label: "Bar" },
+            { id: "appmenu", label: "App Menu" },
+            { id: "tooltips", label: "Tooltips" },
+            { id: "workspaces", label: "Workspaces" },
+            { id: "audio", label: "Audio" },
+            { id: "network", label: "Network" },
+            { id: "bluetooth", label: "Bluetooth" },
+            { id: "stats", label: "Stats" },
+            { id: "dock", label: "Dock" },
+            { id: "screensaver", label: "Screensaver" },
+            { id: "freshrss", label: "FreshRSS" }
+        ]
+        const out = []
+        for (let i = 0; i < all.length; i++) {
+            if (root.optionsSectionVisible(all[i].id))
+                out.push(all[i])
+        }
+        return out
+    }
+
+    function ensureOptionsTab() {
+        if (!root.optionsSectionVisible(root.optionsTab))
+            root.setOptionsTab("bar")
+    }
+
+    // Bottom-bar pages and theme groups that belong to one widget.
+    function controlTabModel() {
+        const all = [
+            { id: "position",  label: "Position" },
+            { id: "display",   label: "Display" },
+            { id: "wallpaper", label: "Wallpaper" },
+            { id: "widgets",   label: "Widgets" },
+            { id: "options",   label: "Options" },
+            { id: "colors",    label: "Themes" },
+            { id: "launch",    label: "App Launcher" },
+            { id: "autostart", label: "Autostart" },
+            { id: "mime",      label: "MIME" },
+            { id: "services",  label: "Services" },
+            { id: "audio",     label: "Audio" },
+            { id: "keybinds",  label: "Keybinds" },
+            { id: "clock",     label: "Region & Clock" }
+        ]
+        const gate = { "launch": "quickLaunch", "audio": "audio" }
+        const out = []
+        for (let i = 0; i < all.length; i++) {
+            const widget = gate[all[i].id]
+            if (widget && !root.widgetShown(widget))
+                continue
+            out.push(all[i])
+        }
+        return out
+    }
+
+    function ensureWidgetSurfaces() {
+        root.ensureOptionsTab()
+        if (root.activeMenu === "launch" && !root.widgetShown("quickLaunch"))
+            root.activeMenu = "widgets"
+        if (root.activeMenu === "audio" && !root.widgetShown("audio"))
+            root.activeMenu = "widgets"
+        if (root.clockTab === "clock" && !root.widgetShown("clock"))
+            root.clockTab = "region"
+        if (root.colorsTab === "thresholds"
+                && !root.widgetShown("audio") && !root.widgetShown("stats"))
+            root.colorsTab = "theming"
+    }
+
     function setOptionsTab(tab) {
         const t = String(tab || "bar")
         const allowed = {
             "bar": 1, "appmenu": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
             "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
         }
-        root.optionsTab = allowed[t] ? t : "bar"
+        let next = allowed[t] ? t : "bar"
+        if (!root.optionsSectionVisible(next))
+            next = "bar"
+        root.optionsTab = next
         if (root.optionsTab === "workspaces") {
             root.refreshSystemFonts()
             root.ensureWsDraft()
@@ -714,7 +839,7 @@ Item {
     }
 
     function tooltipAlignTargets() {
-        return [
+        const all = [
             { id: "launcher", label: "Application Menu" },
             { id: "quickLaunch", label: "Application Launcher" },
             { id: "freshRss", label: "FreshRSS" },
@@ -726,6 +851,12 @@ Item {
             { id: "controlBar", label: "Config Menu Icon" },
             { id: "power", label: "Power" }
         ]
+        const out = []
+        for (let i = 0; i < all.length; i++) {
+            if (root.widgetShown(all[i].id))
+                out.push(all[i])
+        }
+        return out
     }
 
     function optTooltipAlign(id) {
@@ -5770,7 +5901,7 @@ Item {
 
                             // ===== QUICK LAUNCH =====
                             ColumnLayout {
-                                visible: root.activeMenu === "launch"
+                                visible: root.activeMenu === "launch" && root.widgetShown("quickLaunch")
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 spacing: 6
@@ -6672,7 +6803,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "One topic at a time. Layout is under Widgets."
+                                    text: "One topic at a time. Layout is under Widgets. A page hides while its widget is off; the saved settings stay."
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
@@ -6681,19 +6812,11 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     Repeater {
-                                        model: [
-                                            { id: "bar", label: "Bar" },
-                                            { id: "appmenu", label: "App Menu" },
-                                            { id: "tooltips", label: "Tooltips" },
-                                            { id: "workspaces", label: "Workspaces" },
-                                            { id: "audio", label: "Audio" },
-                                            { id: "network", label: "Network" },
-                                            { id: "bluetooth", label: "Bluetooth" },
-                                            { id: "stats", label: "Stats" },
-                                            { id: "dock", label: "Dock" },
-                                            { id: "screensaver", label: "Screensaver" },
-                                            { id: "freshrss", label: "FreshRSS" }
-                                        ]
+                                        model: {
+                                            void root.menuTick
+                                            void root.optionsTick
+                                            return root.optionsTabModel()
+                                        }
                                         delegate: Rectangle {
                                             required property var modelData
                                             readonly property bool active: root.optionsTab === modelData.id
@@ -7156,7 +7279,7 @@ Item {
                                 }
                                 } // options tab: bar
                                 ColumnLayout {
-                                    visible: root.optionsTab === "appmenu"
+                                    visible: root.optionsTab === "appmenu" && root.optionsSectionVisible("appmenu")
                                     Layout.fillWidth: true
                                     spacing: 8
                                     Text {
@@ -7505,7 +7628,11 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 Repeater {
-                                    model: root.tooltipAlignTargets()
+                                    model: {
+                                        void root.menuTick
+                                        void root.optionsTick
+                                        return root.tooltipAlignTargets()
+                                    }
                                     delegate: Rectangle {
                                         id: tipAlignRow
                                         required property var modelData
@@ -7577,7 +7704,7 @@ Item {
                                 }
                                 }
                                 ColumnLayout {
-                                    visible: root.optionsTab === "workspaces"
+                                    visible: root.optionsTab === "workspaces" && root.optionsSectionVisible("workspaces")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -8297,7 +8424,7 @@ Item {
                                 }
                                 } // options tab: workspaces
                                 ColumnLayout {
-                                    visible: root.optionsTab === "audio"
+                                    visible: root.optionsTab === "audio" && root.optionsSectionVisible("audio")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -8682,7 +8809,7 @@ Item {
                                 }
                                 } // options tab: audio
                                 ColumnLayout {
-                                    visible: root.optionsTab === "network"
+                                    visible: root.optionsTab === "network" && root.optionsSectionVisible("network")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -9004,7 +9131,7 @@ Item {
                                 }
                                 } // options tab: network
                                 ColumnLayout {
-                                    visible: root.optionsTab === "bluetooth"
+                                    visible: root.optionsTab === "bluetooth" && root.optionsSectionVisible("bluetooth")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -9078,7 +9205,7 @@ Item {
                                 }
                                 } // options tab: bluetooth
                                 ColumnLayout {
-                                    visible: root.optionsTab === "stats"
+                                    visible: root.optionsTab === "stats" && root.optionsSectionVisible("stats")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -9471,7 +9598,7 @@ Item {
 
                                 } // options tab: stats
                                 ColumnLayout {
-                                    visible: root.optionsTab === "dock"
+                                    visible: root.optionsTab === "dock" && root.optionsSectionVisible("dock")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
@@ -10244,7 +10371,7 @@ Item {
 
                                 } // options tab: screensaver
                                 ColumnLayout {
-                                    visible: root.optionsTab === "freshrss"
+                                    visible: root.optionsTab === "freshrss" && root.optionsSectionVisible("freshrss")
                                     Layout.fillWidth: true
                                     spacing: 8
                                 // --- FreshRSS ---
@@ -10761,7 +10888,7 @@ Item {
                             // ===== AUDIO (devices / ports / AEC — same engine as Inspector) =====
                             ColumnLayout {
                                 id: audioPanel
-                                visible: root.activeMenu === "audio"
+                                visible: root.activeMenu === "audio" && root.widgetShown("audio")
                                 Layout.fillWidth: true
                                 // Fixed tall panel; AudioMonitorView scrolls internally
                                 Layout.fillHeight: true
@@ -10998,11 +11125,14 @@ Item {
                                     Repeater {
                                         model: {
                                             void root.optionsTick
+                                            if (bar)
+                                                void bar.widgetVisTick
                                             const tabs = [
-                                                { id: "theming", label: "Theming" },
-                                                { id: "thresholds", label: "Thresholds" },
-                                                { id: "fonts", label: "Fonts" }
+                                                { id: "theming", label: "Theming" }
                                             ]
+                                            if (root.widgetShown("audio") || root.widgetShown("stats"))
+                                                tabs.push({ id: "thresholds", label: "Thresholds" })
+                                            tabs.push({ id: "fonts", label: "Fonts" })
                                             if (bar && bar.showColorPresets !== false)
                                                 tabs.push({ id: "presets", label: "Presets" })
                                             return tabs
@@ -11574,6 +11704,10 @@ Item {
                                         width: thresholdsLeftFlick.width - 8
                                         spacing: 10
 
+                                    ColumnLayout {
+                                        visible: root.widgetShown("audio")
+                                        Layout.fillWidth: true
+                                        spacing: 10
                                     // ── Output volume (speaker) ──
                                     Text {
                                         text: "Output volume"
@@ -11849,6 +11983,11 @@ Item {
                                         }
                                     }
 
+                                    } // audio threshold groups
+                                    ColumnLayout {
+                                        visible: root.widgetShown("stats")
+                                        Layout.fillWidth: true
+                                        spacing: 10
                                     // ── Sys Stats (shared % cutoffs, per-metric colors) ──
                                     Text {
                                         text: "Sys Stats load"
@@ -12147,6 +12286,7 @@ Item {
                                             }
                                         }
                                         } // temp color swatches RowLayout
+                                    } // stats threshold groups
                                     } // thresholdsLeftCol
                                     } // thresholdsLeftFlick
 
@@ -13784,10 +13924,14 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     Repeater {
-                                        model: [
-                                            { id: "region", label: "Region" },
-                                            { id: "clock", label: "Clock" }
-                                        ]
+                                        model: {
+                                            if (bar)
+                                                void bar.widgetVisTick
+                                            const tabs = [{ id: "region", label: "Region" }]
+                                            if (root.widgetShown("clock"))
+                                                tabs.push({ id: "clock", label: "Clock" })
+                                            return tabs
+                                        }
                                         delegate: Rectangle {
                                             required property var modelData
                                             readonly property bool on: root.clockTab === modelData.id
@@ -14542,21 +14686,11 @@ Item {
                     spacing: 8
 
                     Repeater {
-                        model: [
-                            { id: "position",  label: "Position" },
-                            { id: "display",   label: "Display" },
-                            { id: "wallpaper", label: "Wallpaper" },
-                            { id: "widgets",   label: "Widgets" },
-                            { id: "options",   label: "Options" },
-                            { id: "colors",    label: "Themes" },
-                            { id: "launch",    label: "App Launcher" },
-                            { id: "autostart", label: "Autostart" },
-                            { id: "mime",      label: "MIME" },
-                            { id: "services",  label: "Services" },
-                            { id: "audio",     label: "Audio" },
-                            { id: "keybinds",  label: "Keybinds" },
-                            { id: "clock",     label: "Region & Clock" }
-                        ]
+                        model: {
+                            if (bar)
+                                void bar.widgetVisTick
+                            return root.controlTabModel()
+                        }
                         delegate: Rectangle {
                             required property var modelData
                             readonly property bool active: root.activeMenu === modelData.id

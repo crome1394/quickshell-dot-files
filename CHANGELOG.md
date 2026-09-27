@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Settings follow the widget switches
+
+- Turning a widget off hides its settings and leaves the saved values in place. That covers Options (App Menu, Workspaces, Audio, Network, Bluetooth, Stats, FreshRSS, and Dock when every icon pill is off), the matching tooltip rows, the App Launcher and Audio tabs, the Clock format tab, and the audio/stats theme thresholds. The Widgets switches stay so the pill can be turned back on.
+
 ## 2026-09 — Application Menu options and light presets
 
 - Options → **App Menu**: icon (empty keeps the 3×3 grid), size 14–36 px, and the command the pill runs. Saved in `bar-layout.json`. The stock drawer still toggles; any other command starts on each press.

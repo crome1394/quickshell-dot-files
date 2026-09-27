@@ -130,6 +130,8 @@ ShellRoot {
     property bool showFreshRssPill: true
     property bool showHyprInspPill: false
     property bool showControlBarPill: true       // Bar control / config menu icon on the bar
+    // Bumped by every Widgets on/off so control-bar pages can follow the switch.
+    property int widgetVisTick: 0
     property bool showColorPresets: true         // Colors panel: built-in / custom presets section
     property bool showMagicWorkspacePill: true   // Magic pill inside WorkspacesPill (wsShowSpecialPill)
     // Sys Stats gauges (Options panel; all on by default)
@@ -2102,6 +2104,7 @@ ShellRoot {
                 }
                 return
             }
+            root.widgetVisTick++
             persistBarLayout()
         }
 
@@ -3057,6 +3060,7 @@ ShellRoot {
         property alias wsSlots: root.wsSlots
         property alias showMagicWorkspacePill: root.showMagicWorkspacePill
         property alias showControlBarPill: root.showControlBarPill
+        property alias widgetVisTick: root.widgetVisTick
         property alias showColorPresets: root.showColorPresets
         property alias showStatCpu: root.showStatCpu
         property alias showStatMem: root.showStatMem
