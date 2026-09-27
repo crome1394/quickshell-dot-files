@@ -114,9 +114,25 @@ Item {
     readonly property int optToggleW: 28
     readonly property int optToggleH: 26
     readonly property int optFieldW: 40
-    // Slightly lifted blue-slate glass so TextFields read as editable (not flat chrome)
-    readonly property color optFieldBg: Qt.rgba(0.10, 0.12, 0.18, 0.92)
-    readonly property color optFieldBgFocus: Qt.rgba(0.14, 0.16, 0.24, 0.95)
+    // Fields follow the theme. Light presets get a paper well; dark presets stay a deep well.
+    readonly property color optFieldBg: {
+        if (!bar || bar.surface === undefined)
+            return Qt.rgba(0.10, 0.12, 0.18, 0.92)
+        const c = bar.surface
+        const y = c.r * 0.3 + c.g * 0.59 + c.b * 0.11
+        if (y > 0.55)
+            return Qt.rgba(Math.max(0, c.r - 0.045), Math.max(0, c.g - 0.045), Math.max(0, c.b - 0.045), 1)
+        return Qt.rgba(Math.min(1, c.r * 0.72 + 0.02), Math.min(1, c.g * 0.72 + 0.025), Math.min(1, c.b * 0.72 + 0.04), 0.96)
+    }
+    readonly property color optFieldBgFocus: {
+        if (!bar || bar.surface === undefined)
+            return Qt.rgba(0.14, 0.16, 0.24, 0.95)
+        const c = bar.surface
+        const y = c.r * 0.3 + c.g * 0.59 + c.b * 0.11
+        if (y > 0.55)
+            return Qt.rgba(Math.min(1, c.r + 0.02), Math.min(1, c.g + 0.02), Math.min(1, c.b + 0.02), 1)
+        return Qt.rgba(Math.min(1, c.r + 0.05), Math.min(1, c.g + 0.06), Math.min(1, c.b + 0.09), 0.98)
+    }
 
     readonly property color onGreen: "#2ee59a"
     readonly property color offRed:  "#FF3D8A"

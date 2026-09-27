@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Light presets stay readable
+
+- Light presets use solid paper fills. The Bar control window is no longer a 75% veil, and text fields follow the theme instead of a fixed dark well.
+
 ## 2026-09 — Top bar and bottom bar
 
 - Options → **Bar** uses the monitor pictures again. Classic and Dual are those buttons.
