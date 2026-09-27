@@ -118,13 +118,23 @@ Item {
         return out
     }
 
+    // Same modifier colors as the Hyprland inspector key pills.
     function keyPillColor(part) {
         const p = (part || "").toUpperCase()
-        if (p === "SUPER" || p === "SUPER_L" || p === "SUPER_R")
-            return Qt.rgba(accentColor.r, accentColor.g, accentColor.b, 0.28)
-        if (p === "SHIFT" || p === "CTRL" || p === "CONTROL" || p === "ALT" || p === "META")
-            return Qt.rgba(0.55, 0.55, 0.65, 0.35)
+        if (p.indexOf("SUPER") !== -1 || p === "WIN" || p === "META")
+            return "#00F0E0"
+        if (p.indexOf("SHIFT") !== -1)
+            return "#f0a86a"
+        if (p.indexOf("CTRL") !== -1 || p.indexOf("CONTROL") !== -1)
+            return "#c084fc"
+        if (p.indexOf("ALT") !== -1)
+            return "#00D4C8"
         return Qt.rgba(1, 1, 1, 0.10)
+    }
+    function keyPillTextColor(part) {
+        const c = keyPillColor(part)
+        return (c === "#00F0E0" || c === "#f0a86a" || c === "#c084fc" || c === "#00D4C8")
+               ? "#000000" : textColor
     }
 
     function refresh() {
@@ -706,7 +716,7 @@ Item {
                                                         id: kTxt
                                                         anchors.centerIn: parent
                                                         text: modelData
-                                                        color: root.textColor
+                                                        color: root.keyPillTextColor(modelData)
                                                         font.pixelSize: 10
                                                         font.family: root.fontMono
                                                         font.bold: true

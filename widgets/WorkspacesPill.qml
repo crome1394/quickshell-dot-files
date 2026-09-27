@@ -544,8 +544,10 @@ Rectangle {
                             void bar.wsSlots
                             void bar.hasWsSlots
                             void bar.wsMinimumShown
-                            if (isSpecial)
-                                return bar.wsIconSpecial
+                            if (isSpecial) {
+                                void bar.wsIconSpecialCustom
+                                return (bar.wsSpecialIcon ? bar.wsSpecialIcon() : bar.wsIconSpecial)
+                            }
                             const id = modelData ? modelData.id : 0
                             if (bar && typeof bar.wsLabelForId === "function")
                                 return bar.wsLabelForId(id)

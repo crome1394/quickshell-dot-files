@@ -2,6 +2,16 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Control bar MIME, display, clock, tooltips
+
+- MIME Applications: clicking a linked file type stays on that tab. **Use as default** and **Associate app** act on the selected type. Defaults the File types tab already shows (including HEIF for COSMIC Viewer) appear in the linked list. Category chips (Images, Audio, Video, Text, Documents) can set one wildcard default.
+- Autostart lists every installed application without a search.
+- Keybind chords use the same modifier colors as the inspector.
+- Workspaces: magic pill icon is editable (Apply saves it).
+- Display resolution chips are grouped by refresh rate.
+- Clock custom format preview sits under the custom field.
+- Options → **Tooltips** is its own tab.
+
 ## 2026-09 — Theme font steppers; Media and Kill Target removed
 
 - Themes → **Fonts**: **‹ ›** cycle each typeface. **− +** change its size (70–150%).

@@ -173,6 +173,20 @@ Item {
             if (typeFilter === "files" && t.isScheme) continue
             if (typeFilter === "links" && !t.isScheme) continue
             if (typeFilter === "defaults" && !t.defaultIsExplicit) continue
+            const tid = String(t.id || "")
+            if (typeFilter === "image" && tid.indexOf("image/") !== 0) continue
+            if (typeFilter === "audio" && tid.indexOf("audio/") !== 0) continue
+            if (typeFilter === "video" && tid.indexOf("video/") !== 0) continue
+            if (typeFilter === "text" && tid.indexOf("text/") !== 0) continue
+            if (typeFilter === "docs") {
+                const doc = tid.indexOf("application/pdf") === 0
+                    || tid.indexOf("application/msword") === 0
+                    || tid.indexOf("application/vnd.oasis") === 0
+                    || tid.indexOf("application/vnd.openxml") === 0
+                    || tid.indexOf("application/rtf") === 0
+                    || tid === "application/epub+zip"
+                if (!doc) continue
+            }
             const blob = [
                 t.comment || "", t.id || "", t.defaultName || "", t.defaultId || "",
                 (t.globs || []).join(" ")
@@ -305,8 +319,111 @@ Item {
         syncHandlerSelection(selectedType())
     }
 
+    property string selectedAppMimeId: ""
+
     function selectApp(id) {
         selectedAppId = id || ""
+        selectedAppMimeId = ""
+    }
+
+    function typeById(id) {
+        for (let i = 0; i < types.length; i++) {
+            if (types[i] && types[i].id === id)
+                return types[i]
+        }
+        return null
+    }
+
+    // Linked types for the selected app, including types this app effectively opens
+    // (same default the File types tab shows) even when mimeapps has no explicit star.
+    function appMimeRows() {
+        void dataVersion
+        void appsVersion
+        void selectedAppId
+        const a = selectedApp()
+        if (!a) return []
+        const seen = {}
+        const rows = []
+        const ms = a.mimes || []
+        for (let i = 0; i < ms.length; i++) {
+            const m = ms[i]
+            if (!m || !m.id) continue
+            const t = typeById(m.id)
+            const effective = !!(t && t.defaultId === a.id)
+            seen[m.id] = true
+            rows.push({
+                id: m.id,
+                comment: (t && t.comment) || m.comment || m.id,
+                globs: (m.globs && m.globs.length) ? m.globs : ((t && t.globs) || []),
+                isDefault: !!(m.isDefault || effective),
+                userAdded: !!m.userAdded,
+                isScheme: !!m.isScheme
+            })
+        }
+        for (let i = 0; i < types.length; i++) {
+            const t = types[i]
+            if (!t || !t.id || !t.defaultId || t.defaultId !== a.id || seen[t.id])
+                continue
+            rows.push({
+                id: t.id,
+                comment: t.comment || t.id,
+                globs: t.globs || [],
+                isDefault: true,
+                userAdded: false,
+                isScheme: !!t.isScheme
+            })
+        }
+        rows.sort(function(x, y) {
+            if (!!x.isDefault !== !!y.isDefault)
+                return x.isDefault ? -1 : 1
+            return String(x.comment || x.id).localeCompare(String(y.comment || y.id))
+        })
+        return rows
+    }
+
+    function selectedAppMime() {
+        const id = selectedAppMimeId
+        if (!id) return null
+        const rows = appMimeRows()
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].id === id)
+                return rows[i]
+        }
+        return null
+    }
+
+    function setSelectedAppMimeDefault() {
+        const a = selectedApp()
+        const m = selectedAppMime()
+        if (!a || !m || acting || setProcess.running) return
+        if (m.isDefault) {
+            lastStatus = "Already the default opener"
+            return
+        }
+        runSetAction("set", m.id, a.id, a.name || a.id, m.comment || m.id)
+    }
+
+    function associateSelectedAppMime() {
+        const m = selectedAppMime()
+        if (!m) return
+        selectedTypeId = m.id
+        syncHandlerSelection(selectedType())
+        openAssociateAppPicker()
+    }
+
+    function categoryWildcard() {
+        if (typeFilter === "image") return "image/*"
+        if (typeFilter === "audio") return "audio/*"
+        if (typeFilter === "video") return "video/*"
+        if (typeFilter === "text") return "text/*"
+        return ""
+    }
+
+    function setCategoryDefault() {
+        const wild = categoryWildcard()
+        const h = selectedHandler()
+        if (!wild || !h || acting || setProcess.running) return
+        runSetAction("set", wild, h.id, h.name || h.id, "all " + wild)
     }
 
     function typeIndexInFilter() {
@@ -1034,7 +1151,12 @@ Item {
                     { id: "all", label: "All" },
                     { id: "files", label: "Files" },
                     { id: "links", label: "Links" },
-                    { id: "defaults", label: "Has default" }
+                    { id: "defaults", label: "Has default" },
+                    { id: "image", label: "Images" },
+                    { id: "audio", label: "Audio" },
+                    { id: "video", label: "Video" },
+                    { id: "text", label: "Text" },
+                    { id: "docs", label: "Documents" }
                 ]
                 delegate: Rectangle {
                     required property var modelData
@@ -1319,6 +1441,38 @@ Item {
                         font.bold: true
                         font.family: root.fontFamily
                         topPadding: 4
+                    }
+                    Rectangle {
+                        visible: root.categoryWildcard().length > 0 && !!root.selectedHandler()
+                        Layout.preferredHeight: 26
+                        Layout.preferredWidth: catDefLbl.implicitWidth + 16
+                        radius: 6
+                        enabled: !root.acting
+                        opacity: enabled ? 1 : 0.5
+                        color: catDefMa.containsMouse
+                               ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.28)
+                               : Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.16)
+                        border.width: 1
+                        border.color: root.accentColor
+                        Text {
+                            id: catDefLbl
+                            anchors.centerIn: parent
+                            text: "Set as default for all " + root.categoryWildcard()
+                            color: root.accentColor
+                            font.pixelSize: 11
+                            font.bold: true
+                            font.family: root.fontFamily
+                        }
+                        MouseArea {
+                            id: catDefMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.setCategoryDefault()
+                            ToolTip.visible: containsMouse
+                            ToolTip.delay: 400
+                            ToolTip.text: "Saves one wildcard default so this app opens every type in the category."
+                        }
                     }
 
                     ListView {
@@ -1610,6 +1764,61 @@ Item {
                                 ToolTip.text: "Link another file type to this app and make it the default opener."
                             }
                         }
+                        Rectangle {
+                            Layout.preferredHeight: 24
+                            Layout.preferredWidth: useDefAppLbl.implicitWidth + 14
+                            radius: 6
+                            enabled: !!root.selectedAppMime() && !root.selectedAppMime().isDefault && !root.acting
+                            opacity: enabled ? 1 : 0.45
+                            color: useDefAppMa.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            border.width: 1
+                            border.color: root.pillBorder
+                            Text {
+                                id: useDefAppLbl
+                                anchors.centerIn: parent
+                                text: "Use as default"
+                                color: root.textColor
+                                font.pixelSize: 11
+                                font.family: root.fontFamily
+                            }
+                            MouseArea {
+                                id: useDefAppMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                enabled: parent.enabled
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: root.setSelectedAppMimeDefault()
+                            }
+                        }
+                        Rectangle {
+                            Layout.preferredHeight: 24
+                            Layout.preferredWidth: assocAppLbl.implicitWidth + 14
+                            radius: 6
+                            enabled: !!root.selectedAppMime() && !root.acting
+                            opacity: enabled ? 1 : 0.45
+                            color: assocAppMa.containsMouse
+                                   ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.28)
+                                   : Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.16)
+                            border.width: 1
+                            border.color: root.accentColor
+                            Text {
+                                id: assocAppLbl
+                                anchors.centerIn: parent
+                                text: "Associate app"
+                                color: root.accentColor
+                                font.pixelSize: 11
+                                font.bold: true
+                                font.family: root.fontFamily
+                            }
+                            MouseArea {
+                                id: assocAppMa
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                enabled: parent.enabled
+                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                onClicked: root.associateSelectedAppMime()
+                            }
+                        }
                     }
 
                     ListView {
@@ -1621,7 +1830,7 @@ Item {
                         clip: true
                         spacing: 2
                         visible: !!parent.a
-                        model: parent.a ? (parent.a.mimes || []) : []
+                        model: root.appMimeRows()
 
                         delegate: Rectangle {
                             id: amRow
@@ -1629,7 +1838,9 @@ Item {
                             width: appMimeList.width
                             height: root.handlerRowH + 8
                             radius: 5
-                            color: amMa.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent"
+                            color: modelData.id === root.selectedAppMimeId
+                                   ? Qt.rgba(root.accentColor.r, root.accentColor.g, root.accentColor.b, 0.16)
+                                   : (amMa.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
 
                             RowLayout {
                                 anchors.fill: parent
@@ -1682,12 +1893,10 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.jumpToType(modelData.id)
+                                onClicked: root.selectedAppMimeId = modelData.id
                                 ToolTip.visible: containsMouse
                                 ToolTip.delay: 400
-                                ToolTip.text: modelData.isDefault
-                                    ? "This app opens this type by default. Click to manage."
-                                    : "This app can open this type, but isn’t the default. Click to change."
+                                ToolTip.text: "Select this type, then Use as default or Associate app. Stays on Applications."
                             }
                         }
 

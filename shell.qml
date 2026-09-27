@@ -226,6 +226,8 @@ ShellRoot {
     property bool wsShowOnlyActive: false
     property int  wsStartupWorkspace: 0   // 0 = do not touch focus (safe for qs reload)
     property bool wsStartupCloseMagic: false
+    // Empty uses Config.wsIconSpecial. Options → Workspaces can override the magic pill glyph.
+    property string wsIconSpecialCustom: ""
     // Ordered default workspace pills: [{ id, label }]. Empty until Options saves a custom set.
     property bool hasWsSlots: false
     property var wsSlots: []
@@ -576,6 +578,7 @@ ShellRoot {
                 property bool wsShowOnlyActive: false
                 property int  wsStartupWorkspace: 0
                 property bool wsStartupCloseMagic: false
+                property string wsIconSpecialCustom: ""
                 property bool hasWsSlots: false
                 property string wsSlotsJson: ""
                 property bool hasStatPrefs: false
@@ -721,6 +724,7 @@ ShellRoot {
                     root.wsShowOnlyActive = barLayoutAdapter.wsShowOnlyActive
                     root.wsStartupWorkspace = Math.max(0, Math.min(10, barLayoutAdapter.wsStartupWorkspace))
                     root.wsStartupCloseMagic = barLayoutAdapter.wsStartupCloseMagic
+                    root.wsIconSpecialCustom = String(barLayoutAdapter.wsIconSpecialCustom || "")
                 }
                 if (barLayoutAdapter.hasWsSlots && barLayoutAdapter.wsSlotsJson
                         && barLayoutAdapter.wsSlotsJson.length > 2) {
@@ -1328,6 +1332,7 @@ ShellRoot {
             barLayoutAdapter.wsShowOnlyActive = root.wsShowOnlyActive
             barLayoutAdapter.wsStartupWorkspace = root.wsStartupWorkspace
             barLayoutAdapter.wsStartupCloseMagic = root.wsStartupCloseMagic
+            barLayoutAdapter.wsIconSpecialCustom = String(root.wsIconSpecialCustom || "")
             barLayoutAdapter.hasWsSlots = !!root.hasWsSlots
             try {
                 barLayoutAdapter.wsSlotsJson = JSON.stringify(root.wsSlots || [])
@@ -2973,6 +2978,15 @@ ShellRoot {
         readonly property alias wsIconDefault: cfg.wsIconDefault
         readonly property alias wsSpecialName: cfg.wsSpecialName
         readonly property alias wsIconSpecial: cfg.wsIconSpecial
+        property alias wsIconSpecialCustom: root.wsIconSpecialCustom
+        function wsSpecialIcon() {
+            const custom = String(root.wsIconSpecialCustom || "").trim()
+            return custom.length ? custom : cfg.wsIconSpecial
+        }
+        function setWsIconSpecial(glyph) {
+            root.wsIconSpecialCustom = String(glyph || "").trim().substring(0, 6)
+            persistBarLayout()
+        }
         readonly property alias wsShowSpecialPill: cfg.wsShowSpecialPill
         // Bound to root so Options / IPC / WorkspacesPill stay in sync
         property alias wsMinimumShown: root.wsMinimumShown

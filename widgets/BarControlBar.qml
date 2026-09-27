@@ -601,7 +601,7 @@ Item {
     function setOptionsTab(tab) {
         const t = String(tab || "bar")
         const allowed = {
-            "bar": 1, "workspaces": 1, "audio": 1, "network": 1,
+            "bar": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
             "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
         }
         root.optionsTab = allowed[t] ? t : "bar"
@@ -1020,6 +1020,8 @@ Item {
     property bool _wsDraftReady: false
     property var wsUndoSnapshot: []
     property bool wsUndoHasSnapshot: false
+    property string wsMagicDraft: ""
+    property string wsMagicUndo: ""
 
     function cloneWsSlots(slots) {
         const out = []
@@ -1048,12 +1050,15 @@ Item {
     function seedWsDraft() {
         const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
         root.wsDraft = root.cloneWsSlots(live)
+        root.wsMagicDraft = String((bar && bar.wsIconSpecialCustom) || "")
         root.wsDraftTick++
     }
     function wsDraftDirty() {
         void root.wsDraftTick
         const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
-        return root.wsSlotsSignature(root.wsDraft) !== root.wsSlotsSignature(live)
+        const slotsDirty = root.wsSlotsSignature(root.wsDraft) !== root.wsSlotsSignature(live)
+        const magicLive = String((bar && bar.wsIconSpecialCustom) || "")
+        return slotsDirty || root.wsMagicDraft !== magicLive
     }
     function ensureWsDraft() {
         if (!root._wsDraftReady || !root.wsDraftDirty())
@@ -1163,7 +1168,10 @@ Item {
             return
         const live = bar.wsSlotsEffective()
         root.wsUndoSnapshot = root.cloneWsSlots(live)
+        root.wsMagicUndo = String(bar.wsIconSpecialCustom || "")
         root.wsUndoHasSnapshot = true
+        if (typeof bar.setWsIconSpecial === "function")
+            bar.setWsIconSpecial(root.wsMagicDraft)
         bar.commitWsSlots(root.wsDraft)
         root.seedWsDraft()
     }
@@ -1174,6 +1182,8 @@ Item {
         }
         if (!root.wsUndoHasSnapshot || !bar || typeof bar.commitWsSlots !== "function")
             return
+        if (typeof bar.setWsIconSpecial === "function")
+            bar.setWsIconSpecial(root.wsMagicUndo)
         bar.commitWsSlots(root.wsUndoSnapshot)
         root.wsUndoHasSnapshot = false
         root.wsUndoSnapshot = []
@@ -1969,7 +1979,8 @@ Item {
         const out = []
         const q = root.desktopAppsQuery && root.desktopAppsQuery.length
         const isAs = root.activeMenu === "autostart"
-        const max = q ? (isAs ? 50 : 80) : (isAs ? 24 : 60)
+        // Autostart lists every installed app; search still narrows the list.
+        const max = isAs ? list.length : (q ? 80 : 60)
         for (let i = 0; i < list.length && out.length < max; i++)
             out.push(list[i])
         return out
@@ -2270,6 +2281,37 @@ Item {
             }
         }
         return out
+    }
+
+    // Chip list grouped by refresh rate, highest Hz first.
+    function displayModeGroups() {
+        void root.displayTick
+        const chips = root.displayAllModeChips()
+        const map = ({})
+        const order = []
+        for (let i = 0; i < chips.length; i++) {
+            const chip = chips[i]
+            const bucket = root.displayRateBucket(chip.rate) || 0
+            const key = String(bucket)
+            if (!map[key]) {
+                map[key] = {
+                    rate: Number(chip.rate) || 0,
+                    title: bucket > 0 ? (root.displayFormatRate(bucket) + " Hz") : "Other",
+                    modes: []
+                }
+                order.push(key)
+            }
+            map[key].modes.push({
+                res: chip.res,
+                rate: chip.rate,
+                label: String(chip.res || "").replace("x", "×")
+            })
+        }
+        order.sort(function(a, b) { return Number(b) - Number(a) })
+        const groups = []
+        for (let i = 0; i < order.length; i++)
+            groups.push(map[order[i]])
+        return groups
     }
 
     function displaySelectMode(res, rate) {
@@ -4707,7 +4749,7 @@ Item {
                                     boundsBehavior: Flickable.StopAtBounds
                                     flickableDirection: Flickable.VerticalFlick
                                     contentWidth: width
-                                    contentHeight: dispResFlow.implicitHeight
+                                    contentHeight: dispResCol.implicitHeight
                                     ScrollBar.vertical: ScrollBar {
                                         policy: dispResFlick.contentHeight > dispResFlick.height + 4 ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
                                         width: 6
@@ -4718,37 +4760,57 @@ Item {
                                             opacity: 0.5
                                         }
                                     }
-                                    Flow {
-                                        id: dispResFlow
+                                    Column {
+                                        id: dispResCol
                                         width: parent.width
-                                        spacing: 6
+                                        spacing: 10
                                         Repeater {
-                                            model: root.displayAllModeChips()
-                                            delegate: Rectangle {
+                                            model: root.displayModeGroups()
+                                            delegate: Column {
                                                 required property var modelData
-                                                readonly property bool selected: root.displayModeChipSelected(modelData.res, modelData.rate)
-                                                width: dispResLbl.implicitWidth + 14
-                                                height: 26
-                                                radius: root.chipR
-                                                color: selected
-                                                       ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
-                                                       : (dispResMa.containsMouse ? bar.glassHover : Qt.rgba(1, 1, 1, 0.04))
-                                                border.width: 1
-                                                border.color: selected ? root.activeLabelColor() : bar.pillBorder
+                                                width: dispResCol.width
+                                                spacing: 6
                                                 Text {
-                                                    id: dispResLbl
-                                                    anchors.centerIn: parent
-                                                    text: modelData.label || ""
-                                                    color: selected ? root.activeLabelColor() : bar.text
+                                                    width: parent.width
+                                                    text: modelData.title || ""
+                                                    color: bar.subtext
                                                     font.pixelSize: 11
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                    font.bold: true
+                                                    font.family: bar.fontFamily
                                                 }
-                                                MouseArea {
-                                                    id: dispResMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.displaySelectMode(modelData.res, modelData.rate)
+                                                Flow {
+                                                    width: parent.width
+                                                    spacing: 6
+                                                    Repeater {
+                                                        model: modelData.modes || []
+                                                        delegate: Rectangle {
+                                                            required property var modelData
+                                                            readonly property bool selected: root.displayModeChipSelected(modelData.res, modelData.rate)
+                                                            width: dispResLbl.implicitWidth + 14
+                                                            height: 26
+                                                            radius: root.chipR
+                                                            color: selected
+                                                                   ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                                   : (dispResMa.containsMouse ? bar.glassHover : Qt.rgba(1, 1, 1, 0.04))
+                                                            border.width: 1
+                                                            border.color: selected ? root.activeLabelColor() : bar.pillBorder
+                                                            Text {
+                                                                id: dispResLbl
+                                                                anchors.centerIn: parent
+                                                                text: modelData.label || ""
+                                                                color: selected ? root.activeLabelColor() : bar.text
+                                                                font.pixelSize: 11
+                                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                            }
+                                                            MouseArea {
+                                                                id: dispResMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.displaySelectMode(modelData.res, modelData.rate)
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -6619,6 +6681,7 @@ Item {
                                     Repeater {
                                         model: [
                                             { id: "bar", label: "Bar" },
+                                            { id: "tooltips", label: "Tooltips" },
                                             { id: "workspaces", label: "Workspaces" },
                                             { id: "audio", label: "Audio" },
                                             { id: "network", label: "Network" },
@@ -6964,6 +7027,135 @@ Item {
                                         }
                                     }
                                 }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Config menu icon on bar"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Gear pill opens this control strip"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.fillHeight: true
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showControlBarPill) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showControlBarPill) ? "✓" : "✕"
+                                                    color: (bar.showControlBarPill) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.setOptToggle("setShowControlBarPill", !bar.showControlBarPill)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Color presets section"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Show built-in / custom presets on the Colors panel"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.fillHeight: true
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showColorPresets !== false) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showColorPresets !== false) ? "✓" : "✕"
+                                                    color: (bar.showColorPresets !== false) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.setOptToggle("setShowColorPresets", !(bar.showColorPresets !== false))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                } // options tab: bar
+                                ColumnLayout {
+                                    visible: root.optionsTab === "tooltips"
+                                    Layout.fillWidth: true
+                                    spacing: 8
                                 Text {
                                     text: "Tooltips"
                                     color: bar.text
@@ -7092,131 +7284,7 @@ Item {
                                         }
                                     }
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Config menu icon on bar"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Gear pill opens this control strip"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.showControlBarPill) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.showControlBarPill) ? "✓" : "✕"
-                                                    color: (bar.showControlBarPill) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setShowControlBarPill", !bar.showControlBarPill)
-                                                }
-                                            }
-                                        }
-                                    }
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Color presets section"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Show built-in / custom presets on the Colors panel"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.showColorPresets !== false) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.showColorPresets !== false) ? "✓" : "✕"
-                                                    color: (bar.showColorPresets !== false) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setShowColorPresets", !(bar.showColorPresets !== false))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                } // options tab: bar
                                 ColumnLayout {
                                     visible: root.optionsTab === "workspaces"
                                     Layout.fillWidth: true
@@ -7286,6 +7354,59 @@ Item {
                                                     cursorShape: Qt.PointingHandCursor
                                                     onClicked: root.setOptToggle("setShowMagicWorkspacePill", !bar.showMagicWorkspacePill)
                                                 }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 0
+                                            Text {
+                                                text: "Magic icon"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                            }
+                                            Text {
+                                                text: "Emoji or short text. Empty uses the built-in icon. Apply saves it."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        TextField {
+                                            Layout.preferredWidth: 72
+                                            Layout.preferredHeight: 30
+                                            horizontalAlignment: Text.AlignHCenter
+                                            text: root.wsMagicDraft
+                                            placeholderText: "🪄"
+                                            color: bar.text
+                                            placeholderTextColor: bar.subtext
+                                            font.pixelSize: 16
+                                            font.family: bar.fontFamily
+                                            background: Rectangle {
+                                                radius: root.chipR
+                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                border.width: 1
+                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                            }
+                                            onEditingFinished: {
+                                                root.wsMagicDraft = text.substring(0, 6)
+                                                root.wsDraftTick++
                                             }
                                         }
                                     }
@@ -13413,14 +13534,6 @@ Item {
                                         Text {
                                             Layout.fillWidth: true
                                             wrapMode: Text.WordWrap
-                                            text: "Preview: " + Qt.formatDateTime(new Date(), String(root.clockFormatDraft || root.currentClockFormat()))
-                                            color: bar.accent
-                                            font.pixelSize: 12
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            wrapMode: Text.WordWrap
                                             text: "Clock face font"
                                             color: bar.text
                                             font.pixelSize: 12
@@ -13668,7 +13781,38 @@ Item {
                                                 }
                                             }
                                         }
-                                    }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: clockPreviewCol.implicitHeight + 20
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.accent
+                                            ColumnLayout {
+                                                id: clockPreviewCol
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.margins: 12
+                                                spacing: 4
+                                                Text {
+                                                    text: "Preview"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                }
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    wrapMode: Text.WordWrap
+                                                    text: Qt.formatDateTime(new Date(), String(root.clockFormatDraft || root.currentClockFormat() || "ddd HH:mm"))
+                                                    color: bar.text
+                                                    font.pixelSize: 28
+                                                    font.bold: true
+                                                    font.family: bar.fontFamily
+                                                }
+                                            }
+                                        }
+                                }
                                 }
                             }
                         }
