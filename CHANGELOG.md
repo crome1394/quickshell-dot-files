@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Application Menu options and light presets
+
+- Options → **App Menu**: icon (empty keeps the 3×3 grid), size 14–36 px, and the command the pill runs. Saved in `bar-layout.json`. The stock drawer still toggles; any other command starts on each press.
+- Themes → **Presets**: **Dark** / **Light**. New dark presets Ink, Cocoa, and Graphite. Light presets Paper, Daylight, Mist, Blossom, Sage, and Porcelain.
+
 ## 2026-09 — Autostart app list fills the panel
 
 - Autostart → **Add installed app** uses the open space under the search field. The list still scrolls when there are more apps than fit.

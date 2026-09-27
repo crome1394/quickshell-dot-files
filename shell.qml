@@ -228,6 +228,11 @@ ShellRoot {
     property bool wsStartupCloseMagic: false
     // Empty uses Config.wsIconSpecial. Options → Workspaces can override the magic pill glyph.
     property string wsIconSpecialCustom: ""
+    // Application Menu pill. Empty icon keeps the drawn 3×3 grid. Icon px 0 uses
+    // Config.iconSizeLauncher. Empty command uses Config.launcherCommand.
+    property string launcherIconCustom: ""
+    property int launcherIconPx: 0
+    property string launcherCommandCustom: ""
     // Ordered default workspace pills: [{ id, label }]. Empty until Options saves a custom set.
     property bool hasWsSlots: false
     property var wsSlots: []
@@ -579,6 +584,10 @@ ShellRoot {
                 property int  wsStartupWorkspace: 0
                 property bool wsStartupCloseMagic: false
                 property string wsIconSpecialCustom: ""
+                property bool hasLauncherPrefs: false
+                property string launcherIconCustom: ""
+                property int launcherIconPx: 0
+                property string launcherCommandCustom: ""
                 property bool hasWsSlots: false
                 property string wsSlotsJson: ""
                 property bool hasStatPrefs: false
@@ -725,6 +734,12 @@ ShellRoot {
                     root.wsStartupWorkspace = Math.max(0, Math.min(10, barLayoutAdapter.wsStartupWorkspace))
                     root.wsStartupCloseMagic = barLayoutAdapter.wsStartupCloseMagic
                     root.wsIconSpecialCustom = String(barLayoutAdapter.wsIconSpecialCustom || "")
+                }
+                if (barLayoutAdapter.hasLauncherPrefs) {
+                    root.launcherIconCustom = String(barLayoutAdapter.launcherIconCustom || "").trim().substring(0, 4)
+                    const lip = Math.round(Number(barLayoutAdapter.launcherIconPx) || 0)
+                    root.launcherIconPx = (lip >= 14 && lip <= 36) ? lip : 0
+                    root.launcherCommandCustom = String(barLayoutAdapter.launcherCommandCustom || "").trim().substring(0, 300)
                 }
                 if (barLayoutAdapter.hasWsSlots && barLayoutAdapter.wsSlotsJson
                         && barLayoutAdapter.wsSlotsJson.length > 2) {
@@ -879,11 +894,16 @@ ShellRoot {
             for (let i = 0; i < builtins.length; i++) {
                 const p = builtins[i]
                 const slug = (p.name || "preset").toLowerCase().replace(/\s+/g, "-")
+                let accent = ""
+                if (p.colors && p.colors.accent && p.colors.accent.hex)
+                    accent = String(p.colors.accent.hex)
                 out.push({
                     id: "builtin:" + slug,
                     name: p.name || slug,
                     builtin: true,
-                    path: ""
+                    path: "",
+                    tone: p.tone === "light" ? "light" : "dark",
+                    accent: accent
                 })
             }
             return out
@@ -1333,6 +1353,10 @@ ShellRoot {
             barLayoutAdapter.wsStartupWorkspace = root.wsStartupWorkspace
             barLayoutAdapter.wsStartupCloseMagic = root.wsStartupCloseMagic
             barLayoutAdapter.wsIconSpecialCustom = String(root.wsIconSpecialCustom || "")
+            barLayoutAdapter.hasLauncherPrefs = true
+            barLayoutAdapter.launcherIconCustom = String(root.launcherIconCustom || "")
+            barLayoutAdapter.launcherIconPx = root.launcherIconPx || 0
+            barLayoutAdapter.launcherCommandCustom = String(root.launcherCommandCustom || "")
             barLayoutAdapter.hasWsSlots = !!root.hasWsSlots
             try {
                 barLayoutAdapter.wsSlotsJson = JSON.stringify(root.wsSlots || [])
@@ -2921,7 +2945,10 @@ ShellRoot {
         readonly property alias iconLauncher: cfg.iconLauncher
         readonly property alias iconHyprInsp: cfg.iconHyprInsp
         readonly property alias iconControlBar: cfg.iconControlBar
-        readonly property alias launcherCommand: cfg.launcherCommand
+        readonly property string launcherCommand: {
+            const custom = String(root.launcherCommandCustom || "").trim()
+            return custom.length ? custom : cfg.launcherCommand
+        }
         readonly property alias launcherTooltip: cfg.launcherTooltip
         property alias iconColor: cfg.iconColor
         property alias audioSpeakerIcon: cfg.audioSpeakerIcon
@@ -2986,6 +3013,39 @@ ShellRoot {
         function setWsIconSpecial(glyph) {
             root.wsIconSpecialCustom = String(glyph || "").trim().substring(0, 6)
             persistBarLayout()
+        }
+        property alias launcherIconCustom: root.launcherIconCustom
+        property alias launcherIconPx: root.launcherIconPx
+        function launcherIconSize() {
+            const n = Number(root.launcherIconPx) || 0
+            if (n >= 14 && n <= 36)
+                return n
+            return cfg.iconSizeLauncher || 26
+        }
+        function setLauncherIcon(glyph) {
+            root.launcherIconCustom = String(glyph || "").trim().substring(0, 4)
+            persistBarLayout()
+        }
+        function stepLauncherIconPx(dir) {
+            const cur = launcherIconSize()
+            const step = dir < 0 ? -2 : 2
+            const next = Math.max(14, Math.min(36, cur + step))
+            root.launcherIconPx = next
+            persistBarLayout()
+        }
+        function resetLauncherIconPx() {
+            root.launcherIconPx = 0
+            persistBarLayout()
+        }
+        function setLauncherCommand(cmd) {
+            let s = String(cmd || "").replace(/[\r\n]/g, "").trim()
+            if (s.length > 300)
+                s = s.substring(0, 300)
+            if (s === String(cfg.launcherCommand || "").trim())
+                s = ""
+            root.launcherCommandCustom = s
+            persistBarLayout()
+            launcherPill._appMenuWatch = 2
         }
         readonly property alias wsShowSpecialPill: cfg.wsShowSpecialPill
         // Bound to root so Options / IPC / WorkspacesPill stay in sync
@@ -3226,7 +3286,7 @@ ShellRoot {
                 id: launcherPill
                 parent: widgetPool
                 visible: root.showLauncherPill
-                Layout.preferredWidth: bar.widgetW("launcher", bar.sp(42))
+                Layout.preferredWidth: Math.max(bar.widgetW("launcher", bar.sp(42)), (bar.launcherIconSize() + bar.sp(16)))
                 Layout.preferredHeight: bar.pillHeight
                 Layout.alignment: Qt.AlignVCenter
                 clip: false
@@ -3253,6 +3313,18 @@ ShellRoot {
                 // Click toggles the drawer (rofi-app-drawer closes it when it is open).
                 property bool appMenuOpen: false
                 property int _appMenuWatch: 0
+                // Stock drawer script exits; rofi is what stays mapped. Any other
+                // command is probed by its own program name.
+                readonly property string probeBin: {
+                    const cmd = String(bar.launcherCommand || "")
+                    if (cmd.indexOf("rofi") >= 0)
+                        return "rofi"
+                    const tok = cmd.trim().split(/\s+/)[0] || ""
+                    const base = tok.split("/").pop()
+                    if (!base || base === "sh" || base === "bash" || base === "env")
+                        return ""
+                    return base.substring(0, 64)
+                }
                 function toggleAppMenu() {
                     launcherDock.jump()
                     Quickshell.execDetached(["sh", "-c", bar.launcherCommand])
@@ -3272,7 +3344,7 @@ ShellRoot {
                 }
                 Io.Process {
                     id: appMenuProbe
-                    command: ["pgrep", "-x", "rofi"]
+                    command: ["pgrep", "-x", launcherPill.probeBin.length ? launcherPill.probeBin : "qs-no-such-launcher"]
                     running: false
                     onExited: (code) => {
                         launcherPill.appMenuOpen = (code === 0)
@@ -3283,7 +3355,8 @@ ShellRoot {
                 // Launch images — nerd-font glyphs keep empty em-square padding.
                 Item {
                     id: launcherGlyph
-                    readonly property int _sz: Math.max(12, Math.round((bar.iconSizeLauncher || 26) * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
+                    readonly property string _glyph: String(root.launcherIconCustom || "").trim()
+                    readonly property int _sz: Math.max(12, Math.round(bar.launcherIconSize() * (bar.widgetScale ? bar.widgetScale("launcher") : 1.0)))
                     readonly property int _gap: Math.max(2, Math.round(_sz * 0.15))
                     readonly property int _cell: Math.max(2, Math.floor((_sz - 2 * _gap) / 3))
                     readonly property color _c: launcherMouse.containsMouse || launcherPill.appMenuOpen
@@ -3295,6 +3368,7 @@ ShellRoot {
                     height: _sz
 
                     Grid {
+                        visible: launcherGlyph._glyph.length === 0
                         anchors.centerIn: parent
                         columns: 3
                         spacing: launcherGlyph._gap
@@ -3308,6 +3382,14 @@ ShellRoot {
                                 Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
                             }
                         }
+                    }
+                    Text {
+                        visible: launcherGlyph._glyph.length > 0
+                        anchors.centerIn: parent
+                        text: launcherGlyph._glyph
+                        color: launcherGlyph._c
+                        font.pixelSize: launcherGlyph._sz
+                        font.family: bar.fontFamily
                     }
                 }
 

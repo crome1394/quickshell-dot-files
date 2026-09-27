@@ -1467,6 +1467,7 @@ QtObject {
         }
         return {
             name: name,
+            tone: "dark",
             version: 1,
             colors: {
                 bg: { hex: _rgbHex(tr, tg, tb), alpha: 1 },
@@ -1570,6 +1571,139 @@ QtObject {
         return _liquidPreset("Liquid aurora", "#34d399", "#818cf8", 0.03, 0.08, 0.09)
     }
 
+    function themePresetInk() {
+        return _liquidPreset("Ink", "#e4c58a", "#d4a0a0", 0.05, 0.045, 0.038)
+    }
+    function themePresetCocoa() {
+        return _liquidPreset("Cocoa", "#e0a36a", "#e8a090", 0.11, 0.07, 0.05)
+    }
+    function themePresetGraphite() {
+        return _liquidPreset("Graphite", "#d6d3d1", "#a8a29e", 0.075, 0.075, 0.082)
+    }
+
+    // Light paper presets. Glass stays mostly opaque so dark text holds up
+    // over a dark wallpaper. Accents are deep enough to read as labels.
+    function _lightPreset(name, accentHex, mutedHex, paperR, paperG, paperB) {
+        var a = accentHex
+        var m = mutedHex
+        var pr = paperR !== undefined ? paperR : 0.96
+        var pg = paperG !== undefined ? paperG : 0.95
+        var pb = paperB !== undefined ? paperB : 0.93
+        var ink = "#1c1917"
+        var body = "#44403c"
+        function paper(alpha, lift) {
+            var L = lift || 0
+            return {
+                hex: _rgbHex(Math.min(1, pr + L), Math.min(1, pg + L), Math.min(1, pb + L)),
+                alpha: alpha
+            }
+        }
+        return {
+            name: name,
+            tone: "light",
+            version: 1,
+            colors: {
+                bg: paper(1, 0),
+                surface: paper(1, -0.03),
+                text: { hex: ink, alpha: 1 },
+                subtext: { hex: body, alpha: 1 },
+                barText: { hex: ink, alpha: 1 },
+                overlay: { hex: "#78716c", alpha: 1 },
+                accent: { hex: a, alpha: 1 },
+                muted: { hex: m, alpha: 1 },
+                todayBg: { hex: a, alpha: 1 },
+                weekday: { hex: m, alpha: 1 },
+                clock: { hex: ink, alpha: 1 },
+                glassBg: paper(0.90, 0),
+                glassBorder: { hex: a, alpha: 0.28 },
+                glassHighlight: { hex: a, alpha: 0.16 },
+                glassPillBg: paper(0.94, 0.015),
+                glassHover: { hex: a, alpha: 0.14 },
+                glassPopupBg: paper(0.96, 0.01),
+                glassPopupBorder: { hex: a, alpha: 0.24 },
+                glassPopupHighlight: { hex: a, alpha: 0.12 },
+                pillBorder: { hex: ink, alpha: 0.10 },
+                iconHoverBg: { hex: a, alpha: 0.16 },
+                buttonBg: paper(0.94, 0.01),
+                controlActiveBg: { hex: a, alpha: 0.20 },
+                popupButtonHoverBg: paper(0.88, -0.02),
+                buttonText: { hex: body, alpha: 1 },
+                buttonTextActive: { hex: a, alpha: 1 },
+                wsActiveBg: { hex: a, alpha: 0.18 },
+                wsActiveText: { hex: ink, alpha: 1 },
+                wsInactiveText: { hex: body, alpha: 1 },
+                audioSpeakerTier1: { hex: "#059669", alpha: 1 },
+                audioSpeakerTier2: { hex: "#d97706", alpha: 1 },
+                audioSpeakerTier3: { hex: "#ea580c", alpha: 1 },
+                audioSpeakerTier4: { hex: "#dc2626", alpha: 1 },
+                audioMicTier1: { hex: "#059669", alpha: 1 },
+                audioMicTier2: { hex: "#d97706", alpha: 1 },
+                audioMicTier3: { hex: "#ea580c", alpha: 1 },
+                audioMicTier4: { hex: "#dc2626", alpha: 1 },
+                iconColor: { hex: ink, alpha: 1 },
+                audioSpeakerIcon: { hex: ink, alpha: 1 },
+                audioMicIcon: { hex: ink, alpha: 1 },
+                statUtilTier1: { hex: "#059669", alpha: 1 },
+                statUtilTier2: { hex: "#d97706", alpha: 1 },
+                statUtilTier3: { hex: "#ea580c", alpha: 1 },
+                statUtilTier4: { hex: "#dc2626", alpha: 1 },
+                statCpuTier1: { hex: "#fca5a5", alpha: 1 },
+                statCpuTier2: { hex: "#dc2626", alpha: 1 },
+                statCpuTier3: { hex: "#b91c1c", alpha: 1 },
+                statCpuTier4: { hex: "#9a3412", alpha: 1 },
+                statMemTier1: { hex: "#5eead4", alpha: 1 },
+                statMemTier2: { hex: "#0e7490", alpha: 1 },
+                statMemTier3: { hex: "#0f766e", alpha: 1 },
+                statMemTier4: { hex: "#155e75", alpha: 1 },
+                statGpuTier1: { hex: "#65a30d", alpha: 1 },
+                statGpuTier2: { hex: "#4d7c0f", alpha: 1 },
+                statGpuTier3: { hex: "#ca8a04", alpha: 1 },
+                statGpuTier4: { hex: "#c2410c", alpha: 1 },
+                statTempCool: { hex: body, alpha: 1 },
+                statTempWarm: { hex: "#b45309", alpha: 1 },
+                statTempHot: { hex: m, alpha: 1 },
+                qlRunningDot: { hex: a, alpha: 1 }
+            },
+            numbers: {
+                audioUtilThreshold1: 25, audioUtilThreshold2: 50, audioUtilThreshold3: 75,
+                audioMicUtilThreshold1: 25, audioMicUtilThreshold2: 50, audioMicUtilThreshold3: 75,
+                statUtilThreshold1: 25, statUtilThreshold2: 50, statUtilThreshold3: 75,
+                statTempWarmAt: 70, statTempHotAt: 85
+            },
+            fonts: {
+                fontFamily: "Symbols Nerd Font, JetBrains Mono Nerd Font, monospace",
+                fontMono: "JetBrains Mono Nerd Font, monospace",
+                fontScale: 1.0,
+                fontMonoScale: 1.0,
+                fontMain: "",
+                fontSecondary: "",
+                fontBar: "",
+                fontMainScale: 1.0,
+                fontSecondaryScale: 1.0,
+                fontBarScale: 1.0
+            }
+        }
+    }
+
+    function themePresetPaper() {
+        return _lightPreset("Paper", "#8a5a2a", "#a15c4a", 0.965, 0.945, 0.905)
+    }
+    function themePresetDaylight() {
+        return _lightPreset("Daylight", "#0369a1", "#b4536a", 0.972, 0.978, 0.988)
+    }
+    function themePresetMist() {
+        return _lightPreset("Mist", "#0f766e", "#9a6b4f", 0.905, 0.935, 0.945)
+    }
+    function themePresetBlossom() {
+        return _lightPreset("Blossom", "#9d3d5a", "#c26b4a", 0.985, 0.962, 0.955)
+    }
+    function themePresetSage() {
+        return _lightPreset("Sage", "#2f6b45", "#a1624a", 0.925, 0.949, 0.922)
+    }
+    function themePresetPorcelain() {
+        return _lightPreset("Porcelain", "#3730a3", "#9d4b6a", 0.969, 0.965, 0.980)
+    }
+
     function themeReset() {
         return themeApply(themeFactoryDefaults())
     }
@@ -1589,7 +1723,16 @@ QtObject {
             themePresetWarmEmber(),
             themePresetDeepOcean(),
             themePresetLavenderDusk(),
-            themePresetForestMoss()
+            themePresetForestMoss(),
+            themePresetInk(),
+            themePresetCocoa(),
+            themePresetGraphite(),
+            themePresetPaper(),
+            themePresetDaylight(),
+            themePresetMist(),
+            themePresetBlossom(),
+            themePresetSage(),
+            themePresetPorcelain()
         ]
     }
 

@@ -106,11 +106,13 @@ The bar clock itself still uses local time, so after a successful region apply i
 
 ## Options panel
 
-Sticky chips under the title: **Bar** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. One section is shown at a time (same controls as before).
+Sticky chips under the title: **Bar** · **App Menu** · **Tooltips** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. One section is shown at a time (same controls as before).
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|
-| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · **Tooltips** (delay + per-widget T/B/L/R) · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
+| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
+| **App Menu** | Pill icon (empty = 3×3 grid) · size 14–36 px · command the pill runs. Stock drawer toggles; any other command starts on each press | `bar-layout.json` |
+| **Tooltips** | Delay · per-widget side (auto / above / below / left / right) | `bar-layout.json` |
 | **Workspaces** | Magic pill · only-active · **default workspace** count, order, icon/text, **emoji font**, and **emoji size** · **Apply** / **Undo** · startup workspace · close magic on start | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
@@ -135,7 +137,7 @@ Title and sub-tabs (**Theming** · **Thresholds** · **Presets**) stay fixed at 
 | **Theming** | Collapsible **Colors** · **Text** · **Special / Effects** (left) and **Opacity** (right). Includes **Running app dot**. **Main text** = menu headers; **Secondary text** = menu body; **Bar widget text** = face labels on the bar |
 | **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU** color ramps; temperature. Color picker appears only while a swatch is open. |
 | **Fonts** | Two columns: **typeface** left · **size %** right. Rows: **UI**, **Monospace**, **Main**, **Secondary**, **Bar widget**. Preview shows all five |
-| **Presets** | Liquid glass family (mint/violet/rose/amber/ice/aurora) + solid/soft/nordic/… — hide from **Options → Color presets section** |
+| **Presets** | **Dark** / **Light**. Dark: liquid family, solid, soft, nordic, ember, ocean, lavender, forest, ink, cocoa, graphite. Light: paper, daylight, mist, blossom, sage, porcelain. Hide the tab from **Options → Color presets section** |
 
 Color picker opens on the **right**. **Undo** reverts theme steps. Fonts, colors, and thresholds save to `state/theme-colors.json`.
 
@@ -146,7 +148,7 @@ Color picker opens on the **right**. **Undo** reverts theme steps. Fonts, colors
 | **Colors** swatches | Bar background, widget background, menu background, border, accent, warning/pink, hover glow, **active button** (selected control-bar tab), **active workspace** (selected workspace pill), top edge shine |
 | **Opacity** sliders | Alpha for glass fills, borders, hover, active button, active workspace, top edge shine |
 | **Text** swatches | **Main** (headers) · **Secondary** (body) · **Bar widget text** (bar face) · button/workspace labels |
-| **Built-in presets** | Liquid glass + liquid variants, Solid dark, Soft grey, Nordic, Ember, Ocean, Lavender, Forest — **cannot be removed** |
+| **Built-in presets** | Dark and light sets (see Presets tab). **Cannot be removed** |
 | **Your presets** | Click to apply; **×** removes a custom preset only (colors/fonts/thresholds) |
 | **Save as preset** | Stores the current **colors** under a name in `~/.config/quickshell/themes/` |
 | **Save setup** | Stores **colors + layout** (dual/classic bars, widget order, dock, pins, Options) in `~/.config/quickshell/profiles/` |

@@ -72,6 +72,8 @@ Item {
     property bool colorsShowImport: false
     // Themes sub-tabs: "theming" | "thresholds" | "fonts" | "presets"
     property string colorsTab: "theming"
+    // Presets tab filter. Does not change the applied theme.
+    property string presetTone: "dark"
     // Collapsible Theming sections (true = expanded)
     property bool themeSecColorsOpen: true
     property bool themeSecTextOpen: true
@@ -601,7 +603,7 @@ Item {
     function setOptionsTab(tab) {
         const t = String(tab || "bar")
         const allowed = {
-            "bar": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
+            "bar": 1, "appmenu": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
             "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
         }
         root.optionsTab = allowed[t] ? t : "bar"
@@ -6681,6 +6683,7 @@ Item {
                                     Repeater {
                                         model: [
                                             { id: "bar", label: "Bar" },
+                                            { id: "appmenu", label: "App Menu" },
                                             { id: "tooltips", label: "Tooltips" },
                                             { id: "workspaces", label: "Workspaces" },
                                             { id: "audio", label: "Audio" },
@@ -7152,6 +7155,294 @@ Item {
                                     }
                                 }
                                 } // options tab: bar
+                                ColumnLayout {
+                                    visible: root.optionsTab === "appmenu"
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        text: "Application Menu"
+                                        color: bar.text
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: "Icon, size, and the command the bar pill runs. Empty icon keeps the 3×3 grid. Empty command restores the app drawer."
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 56
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            Rectangle {
+                                                Layout.preferredWidth: 42
+                                                Layout.preferredHeight: 36
+                                                radius: root.chipR
+                                                color: bar.pillBg
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    visible: String((bar && bar.launcherIconCustom) || "").trim().length > 0
+                                                    text: (bar && bar.launcherIconCustom) || ""
+                                                    color: bar.iconColor !== undefined ? bar.iconColor : bar.subtext
+                                                    font.pixelSize: Math.min(22, bar.launcherIconSize ? bar.launcherIconSize() : 18)
+                                                    font.family: bar.fontFamily
+                                                }
+                                                Grid {
+                                                    visible: String((bar && bar.launcherIconCustom) || "").trim().length === 0
+                                                    anchors.centerIn: parent
+                                                    columns: 3
+                                                    spacing: 2
+                                                    Repeater {
+                                                        model: 9
+                                                        Rectangle {
+                                                            width: 4
+                                                            height: 4
+                                                            radius: 1
+                                                            color: bar.iconColor !== undefined ? bar.iconColor : bar.subtext
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text {
+                                                    text: "Icon"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                }
+                                                Text {
+                                                    text: "Emoji or icon. Clear the field for the grid."
+                                                    color: bar.subtext
+                                                    font.pixelSize: 10
+                                                    font.family: bar.fontFamily
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                            TextField {
+                                                Layout.preferredWidth: 72
+                                                Layout.preferredHeight: 30
+                                                horizontalAlignment: Text.AlignHCenter
+                                                text: (bar && bar.launcherIconCustom) || ""
+                                                placeholderText: "3×3"
+                                                color: bar.text
+                                                placeholderTextColor: bar.subtext
+                                                font.pixelSize: 16
+                                                font.family: bar.fontFamily
+                                                background: Rectangle {
+                                                    radius: root.chipR
+                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                    border.width: 1
+                                                    border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                }
+                                                onPressed: root.armControlFocusGrab()
+                                                onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
+                                                onEditingFinished: {
+                                                    if (bar && typeof bar.setLauncherIcon === "function")
+                                                        bar.setLauncherIcon(text)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 48
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 8
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text {
+                                                    text: "Icon size"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                }
+                                                Text {
+                                                    text: "14–36 px. Reset uses the bar default."
+                                                    color: bar.subtext
+                                                    font.pixelSize: 10
+                                                    font.family: bar.fontFamily
+                                                    elide: Text.ElideRight
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: 28
+                                                Layout.preferredHeight: 28
+                                                radius: 4
+                                                opacity: (bar.launcherIconSize ? bar.launcherIconSize() : 26) <= 14 ? 0.35 : 1
+                                                color: appMenuSizeDownMa.containsMouse ? bar.glassHover : "transparent"
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text { anchors.centerIn: parent; text: "−"; color: bar.subtext; font.pixelSize: 16 }
+                                                MouseArea {
+                                                    id: appMenuSizeDownMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    enabled: (bar.launcherIconSize ? bar.launcherIconSize() : 26) > 14
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.stepLauncherIconPx === "function")
+                                                            bar.stepLauncherIconPx(-1)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                            Text {
+                                                text: (bar.launcherIconSize ? bar.launcherIconSize() : 26) + " px"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                horizontalAlignment: Text.AlignHCenter
+                                                Layout.preferredWidth: 48
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: 28
+                                                Layout.preferredHeight: 28
+                                                radius: 4
+                                                opacity: (bar.launcherIconSize ? bar.launcherIconSize() : 26) >= 36 ? 0.35 : 1
+                                                color: appMenuSizeUpMa.containsMouse ? bar.glassHover : "transparent"
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text { anchors.centerIn: parent; text: "+"; color: bar.subtext; font.pixelSize: 16 }
+                                                MouseArea {
+                                                    id: appMenuSizeUpMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    enabled: (bar.launcherIconSize ? bar.launcherIconSize() : 26) < 36
+                                                    cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.stepLauncherIconPx === "function")
+                                                            bar.stepLauncherIconPx(1)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: appMenuSizeResetLbl.implicitWidth + 14
+                                                Layout.preferredHeight: 28
+                                                radius: root.chipR
+                                                color: appMenuSizeResetMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text {
+                                                    id: appMenuSizeResetLbl
+                                                    anchors.centerIn: parent
+                                                    text: "Reset"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: appMenuSizeResetMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.resetLauncherIconPx === "function")
+                                                            bar.resetLauncherIconPx()
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        text: "Command"
+                                        color: bar.text
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: "Script or program. The stock drawer toggles closed when it is already open. Another command starts each time you press the pill."
+                                        color: bar.subtext
+                                        font.pixelSize: 10
+                                        font.family: bar.fontFamily
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        TextField {
+                                            id: appMenuCmdField
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 32
+                                            text: (bar && bar.launcherCommand) ? bar.launcherCommand : ""
+                                            placeholderText: "~/.local/bin/rofi-app-drawer"
+                                            color: bar.text
+                                            placeholderTextColor: bar.subtext
+                                            font.pixelSize: 12
+                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            background: Rectangle {
+                                                radius: root.chipR
+                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                border.width: 1
+                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                            }
+                                            onPressed: root.armControlFocusGrab()
+                                            onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
+                                            onEditingFinished: {
+                                                if (bar && typeof bar.setLauncherCommand === "function")
+                                                    bar.setLauncherCommand(text)
+                                                root.optionsTick++
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredHeight: 32
+                                            Layout.preferredWidth: appMenuCmdApplyLbl.implicitWidth + 16
+                                            radius: root.chipR
+                                            color: appMenuCmdApplyMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: appMenuCmdApplyMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: appMenuCmdApplyLbl
+                                                anchors.centerIn: parent
+                                                text: "Apply"
+                                                color: appMenuCmdApplyMa.containsMouse ? bar.accent : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: appMenuCmdApplyMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (bar && typeof bar.setLauncherCommand === "function")
+                                                        bar.setLauncherCommand(appMenuCmdField.text)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 ColumnLayout {
                                     visible: root.optionsTab === "tooltips"
                                     Layout.fillWidth: true
@@ -12966,10 +13257,49 @@ Item {
                                     Text {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Always available — these cannot be removed."
+                                        text: "Dark or light. Built-ins stay in the list and cannot be removed."
                                         color: bar.subtext
                                         font.pixelSize: 11
                                         font.family: bar.fontFamily
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Repeater {
+                                            model: [
+                                                { id: "dark", label: "Dark" },
+                                                { id: "light", label: "Light" }
+                                            ]
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property bool active: root.presetTone === modelData.id
+                                                Layout.preferredHeight: 26
+                                                Layout.preferredWidth: Math.max(72, toneLbl.implicitWidth + 18)
+                                                radius: root.chipR
+                                                color: root.chipBg(active, toneMa.containsMouse)
+                                                border.width: 1
+                                                border.color: root.chipBorder(active, toneMa.containsMouse)
+                                                Text {
+                                                    id: toneLbl
+                                                    anchors.centerIn: parent
+                                                    text: modelData.label
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                    font.bold: active
+                                                    color: root.chipText(active, toneMa.containsMouse)
+                                                }
+                                                MouseArea {
+                                                    id: toneMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        root.presetTone = modelData.id
+                                                        root.colorsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     Flow {
                                         Layout.fillWidth: true
@@ -12977,25 +13307,44 @@ Item {
                                         Repeater {
                                             model: {
                                                 void root.colorsTick
-                                                if (bar && typeof bar.themeBuiltinList === "function")
-                                                    return bar.themeBuiltinList()
-                                                return []
+                                                void root.presetTone
+                                                if (!(bar && typeof bar.themeBuiltinList === "function"))
+                                                    return []
+                                                const tone = root.presetTone === "light" ? "light" : "dark"
+                                                const all = bar.themeBuiltinList()
+                                                const out = []
+                                                for (let i = 0; i < all.length; i++) {
+                                                    const p = all[i]
+                                                    if ((p.tone || "dark") === tone)
+                                                        out.push(p)
+                                                }
+                                                return out
                                             }
                                             delegate: Rectangle {
                                                 required property var modelData
-                                                width: Math.max(88, presetLbl.implicitWidth + 14)
+                                                width: Math.max(88, presetLbl.implicitWidth + 28)
                                                 height: 26
                                                 radius: root.chipR
                                                 color: presetMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
                                                 border.width: 1
                                                 border.color: bar.pillBorder
-                                                Text {
-                                                    id: presetLbl
+                                                Row {
                                                     anchors.centerIn: parent
-                                                    text: modelData.name || modelData.id
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontFamily
+                                                    spacing: 6
+                                                    Rectangle {
+                                                        width: 8
+                                                        height: 8
+                                                        radius: 4
+                                                        y: Math.max(0, (presetLbl.height - height) / 2)
+                                                        color: modelData.accent || bar.accent
+                                                    }
+                                                    Text {
+                                                        id: presetLbl
+                                                        text: modelData.name || modelData.id
+                                                        color: bar.subtext
+                                                        font.pixelSize: 11
+                                                        font.family: bar.fontFamily
+                                                    }
                                                 }
                                                 MouseArea {
                                                     id: presetMa
