@@ -106,7 +106,7 @@ The bar clock itself still uses local time, so after a successful region apply i
 
 ## Options panel
 
-Sticky chips under the title: **Bar** · **App Menu** · **Tooltips** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. One section is shown at a time. A chip hides while its widget is off on the Widgets tab; the saved settings stay. **Bar**, **Tooltips** (the delay), and **Screensaver** stay. **Dock** hides only when every icon pill is off. The same switch hides the **App Launcher** and **Audio** tabs, the **Clock** format tab (Region stays), that widget's tooltip row, and the audio or stats blocks under Themes → Thresholds.
+Sticky chips under the title: **Bar** · **App Menu** · **Tooltips** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. Position (Classic / Dual, edge, span, and size) lives on **Bar**. One section is shown at a time. A chip hides while its widget is off on the Widgets tab; the saved settings stay. **Bar**, **Tooltips** (the delay), and **Screensaver** stay. **Dock** hides only when every icon pill is off. The same switch hides the **App Launcher** and **Audio** tabs, the **Clock** format tab (Region stays), that widget's tooltip row, and the audio or stats blocks under Themes → Thresholds.
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|

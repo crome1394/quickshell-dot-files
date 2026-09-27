@@ -2,6 +2,13 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Audio view, bar layout, tooltips
+
+- Options → **Audio**: default pill view is **Speaker**, **Microphone**, or **Both**. It is saved and restored. Right-click still cycles it.
+- **Position** is now Options → **Bar**: Classic / Dual, top or bottom, bar size, panel size, and separate **spans the monitor** switches for the bar and the bottom panel.
+- Options → **App Menu**: **Apply** saves the icon, size, and command. **Undo** drops unapplied edits, or reverts the last Apply.
+- Hover tips use a layer window. The old popup's parent binding loop kept them from opening.
+
 ## 2026-09 — Settings follow the widget switches
 
 - Turning a widget off hides its settings and leaves the saved values in place. That covers Options (App Menu, Workspaces, Audio, Network, Bluetooth, Stats, FreshRSS, and Dock when every icon pill is off), the matching tooltip rows, the App Launcher and Audio tabs, the Clock format tab, and the audio/stats theme thresholds. The Widgets switches stay so the pill can be turned back on.

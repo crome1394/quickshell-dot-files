@@ -1,13 +1,9 @@
 import QtQuick
-import QtQuick.Controls
+import Quickshell
 
-// =============================================================================
-// BarToolTip.qml — hover tip that sits outside the anchor and never covers it
-// =============================================================================
-// Default: below a top bar, above a bottom bar (dual uses the pill's edge).
-// Optional preferSide / widgetId override: "above" | "below" | "left" | "right".
-// Implemented as a click-through Popup so clipped pills still show the tip.
-// =============================================================================
+// Hover tip outside the pill. A Qt Popup parented to Overlay.overlay looped
+// on `parent` and never opened. PopupWindow is a real layer, so the bar mask
+// does not clip it.
 
 Item {
     id: root
@@ -21,7 +17,6 @@ Item {
     property int timeout: 4500
     property int padding: 8
 
-    // Zero-size host so we never steal clicks on the icon
     width: 0
     height: 0
     z: 80
@@ -35,6 +30,7 @@ Item {
         onTriggered: {
             root._show = true
             hideTimer.restart()
+            Qt.callLater(root.placeTip)
         }
     }
     Timer {
@@ -56,6 +52,7 @@ Item {
             if (root.delay <= 0) {
                 root._show = true
                 hideTimer.restart()
+                Qt.callLater(root.placeTip)
             } else {
                 root._show = false
                 showTimer.restart()
@@ -86,70 +83,73 @@ Item {
         return (edge === "bottom") ? "above" : "below"
     }
 
-    Popup {
-        id: pop
-        padding: root.padding
-        modal: false
-        focus: false
-        dim: false
-        enabled: false
-        closePolicy: Popup.NoAutoClose
-        visible: root.visible && root._show && String(root.text || "").length > 0
-        parent: (typeof Overlay !== "undefined" && Overlay.overlay) ? Overlay.overlay : root
-
-        function place() {
-            const anc = root.anchorItem
-            if (!anc || !visible)
-                return
-            let pos = { x: 0, y: 0 }
-            try {
-                pos = anc.mapToItem(pop.parent, 0, 0)
-            } catch (e) {
-                pos = { x: 0, y: 0 }
-            }
-            const gap = 6
-            const w = Math.max(pop.width, pop.implicitWidth)
-            const h = Math.max(pop.height, pop.implicitHeight)
-            const side = root.resolvedSide()
-            if (side === "left") {
-                x = pos.x - w - gap
-                y = pos.y + (anc.height - h) / 2
-            } else if (side === "right") {
-                x = pos.x + anc.width + gap
-                y = pos.y + (anc.height - h) / 2
-            } else if (side === "above") {
-                x = pos.x + (anc.width - w) / 2
-                y = pos.y - h - gap
-            } else {
-                x = pos.x + (anc.width - w) / 2
-                y = pos.y + anc.height + gap
-            }
+    function placeTip() {
+        if (!pop.visible || !bar || !root.anchorItem)
+            return
+        if (typeof bar.placePopup !== "function")
+            return
+        const w = Math.max(pop.implicitWidth, tipLabel.implicitWidth + root.padding * 2)
+        const h = Math.max(pop.implicitHeight, tipLabel.implicitHeight + root.padding * 2)
+        const side = root.resolvedSide()
+        const anc = root.anchorItem
+        if (side === "above" || side === "below") {
+            bar.placePopup(pop, anc, w, h, 6, anc.width / 2)
+            return
         }
+        bar.placePopup(pop, anc, w, h, 6, anc.width / 2)
+        let originX = 0
+        try {
+            const chrome = bar.chromeForItem(anc)
+            const pos = anc.mapToItem(chrome, 0, 0)
+            originX = (chrome ? chrome.x : 0) + pos.x
+        } catch (e) {
+            originX = pop.anchor.rect.x
+        }
+        if (side === "left")
+            pop.anchor.rect.x = Math.max(8, originX - w - 6)
+        else
+            pop.anchor.rect.x = originX + anc.width + 6
+    }
 
-        onWidthChanged: place()
-        onHeightChanged: place()
+    PopupWindow {
+        id: pop
+        anchor.window: bar
+        anchor.rect.width: 1
+        anchor.rect.height: 1
+        implicitWidth: tipLabel.implicitWidth + root.padding * 2
+        implicitHeight: tipLabel.implicitHeight + root.padding * 2
+        visible: root.visible && root._show && String(root.text || "").length > 0
+        color: "transparent"
+        grabFocus: false
+
         onVisibleChanged: {
             if (visible)
-                Qt.callLater(place)
+                Qt.callLater(root.placeTip)
         }
+        onImplicitWidthChanged: if (visible) root.placeTip()
+        onImplicitHeightChanged: if (visible) root.placeTip()
 
-        background: Rectangle {
+        Rectangle {
+            anchors.fill: parent
             radius: 6
             color: (bar && bar.glassPopupBg !== undefined)
                    ? bar.glassPopupBg
                    : Qt.rgba(0.06, 0.08, 0.12, 0.96)
             border.width: 1
             border.color: (bar && bar.glassPopupBorder !== undefined)
-                          ? bar.glassPopupBorder
-                          : Qt.rgba(1, 1, 1, 0.12)
-        }
-        contentItem: Text {
-            text: root.text
-            font.pixelSize: (bar && bar.fontTiny !== undefined) ? bar.fontTiny : 11
-            font.family: (bar && bar.fontFamily) ? bar.fontFamily : font.family
-            color: (bar && bar.text !== undefined) ? bar.text : "#f0f4fc"
-            wrapMode: Text.WordWrap
-            width: Math.min(implicitWidth, 280)
+                           ? bar.glassPopupBorder
+                           : Qt.rgba(1, 1, 1, 0.12)
+            Text {
+                id: tipLabel
+                anchors.fill: parent
+                anchors.margins: root.padding
+                text: root.text
+                font.pixelSize: (bar && bar.fontTiny !== undefined) ? bar.fontTiny : 11
+                font.family: (bar && bar.fontFamily) ? bar.fontFamily : font.family
+                color: (bar && bar.text !== undefined) ? bar.text : "#f0f4fc"
+                wrapMode: Text.WordWrap
+                width: Math.min(implicitWidth, 280)
+            }
         }
     }
 }

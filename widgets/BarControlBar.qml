@@ -478,12 +478,67 @@ Item {
     }
 
     property string layoutModeDraft: ""
+    property string appMenuIconDraft: ""
+    property int appMenuPxDraft: 0
+    property string appMenuCmdDraft: ""
+    property string appMenuUndoIcon: ""
+    property int appMenuUndoPx: 0
+    property string appMenuUndoCmd: ""
+    property bool appMenuHasUndo: false
     function layoutModeChoice() {
         const d = String(root.layoutModeDraft || "")
         if (d === "classic" || d === "dual")
             return d
         return (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
     }
+    function seedAppMenuDraft() {
+        root.appMenuIconDraft = String((bar && bar.launcherIconCustom) || "")
+        root.appMenuPxDraft = (bar && Number(bar.launcherIconPx) > 0) ? Number(bar.launcherIconPx) : 0
+        root.appMenuCmdDraft = String((bar && bar.launcherCommand) || "")
+    }
+    function appMenuDirty() {
+        const icon = String((bar && bar.launcherIconCustom) || "")
+        const px = (bar && Number(bar.launcherIconPx) > 0) ? Number(bar.launcherIconPx) : 0
+        const cmd = String((bar && bar.launcherCommand) || "")
+        return root.appMenuIconDraft !== icon || root.appMenuPxDraft !== px || root.appMenuCmdDraft !== cmd
+    }
+    function appMenuPreviewPx() {
+        const n = Number(root.appMenuPxDraft) || 0
+        if (n >= 14 && n <= 36)
+            return n
+        return (bar && bar.launcherIconSize) ? bar.launcherIconSize() : 26
+    }
+    function applyAppMenuDraft() {
+        if (!bar || typeof bar.setLauncherIcon !== "function")
+            return
+        root.appMenuUndoIcon = String(bar.launcherIconCustom || "")
+        root.appMenuUndoPx = Number(bar.launcherIconPx) || 0
+        root.appMenuUndoCmd = String(bar.launcherCommandCustom || "")
+        root.appMenuHasUndo = true
+        if (typeof bar.setLauncherPrefs === "function")
+            bar.setLauncherPrefs(root.appMenuIconDraft, root.appMenuPxDraft, root.appMenuCmdDraft)
+        else {
+            bar.setLauncherIcon(root.appMenuIconDraft)
+            if (typeof bar.setLauncherCommand === "function")
+                bar.setLauncherCommand(root.appMenuCmdDraft)
+        }
+        root.seedAppMenuDraft()
+        root.optionsTick++
+    }
+    function undoAppMenuDraft() {
+        if (root.appMenuDirty()) {
+            root.seedAppMenuDraft()
+            root.optionsTick++
+            return
+        }
+        if (!root.appMenuHasUndo || !bar || typeof bar.setLauncherPrefs !== "function")
+            return
+        bar.setLauncherPrefs(root.appMenuUndoIcon, root.appMenuUndoPx, root.appMenuUndoCmd)
+        root.appMenuHasUndo = false
+        root.seedAppMenuDraft()
+        root.optionsTick++
+    }
+
     function layoutModeDirty() {
         const live = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
         return root.layoutModeChoice() !== live
@@ -499,9 +554,11 @@ Item {
 
     function show() {
         root.menuTick++
-        if (!root.activeMenu.length)
-            root.activeMenu = "position"
-        if (root.activeMenu === "position")
+        if (!root.activeMenu.length || root.activeMenu === "position") {
+            root.activeMenu = "options"
+            root.setOptionsTab("bar")
+        }
+        if (root.optionsTab === "bar")
             root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
         if (root.open) {
             try {
@@ -521,7 +578,7 @@ Item {
         Qt.callLater(function() {
             root._remapHold = false
             if (!root.activeMenu.length)
-                root.activeMenu = menu.length ? menu : "position"
+                root.activeMenu = menu.length && menu !== "position" ? menu : "options"
             controlPopup.visible = true
             root.scheduleReposition()
             try {
@@ -574,12 +631,16 @@ Item {
         // Sizes was merged into Widgets
         if (name === "sizes")
             name = "widgets"
+        if (name === "position") {
+            name = "options"
+            root.setOptionsTab("bar")
+        }
         root.closeWallpaperUi()
         if (root.activeMenu === name)
             root.activeMenu = ""
         else
             root.activeMenu = name
-        if (root.activeMenu === "position")
+        if (root.activeMenu === "options" && root.optionsTab === "bar")
             root.layoutModeDraft = (bar && bar.barLayoutMode === "dual") ? "dual" : "classic"
         if (root.activeMenu === "options" || root.activeMenu === "launch"
                 || root.activeMenu === "audio" || root.activeMenu === "clock"
@@ -684,7 +745,6 @@ Item {
     // Bottom-bar pages and theme groups that belong to one widget.
     function controlTabModel() {
         const all = [
-            { id: "position",  label: "Position" },
             { id: "display",   label: "Display" },
             { id: "wallpaper", label: "Wallpaper" },
             { id: "widgets",   label: "Widgets" },
@@ -731,6 +791,8 @@ Item {
         let next = allowed[t] ? t : "bar"
         if (!root.optionsSectionVisible(next))
             next = "bar"
+        if (next === "appmenu" && root.optionsTab !== "appmenu")
+            root.seedAppMenuDraft()
         root.optionsTab = next
         if (root.optionsTab === "workspaces") {
             root.refreshSystemFonts()
@@ -3888,466 +3950,6 @@ Item {
                             height: panelFlick.height
                             spacing: 6
 
-                            // ===== POSITION =====
-                            ColumnLayout {
-                                visible: root.activeMenu === "position"
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 10
-
-                                Text {
-                                    text: "Bar position"
-                                    color: bar.text
-                                    font.pixelSize: bar.popupTitleSize
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-                                Text {
-                                    text: (bar.barLayoutMode === "dual")
-                                          ? "Dual layout uses a centered bar on both edges. Switch to Classic for a single bar."
-                                          : "Pin the status bar to the top or bottom edge"
-                                    color: bar.subtext
-                                    font.pixelSize: bar.popupHintSize
-                                    font.family: bar.fontFamily
-                                    wrapMode: Text.WordWrap
-                                    Layout.fillWidth: true
-                                }
-
-                                Text {
-                                    text: "Layout"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "Select a layout, then Apply. Classic is one bar; Dual is a thin top bar and a bottom bar."
-                                    color: bar.subtext
-                                    font.pixelSize: 10
-                                    font.family: bar.fontFamily
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 168
-                                    Layout.minimumHeight: 168
-                                    spacing: 12
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        radius: root.chipR
-                                        color: (root.layoutModeChoice() === "classic")
-                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
-                                               : (modeClassicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: bar.controlBorderWidth
-                                        border.color: (root.layoutModeChoice() === "classic") ? root.activeLabelColor() : bar.pillBorder
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 12
-                                            spacing: 8
-                                            MonitorLayoutPreview {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                mode: "classic"
-                                                selected: root.layoutModeChoice() === "classic"
-                                                barColor: bar.accent
-                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
-                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                text: "Classic"
-                                                font.pixelSize: 13
-                                                font.bold: root.layoutModeChoice() === "classic"
-                                                font.family: bar.fontFamily
-                                                color: root.layoutModeChoice() === "classic" ? root.activeLabelColor() : bar.text
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                text: "One bar · L / C / R"
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                color: bar.subtext
-                                            }
-                                        }
-                                        MouseArea {
-                                            id: modeClassicMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                root.layoutModeDraft = "classic"
-                                                root.menuTick++
-                                            }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        radius: root.chipR
-                                        color: (root.layoutModeChoice() === "dual")
-                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
-                                               : (modeDualMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: bar.controlBorderWidth
-                                        border.color: (root.layoutModeChoice() === "dual") ? root.activeLabelColor() : bar.pillBorder
-                                        ColumnLayout {
-                                            anchors.fill: parent
-                                            anchors.margins: 12
-                                            spacing: 8
-                                            MonitorLayoutPreview {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                mode: "dual"
-                                                selected: root.layoutModeChoice() === "dual"
-                                                barColor: bar.accent
-                                                bezelColor: Qt.darker(bar.pillBg, 1.15)
-                                                screenColor: Qt.rgba(0.06, 0.08, 0.12, 1)
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                text: "Dual"
-                                                font.pixelSize: 13
-                                                font.bold: root.layoutModeChoice() === "dual"
-                                                font.family: bar.fontFamily
-                                                color: root.layoutModeChoice() === "dual" ? root.activeLabelColor() : bar.text
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignHCenter
-                                                text: "Top + bottom · centered"
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                color: bar.subtext
-                                            }
-                                        }
-                                        MouseArea {
-                                            id: modeDualMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                root.layoutModeDraft = "dual"
-                                                root.menuTick++
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    visible: root.layoutModeChoice() !== "dual"
-                                    text: "Edge"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-
-                                RowLayout {
-                                    visible: root.layoutModeChoice() !== "dual"
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 52
-                                    Layout.minimumHeight: 52
-                                    spacing: 8
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.preferredHeight: 52
-                                        Layout.minimumHeight: 52
-                                        radius: root.chipR
-                                        color: (bar.barPosition === "top")
-                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
-                                               : (posTopMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: bar.controlBorderWidth
-                                        border.color: (bar.barPosition === "top") ? root.activeLabelColor() : bar.pillBorder
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 12
-                                            anchors.rightMargin: 12
-                                            anchors.topMargin: 10
-                                            anchors.bottomMargin: 10
-                                            spacing: 8
-                                            Text {
-                                                Layout.alignment: Qt.AlignVCenter
-                                                text: bar.barPositionIconTop
-                                                font.pixelSize: bar.iconSizePill
-                                                font.family: bar.fontFamily
-                                                color: bar.barPosition === "top" ? root.activeLabelColor() : bar.subtext
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignVCenter
-                                                text: "Top"
-                                                font.pixelSize: 13
-                                                font.bold: bar.barPosition === "top"
-                                                font.family: bar.fontFamily
-                                                color: bar.barPosition === "top" ? root.activeLabelColor() : bar.text
-                                            }
-                                            Item { Layout.fillWidth: true }
-                                        }
-                                        MouseArea {
-                                            id: posTopMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.setBarPosition === "function")
-                                                    bar.setBarPosition("top")
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.preferredHeight: 52
-                                        Layout.minimumHeight: 52
-                                        radius: root.chipR
-                                        color: (bar.barPosition === "bottom")
-                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
-                                               : (posBotMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
-                                        border.width: bar.controlBorderWidth
-                                        border.color: (bar.barPosition === "bottom") ? root.activeLabelColor() : bar.pillBorder
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 12
-                                            anchors.rightMargin: 12
-                                            anchors.topMargin: 10
-                                            anchors.bottomMargin: 10
-                                            spacing: 8
-                                            Text {
-                                                Layout.alignment: Qt.AlignVCenter
-                                                text: bar.barPositionIconBottom
-                                                font.pixelSize: bar.iconSizePill
-                                                font.family: bar.fontFamily
-                                                color: bar.barPosition === "bottom" ? root.activeLabelColor() : bar.subtext
-                                            }
-                                            Text {
-                                                Layout.alignment: Qt.AlignVCenter
-                                                text: "Bottom"
-                                                font.pixelSize: 13
-                                                font.bold: bar.barPosition === "bottom"
-                                                font.family: bar.fontFamily
-                                                color: bar.barPosition === "bottom" ? root.activeLabelColor() : bar.text
-                                            }
-                                            Item { Layout.fillWidth: true }
-                                        }
-                                        MouseArea {
-                                            id: posBotMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.setBarPosition === "function")
-                                                    bar.setBarPosition("bottom")
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Text {
-                                    text: "Inset & size"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 48
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        anchors.topMargin: 6
-                                        anchors.bottomMargin: 6
-                                        spacing: 2
-                                        Text {
-                                            text: "Gap from edge"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
-                                            Layout.fillWidth: true
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 0
-                                            to: 48
-                                            stepSize: 2
-                                            suffix: "px"
-                                            value: root.optBarEdgeMargin()
-                                            onValueEdited: (v) => {
-                                                if (typeof bar.setBarEdgeMargin === "function")
-                                                    bar.setBarEdgeMargin(Math.round(v))
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                            onValueCommitted: (v) => {
-                                                if (typeof bar.setBarEdgeMargin === "function")
-                                                    bar.setBarEdgeMargin(Math.round(v))
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Flush windows to bar"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Close the gap between tiled windows and the bar"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.flushWindowsToBar === true) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.flushWindowsToBar === true) ? "✓" : "✕"
-                                                    color: (bar.flushWindowsToBar === true) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        root.setOptToggle("setFlushWindowsToBar", !(bar.flushWindowsToBar === true))
-                                                        Qt.callLater(root.reposition)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 48
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        anchors.topMargin: 6
-                                        anchors.bottomMargin: 6
-                                        spacing: 2
-                                        Text {
-                                            text: "Bar size"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
-                                            Layout.fillWidth: true
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 80
-                                            to: 140
-                                            stepSize: 5
-                                            suffix: "%"
-                                            value: root.optBarSizePct()
-                                            onValueEdited: (v) => {
-                                                if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(v) / 100)
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                            onValueCommitted: (v) => {
-                                                if (typeof bar.setBarSizeScale === "function")
-                                                    bar.setBarSizeScale(Math.round(v) / 100)
-                                            }
-                                        }
-                                    }
-                                }
-
-                                Item { Layout.fillHeight: true }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Item { Layout.fillWidth: true }
-                                    Rectangle {
-                                        Layout.preferredHeight: 32
-                                        Layout.preferredWidth: Math.max(88, applyLayoutLbl.implicitWidth + 20)
-                                        radius: root.chipR
-                                        enabled: root.layoutModeDirty()
-                                        opacity: enabled ? 1 : 0.45
-                                        color: enabled
-                                               ? (applyLayoutMa.containsMouse
-                                                  ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.28))
-                                                  : Qt.rgba(0, 0.77, 0.96, 0.18))
-                                               : Qt.rgba(0.12, 0.12, 0.14, 0.55)
-                                        border.width: 1
-                                        border.color: enabled ? root.activeLabelColor() : bar.dividerStrong
-                                        Text {
-                                            id: applyLayoutLbl
-                                            anchors.centerIn: parent
-                                            text: "Apply"
-                                            color: parent.enabled ? root.activeLabelColor() : bar.overlay
-                                            font.pixelSize: 12
-                                            font.bold: parent.enabled
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: applyLayoutMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            enabled: parent.enabled
-                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: root.applyLayoutModeDraft()
-                                        }
-                                    }
-                                }
-                            }
 
                             // ===== DISPLAY (resolution / refresh / bit depth / GPU) =====
                             ColumnLayout {
@@ -6890,6 +6492,282 @@ Item {
                                     font.bold: true
                                     font.family: bar.fontFamily
                                 }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Layout, edge, and size. The bar is the top strip (or the only strip in Classic). The panel is the bottom strip in Dual."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 36
+                                        radius: root.chipR
+                                        color: (root.layoutModeChoice() === "classic")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (barModeClassicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                        border.width: 1
+                                        border.color: (root.layoutModeChoice() === "classic") ? bar.accent : bar.pillBorder
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "Classic"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.bold: root.layoutModeChoice() === "classic"
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: barModeClassicMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: { root.layoutModeDraft = "classic"; root.menuTick++ }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 36
+                                        radius: root.chipR
+                                        color: (root.layoutModeChoice() === "dual")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (barModeDualMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                        border.width: 1
+                                        border.color: (root.layoutModeChoice() === "dual") ? bar.accent : bar.pillBorder
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: "Dual"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.bold: root.layoutModeChoice() === "dual"
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: barModeDualMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: { root.layoutModeDraft = "dual"; root.menuTick++ }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 36
+                                        Layout.preferredWidth: barLayoutApplyLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        enabled: root.layoutModeDirty()
+                                        opacity: enabled ? 1 : 0.45
+                                        color: barLayoutApplyMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: enabled ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: barLayoutApplyLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: enabled ? bar.accent : bar.subtext
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: barLayoutApplyMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            enabled: parent.enabled
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.applyLayoutModeDraft()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    visible: root.layoutModeChoice() !== "dual"
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 32
+                                        radius: root.chipR
+                                        color: (bar.barPosition !== "bottom")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (barEdgeTopMa.containsMouse ? bar.glassHover : "transparent")
+                                        border.width: 1
+                                        border.color: (bar.barPosition !== "bottom") ? bar.accent : bar.pillBorder
+                                        Text { anchors.centerIn: parent; text: "Top"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                        MouseArea {
+                                            id: barEdgeTopMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.setBarPosition === "function")
+                                                    bar.setBarPosition("top")
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 32
+                                        radius: root.chipR
+                                        color: (bar.barPosition === "bottom")
+                                               ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                               : (barEdgeBotMa.containsMouse ? bar.glassHover : "transparent")
+                                        border.width: 1
+                                        border.color: (bar.barPosition === "bottom") ? bar.accent : bar.pillBorder
+                                        Text { anchors.centerIn: parent; text: "Bottom"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                        MouseArea {
+                                            id: barEdgeBotMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: {
+                                                if (typeof bar.setBarPosition === "function")
+                                                    bar.setBarPosition("bottom")
+                                                Qt.callLater(root.reposition)
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 0
+                                            Text { text: "Bar spans the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                            Text {
+                                                text: "Full width. Off, a Dual top bar hugs its widgets."
+                                                color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                elide: Text.ElideRight; Layout.fillWidth: true
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: root.optToggleW
+                                            Layout.preferredHeight: root.optToggleH
+                                            Layout.alignment: Qt.AlignVCenter
+                                            radius: 4
+                                            border.width: 1
+                                            border.color: (bar.barSpanFull === true) ? root.onGreen : root.offRed
+                                            color: "transparent"
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: (bar.barSpanFull === true) ? "✓" : "✕"
+                                                color: (bar.barSpanFull === true) ? root.onGreen : root.offRed
+                                                font.pixelSize: 14; font.bold: true
+                                            }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setBarSpanFull === "function")
+                                                        bar.setBarSpanFull(!(bar.barSpanFull === true))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 0
+                                            Text { text: "Panel spans the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                            Text {
+                                                text: "Bottom strip in Dual. Off hugs its widgets."
+                                                color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                elide: Text.ElideRight; Layout.fillWidth: true
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.preferredWidth: root.optToggleW
+                                            Layout.preferredHeight: root.optToggleH
+                                            Layout.alignment: Qt.AlignVCenter
+                                            radius: 4
+                                            border.width: 1
+                                            border.color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
+                                            color: "transparent"
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: (bar.panelSpanFull === true) ? "✓" : "✕"
+                                                color: (bar.panelSpanFull === true) ? root.onGreen : root.offRed
+                                                font.pixelSize: 14; font.bold: true
+                                            }
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setPanelSpanFull === "function")
+                                                        bar.setPanelSpanFull(!(bar.panelSpanFull === true))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Panel size"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                        }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 80
+                                            to: 140
+                                            stepSize: 5
+                                            suffix: "%"
+                                            value: {
+                                                void root.optionsTick
+                                                const s = Number(bar.panelSizeScale) || 0
+                                                return (s >= 0.8) ? Math.round(s * 100) : root.optBarSizePct()
+                                            }
+                                            onValueEdited: (v) => {
+                                                if (typeof bar.setPanelSizeScale === "function")
+                                                    bar.setPanelSizeScale(Math.round(v) / 100)
+                                                root.optionsTick++
+                                            }
+                                            onValueCommitted: (v) => {
+                                                if (typeof bar.setPanelSizeScale === "function")
+                                                    bar.setPanelSizeScale(Math.round(v) / 100)
+                                            }
+                                        }
+                                    }
+                                }
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 40
@@ -7292,7 +7170,7 @@ Item {
                                     Text {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Icon, size, and the command the bar pill runs. Empty icon keeps the 3×3 grid. Empty command restores the app drawer."
+                                        text: "Icon, size, and the command the bar pill runs. Apply saves them. Undo drops unapplied edits, or reverts the last Apply. Empty icon keeps the 3×3 grid."
                                         color: bar.subtext
                                         font.pixelSize: 11
                                         font.family: bar.fontFamily
@@ -7318,14 +7196,14 @@ Item {
                                                 border.color: bar.pillBorder
                                                 Text {
                                                     anchors.centerIn: parent
-                                                    visible: String((bar && bar.launcherIconCustom) || "").trim().length > 0
-                                                    text: (bar && bar.launcherIconCustom) || ""
+                                                    visible: String(root.appMenuIconDraft || "").trim().length > 0
+                                                    text: root.appMenuIconDraft
                                                     color: bar.iconColor !== undefined ? bar.iconColor : bar.subtext
-                                                    font.pixelSize: Math.min(22, bar.launcherIconSize ? bar.launcherIconSize() : 18)
+                                                    font.pixelSize: Math.min(22, root.appMenuPreviewPx())
                                                     font.family: bar.fontFamily
                                                 }
                                                 Grid {
-                                                    visible: String((bar && bar.launcherIconCustom) || "").trim().length === 0
+                                                    visible: String(root.appMenuIconDraft || "").trim().length === 0
                                                     anchors.centerIn: parent
                                                     columns: 3
                                                     spacing: 2
@@ -7362,7 +7240,7 @@ Item {
                                                 Layout.preferredWidth: 72
                                                 Layout.preferredHeight: 30
                                                 horizontalAlignment: Text.AlignHCenter
-                                                text: (bar && bar.launcherIconCustom) || ""
+                                                text: root.appMenuIconDraft
                                                 placeholderText: "3×3"
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
@@ -7376,11 +7254,7 @@ Item {
                                                 }
                                                 onPressed: root.armControlFocusGrab()
                                                 onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                                onEditingFinished: {
-                                                    if (bar && typeof bar.setLauncherIcon === "function")
-                                                        bar.setLauncherIcon(text)
-                                                    root.optionsTick++
-                                                }
+                                                onEditingFinished: root.appMenuIconDraft = text.substring(0, 4)
                                             }
                                         }
                                     }
@@ -7418,7 +7292,7 @@ Item {
                                                 Layout.preferredWidth: 28
                                                 Layout.preferredHeight: 28
                                                 radius: 4
-                                                opacity: (bar.launcherIconSize ? bar.launcherIconSize() : 26) <= 14 ? 0.35 : 1
+                                                opacity: root.appMenuPreviewPx() <= 14 ? 0.35 : 1
                                                 color: appMenuSizeDownMa.containsMouse ? bar.glassHover : "transparent"
                                                 border.width: 1
                                                 border.color: bar.pillBorder
@@ -7427,17 +7301,16 @@ Item {
                                                     id: appMenuSizeDownMa
                                                     anchors.fill: parent
                                                     hoverEnabled: true
-                                                    enabled: (bar.launcherIconSize ? bar.launcherIconSize() : 26) > 14
+                                                    enabled: root.appMenuPreviewPx() > 14
                                                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                     onClicked: {
-                                                        if (bar && typeof bar.stepLauncherIconPx === "function")
-                                                            bar.stepLauncherIconPx(-1)
-                                                        root.optionsTick++
+                                                        const cur = root.appMenuPreviewPx()
+                                                        root.appMenuPxDraft = Math.max(14, cur - 2)
                                                     }
                                                 }
                                             }
                                             Text {
-                                                text: (bar.launcherIconSize ? bar.launcherIconSize() : 26) + " px"
+                                                text: root.appMenuPreviewPx() + " px"
                                                 color: bar.text
                                                 font.pixelSize: 12
                                                 font.family: bar.fontFamily
@@ -7448,7 +7321,7 @@ Item {
                                                 Layout.preferredWidth: 28
                                                 Layout.preferredHeight: 28
                                                 radius: 4
-                                                opacity: (bar.launcherIconSize ? bar.launcherIconSize() : 26) >= 36 ? 0.35 : 1
+                                                opacity: root.appMenuPreviewPx() >= 36 ? 0.35 : 1
                                                 color: appMenuSizeUpMa.containsMouse ? bar.glassHover : "transparent"
                                                 border.width: 1
                                                 border.color: bar.pillBorder
@@ -7457,12 +7330,11 @@ Item {
                                                     id: appMenuSizeUpMa
                                                     anchors.fill: parent
                                                     hoverEnabled: true
-                                                    enabled: (bar.launcherIconSize ? bar.launcherIconSize() : 26) < 36
+                                                    enabled: root.appMenuPreviewPx() < 36
                                                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                     onClicked: {
-                                                        if (bar && typeof bar.stepLauncherIconPx === "function")
-                                                            bar.stepLauncherIconPx(1)
-                                                        root.optionsTick++
+                                                        const cur = root.appMenuPreviewPx()
+                                                        root.appMenuPxDraft = Math.min(36, cur + 2)
                                                     }
                                                 }
                                             }
@@ -7486,11 +7358,7 @@ Item {
                                                     anchors.fill: parent
                                                     hoverEnabled: true
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        if (bar && typeof bar.resetLauncherIconPx === "function")
-                                                            bar.resetLauncherIconPx()
-                                                        root.optionsTick++
-                                                    }
+                                                    onClicked: root.appMenuPxDraft = 0
                                                 }
                                             }
                                         }
@@ -7517,7 +7385,7 @@ Item {
                                             id: appMenuCmdField
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 32
-                                            text: (bar && bar.launcherCommand) ? bar.launcherCommand : ""
+                                            text: root.appMenuCmdDraft
                                             placeholderText: "~/.local/bin/rofi-app-drawer"
                                             color: bar.text
                                             placeholderTextColor: bar.subtext
@@ -7531,36 +7399,70 @@ Item {
                                             }
                                             onPressed: root.armControlFocusGrab()
                                             onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                            onEditingFinished: {
-                                                if (bar && typeof bar.setLauncherCommand === "function")
-                                                    bar.setLauncherCommand(text)
-                                                root.optionsTick++
+                                            onEditingFinished: root.appMenuCmdDraft = text
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Item { Layout.fillWidth: true }
+                                        Rectangle {
+                                            Layout.preferredHeight: 32
+                                            Layout.preferredWidth: appMenuUndoLbl.implicitWidth + 18
+                                            radius: root.chipR
+                                            enabled: root.appMenuDirty() || root.appMenuHasUndo
+                                            opacity: enabled ? 1 : 0.45
+                                            color: appMenuUndoMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: bar.pillBorder
+                                            Text {
+                                                id: appMenuUndoLbl
+                                                anchors.centerIn: parent
+                                                text: "Undo"
+                                                color: bar.subtext
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: appMenuUndoMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                enabled: parent.enabled
+                                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                onClicked: root.undoAppMenuDraft()
                                             }
                                         }
                                         Rectangle {
                                             Layout.preferredHeight: 32
-                                            Layout.preferredWidth: appMenuCmdApplyLbl.implicitWidth + 16
+                                            Layout.preferredWidth: appMenuApplyLbl.implicitWidth + 18
                                             radius: root.chipR
-                                            color: appMenuCmdApplyMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            enabled: root.appMenuDirty()
+                                            opacity: enabled ? 1 : 0.45
+                                            color: enabled
+                                                   ? (appMenuApplyMa.containsMouse
+                                                      ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.28))
+                                                      : Qt.rgba(0, 0.77, 0.96, 0.18))
+                                                   : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
                                             border.width: 1
-                                            border.color: appMenuCmdApplyMa.containsMouse ? bar.accent : bar.pillBorder
+                                            border.color: enabled ? bar.accent : bar.pillBorder
                                             Text {
-                                                id: appMenuCmdApplyLbl
+                                                id: appMenuApplyLbl
                                                 anchors.centerIn: parent
                                                 text: "Apply"
-                                                color: appMenuCmdApplyMa.containsMouse ? bar.accent : bar.subtext
-                                                font.pixelSize: 11
+                                                color: enabled ? bar.accent : bar.subtext
+                                                font.pixelSize: 12
+                                                font.bold: enabled
                                                 font.family: bar.fontFamily
                                             }
                                             MouseArea {
-                                                id: appMenuCmdApplyMa
+                                                id: appMenuApplyMa
                                                 anchors.fill: parent
                                                 hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
+                                                enabled: parent.enabled
+                                                cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                 onClicked: {
-                                                    if (bar && typeof bar.setLauncherCommand === "function")
-                                                        bar.setLauncherCommand(appMenuCmdField.text)
-                                                    root.optionsTick++
+                                                    root.appMenuCmdDraft = appMenuCmdField.text
+                                                    root.applyAppMenuDraft()
                                                 }
                                             }
                                         }
@@ -8433,6 +8335,55 @@ Item {
                                     font.pixelSize: 12
                                     font.bold: true
                                     font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Default bar view. Saved across restarts. Right-click the pill still cycles speaker, microphone, and both."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: 0, label: "Speaker" },
+                                            { id: 1, label: "Microphone" },
+                                            { id: 2, label: "Both" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool on: ((bar.audioViewMode === 0 || bar.audioViewMode === 1) ? bar.audioViewMode : 2) === modelData.id
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 32
+                                            radius: root.chipR
+                                            color: on ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                      : (audioViewMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                            border.width: 1
+                                            border.color: on ? bar.accent : bar.pillBorder
+                                            Text {
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.bold: on
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: audioViewMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (bar && typeof bar.setAudioViewMode === "function")
+                                                        bar.setAudioViewMode(modelData.id)
+                                                    root.optionsTick++
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true

@@ -323,7 +323,22 @@ Rectangle {
                 volumeCacheTimer.restart();
             } catch (e) {}
         }
-        function cycleView() { viewMode = (viewMode + 1) % 3; }
+        function applySavedView() {
+            var m = (bar && bar.audioViewMode !== undefined) ? Number(bar.audioViewMode) : 2
+            viewMode = (m === 0 || m === 1) ? m : 2
+        }
+        function cycleView() {
+            var next = (viewMode + 1) % 3
+            if (bar && typeof bar.setAudioViewMode === "function")
+                bar.setAudioViewMode(next)
+            else
+                viewMode = next
+        }
+        Component.onCompleted: applySavedView()
+        Connections {
+            target: bar
+            function onAudioViewModeChanged() { audio.applySavedView() }
+        }
 
         // Safe property readers — destroyed PwNodes must never throw into QML bindings.
         function safeName(node) {

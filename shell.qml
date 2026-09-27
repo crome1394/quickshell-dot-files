@@ -176,6 +176,14 @@ ShellRoot {
 
     // "classic" = one bar with left|center|right zones; "dual" = top+bottom centered bars
     property string barLayoutMode: "classic"
+    // Extra full-width span. Classic already spans; Dual's top bar hugs until this is on.
+    property bool barSpanFull: false
+    // Bottom strip in Dual. Off hugs the widgets; on spans the monitor.
+    property bool panelSpanFull: false
+    // 0 = same height as the bar. Otherwise 0.80–1.40 for the bottom strip only.
+    property real panelSizeScale: 0
+    // Audio pill view: 0 speaker, 1 microphone, 2 both.
+    property int audioViewMode: 2
 
     // Runtime layout: [{ id, zone }, ...] — classic: left|center|right; dual: top|bottom
     property var widgetLayout: []
@@ -456,6 +464,42 @@ ShellRoot {
             barGeomPersistTimer.restart()
         }
 
+        function setBarSpanFull(enabled) {
+            root.barSpanFull = !!enabled
+            persistBarLayout()
+        }
+        function setPanelSpanFull(enabled) {
+            root.panelSpanFull = !!enabled
+            persistBarLayout()
+        }
+        function setPanelSizeScale(scale) {
+            var n = Number(scale) || 0
+            if (n > 0)
+                n = Math.max(0.8, Math.min(1.4, n))
+            if (Math.abs((root.panelSizeScale || 0) - n) < 0.001)
+                return
+            root.panelSizeScale = n
+            barGeomPersistTimer.restart()
+        }
+        function panelBarHeight() {
+            var scale = (root.panelSizeScale >= 0.8 && root.panelSizeScale <= 1.4)
+                    ? root.panelSizeScale
+                    : (Number(cfg.barSizeScale) || 1)
+            return Math.max(36, Math.round((cfg.sp ? cfg.sp(58) : 58) * scale))
+        }
+        function setAudioViewMode(mode) {
+            var n = Math.round(Number(mode))
+            var next = (n === 0 || n === 1) ? n : 2
+            if (root.audioViewMode === next)
+                return
+            root.audioViewMode = next
+            persistBarLayout()
+        }
+        property alias barSpanFull: root.barSpanFull
+        property alias panelSpanFull: root.panelSpanFull
+        property alias panelSizeScale: root.panelSizeScale
+        property alias audioViewMode: root.audioViewMode
+
         function setBarSizeScale(scale) {
             var v = Number(scale)
             if (!(v > 0))
@@ -546,6 +590,10 @@ ShellRoot {
                 id: barLayoutAdapter
                 property string barPosition: "top"
                 property string barLayoutMode: "classic"
+                property bool barSpanFull: false
+                property bool panelSpanFull: false
+                property real panelSizeScale: 0
+                property int audioViewMode: 2
                 property real uiScaleManual: 0
                 property int barEdgeMargin: 0
                 property real barSizeScale: 1.0
@@ -626,6 +674,12 @@ ShellRoot {
                     bar.barPosition = p
                 if (barLayoutAdapter.barLayoutMode === "dual" || barLayoutAdapter.barLayoutMode === "classic")
                     root.barLayoutMode = barLayoutAdapter.barLayoutMode
+                root.barSpanFull = !!barLayoutAdapter.barSpanFull
+                root.panelSpanFull = !!barLayoutAdapter.panelSpanFull
+                const panelScale = Number(barLayoutAdapter.panelSizeScale) || 0
+                root.panelSizeScale = (panelScale >= 0.8 && panelScale <= 1.4) ? panelScale : 0
+                const audioView = Math.round(Number(barLayoutAdapter.audioViewMode))
+                root.audioViewMode = (audioView === 0 || audioView === 1 || audioView === 2) ? audioView : 2
                 // Manual scale from state overrides Config default when present.
                 if (barLayoutAdapter.uiScaleManual >= 0)
                     cfg.uiScaleManual = barLayoutAdapter.uiScaleManual
@@ -1296,6 +1350,12 @@ ShellRoot {
             bar._barLayoutWriteGuard = true
             barLayoutAdapter.barPosition = bar.barPosition
             barLayoutAdapter.barLayoutMode = root.barLayoutMode === "dual" ? "dual" : "classic"
+            barLayoutAdapter.barSpanFull = !!root.barSpanFull
+            barLayoutAdapter.panelSpanFull = !!root.panelSpanFull
+            barLayoutAdapter.panelSizeScale = (root.panelSizeScale >= 0.8 && root.panelSizeScale <= 1.4)
+                    ? root.panelSizeScale : 0
+            barLayoutAdapter.audioViewMode = (root.audioViewMode === 0 || root.audioViewMode === 1)
+                    ? root.audioViewMode : 2
             barLayoutAdapter.uiScaleManual = cfg.uiScaleManual
             barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
             barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
@@ -3050,6 +3110,21 @@ ShellRoot {
             persistBarLayout()
             launcherPill._appMenuWatch = 2
         }
+        function setLauncherPrefs(icon, px, cmd) {
+            root.launcherIconCustom = String(icon || "").trim().substring(0, 4)
+            let n = Math.round(Number(px) || 0)
+            if (n !== 0)
+                n = Math.max(14, Math.min(36, n))
+            root.launcherIconPx = n
+            let s = String(cmd || "").replace(/[\r\n]/g, "").trim()
+            if (s.length > 300)
+                s = s.substring(0, 300)
+            if (s === String(cfg.launcherCommand || "").trim())
+                s = ""
+            root.launcherCommandCustom = s
+            persistBarLayout()
+            launcherPill._appMenuWatch = 2
+        }
         readonly property alias wsShowSpecialPill: cfg.wsShowSpecialPill
         // Bound to root so Options / IPC / WorkspacesPill stay in sync
         property alias wsMinimumShown: root.wsMinimumShown
@@ -3153,22 +3228,25 @@ ShellRoot {
         Rectangle {
             id: barBg
             readonly property bool compact: root.barLayoutMode === "dual"
+            // Classic always spans. Dual hugs unless Bar spans the monitor is on.
+            readonly property bool spanWidth: root.barSpanFull || !compact
             readonly property int hugMeasured: Math.max(bar.sp(120), Math.min(parent.width - 2 * bar.sideMargin,
                               centerZone.implicitWidth + 2 * bar.barContentHMargin))
             // Ignore 1–15px text ticks (clock/stats) so the glass does not relayout every second.
             property int hugW: 200
             onHugMeasuredChanged: {
-                if (compact && Math.abs(hugMeasured - hugW) >= 16)
+                if (!spanWidth && Math.abs(hugMeasured - hugW) >= 16)
                     hugW = hugMeasured
             }
             onCompactChanged: hugW = hugMeasured
+            onSpanWidthChanged: hugW = hugMeasured
             Component.onCompleted: hugW = hugMeasured
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.topMargin: bar.barIsTopEdge ? 0 : bar.barContentVMargin
             anchors.bottomMargin: bar.barIsTopEdge ? bar.barContentVMargin : 0
-            x: compact ? Math.round((parent.width - hugW) / 2) : bar.sideMargin
-            width: compact ? hugW : Math.max(0, parent.width - 2 * bar.sideMargin)
+            x: spanWidth ? bar.sideMargin : Math.round((parent.width - hugW) / 2)
+            width: spanWidth ? Math.max(0, parent.width - 2 * bar.sideMargin) : hugW
             radius: bar.barRadius
             topLeftRadius: (bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
             topRightRadius: (bar.barIsTopEdge && bar.barGlassFlush) ? 0 : bar.barRadius
@@ -3954,7 +4032,7 @@ ShellRoot {
         id: bottomBar
         visible: root.barLayoutMode === "dual"
         color: "transparent"
-        implicitHeight: bar.barHeight
+        implicitHeight: bar.panelBarHeight()
         screen: bar.screen
         exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Normal : ExclusionMode.Ignore
         exclusiveZone: {
@@ -3973,20 +4051,22 @@ ShellRoot {
 
         Rectangle {
             id: bottomBarBg
+            readonly property bool spanWidth: !!root.panelSpanFull
             readonly property int hugMeasured: Math.max(bar.sp(120), Math.min(parent.width - 2 * bar.sideMargin,
                            bottomCenterZone.implicitWidth + 2 * bar.barContentHMargin))
             property int hugW: 200
             onHugMeasuredChanged: {
-                if (Math.abs(hugMeasured - hugW) >= 16)
+                if (!spanWidth && Math.abs(hugMeasured - hugW) >= 16)
                     hugW = hugMeasured
             }
+            onSpanWidthChanged: hugW = hugMeasured
             Component.onCompleted: hugW = hugMeasured
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: bar.barContentVMargin
             anchors.bottomMargin: 0
-            width: hugW
+            x: spanWidth ? bar.sideMargin : Math.round((parent.width - hugW) / 2)
+            width: spanWidth ? Math.max(0, parent.width - 2 * bar.sideMargin) : hugW
             radius: bar.barRadius
             topLeftRadius: bar.barRadius
             topRightRadius: bar.barRadius
