@@ -86,6 +86,11 @@ Rectangle {
     }
     readonly property int _outerPad: Math.max(8, Math.round(10 * _s))
 
+    Connections {
+        target: bar
+        function onAudioViewModeChanged() { audio.applySavedView() }
+    }
+
     // === Layout ===
     Layout.preferredWidth: embedded
         ? (_contentW + 8)
@@ -333,11 +338,6 @@ Rectangle {
                 bar.setAudioViewMode(next)
             else
                 viewMode = next
-        }
-        Component.onCompleted: applySavedView()
-        Connections {
-            target: bar
-            function onAudioViewModeChanged() { audio.applySavedView() }
         }
 
         // Safe property readers — destroyed PwNodes must never throw into QML bindings.
@@ -1376,6 +1376,7 @@ Rectangle {
     }
 
     Component.onCompleted: {
+        audio.applySavedView();
         echoCancelApplyTimer.start();
         // First battery poll after a short settle (avoid race with PW/BT bring-up)
         Qt.callLater(function() { root.pollBtBatteries(); });
