@@ -6248,7 +6248,8 @@ Item {
                                     boundsBehavior: Flickable.StopAtBounds
                                     flickableDirection: Flickable.VerticalFlick
                                     contentWidth: width
-                                    contentHeight: autostartBodyCol.implicitHeight
+                                    // Stretch short content so the app picker can fill the viewport.
+                                    contentHeight: Math.max(autostartBodyCol.implicitHeight, height)
                                     interactive: contentHeight > height + 4
                                     ScrollBar.vertical: ScrollBar {
                                         policy: autostartBodyFlick.contentHeight > autostartBodyFlick.height + 4
@@ -6270,6 +6271,7 @@ Item {
                                     ColumnLayout {
                                         id: autostartBodyCol
                                         width: Math.max(1, autostartBodyFlick.width - root.bodyScrollGutter)
+                                        height: Math.max(implicitHeight, autostartBodyFlick.height)
                                         spacing: 6
 
                                 RowLayout {
@@ -6530,17 +6532,15 @@ Item {
                                     font.family: bar.fontFamily
                                 }
 
-                                // Bounded picker so entries above stay visible; scrolls inside.
+                                // Fills whatever space is left under the search field. Scrolls inside
+                                // when there are more apps than fit; stays at least two rows tall
+                                // when the entries above already fill the panel.
                                 Flickable {
                                     id: asAppFlick
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: {
-                                        const n = root.filteredDesktopApps().length
-                                        if (n <= 0)
-                                            return 0
-                                        const rowH = 36
-                                        return Math.min(220, n * rowH)
-                                    }
+                                    Layout.fillHeight: true
+                                    Layout.minimumHeight: 72
+                                    Layout.preferredHeight: 220
                                     contentWidth: width
                                     contentHeight: asAppCol.implicitHeight
                                     clip: true

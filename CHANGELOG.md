@@ -2,6 +2,10 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-09 — Autostart app list fills the panel
+
+- Autostart → **Add installed app** uses the open space under the search field. The list still scrolls when there are more apps than fit.
+
 ## 2026-09 — Control bar MIME, display, clock, tooltips
 
 - MIME Applications: clicking a linked file type stays on that tab. **Use as default** and **Associate app** act on the selected type. Defaults the File types tab already shows (including HEIF for COSMIC Viewer) appear in the linked list. Category chips (Images, Audio, Video, Text, Documents) can set one wildcard default.
