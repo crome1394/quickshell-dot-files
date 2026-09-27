@@ -6753,6 +6753,8 @@ Item {
                                             suffix: "%"
                                             value: {
                                                 void root.optionsTick
+                                                if (!bar)
+                                                    return 100
                                                 const s = Number(bar.panelSizeScale) || 0
                                                 return (s >= 0.8) ? Math.round(s * 100) : root.optBarSizePct()
                                             }
