@@ -69,6 +69,7 @@ def parse_desktop(path: Path):
         "id": path.name,
         "name": name,
         "exec": exec_clean,
+        "execRaw": exec_line,
         "iconName": icon,
         "icon": resolve_icon(icon),
         "enabled": enabled,

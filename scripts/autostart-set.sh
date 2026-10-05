@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# autostart-set.sh — enable|disable|remove an XDG autostart entry
+# autostart-set.sh — enable|disable|remove|exec an XDG autostart entry
 # Usage:
 #   autostart-set.sh enable  Flameshot.desktop
 #   autostart-set.sh disable Flameshot.desktop
 #   autostart-set.sh remove  Flameshot.desktop
+#   autostart-set.sh exec    Flameshot.desktop "/usr/bin/app --flag"
+# exec rewrites Exec= inside [Desktop Entry] and leaves every other key alone.
 set -euo pipefail
 
 ACTION="${1:-}"
 ID="${2:-}"
+EXEC_VALUE="${3:-}"
 DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 
 if [[ -z "$ACTION" || -z "$ID" ]]; then
   echo "usage: $0 enable|disable|remove <file.desktop>" >&2
+  echo "       $0 exec <file.desktop> \"command\"" >&2
   exit 1
 fi
 
@@ -35,11 +39,12 @@ case "$REAL" in
     ;;
 esac
 
-python3 - "$ACTION" "$REAL" <<'PY'
+python3 - "$ACTION" "$REAL" "$EXEC_VALUE" <<'PY'
 import sys
 from pathlib import Path
 
 action, path = sys.argv[1], Path(sys.argv[2])
+exec_value = sys.argv[3] if len(sys.argv) > 3 else ""
 text = path.read_text(errors="replace")
 lines = text.splitlines(keepends=True)
 
@@ -95,6 +100,13 @@ elif action == "disable":
         "X-GNOME-Autostart-enabled": "false",
     }))
     print(f"ok disabled {path.name}")
+elif action == "exec":
+    cmd = exec_value.strip()
+    if not cmd or "\n" in exec_value or "\r" in exec_value:
+        print("error: exec must be a single non-empty line", file=sys.stderr)
+        sys.exit(1)
+    path.write_text(set_keys(text, {"Exec": cmd}))
+    print(f"ok exec {path.name}")
 else:
     print(f"error: unknown action {action}", file=sys.stderr)
     sys.exit(1)

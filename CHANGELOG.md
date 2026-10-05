@@ -2,6 +2,11 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-10 — Control bar menu stays down, autostart commands are editable
+
+- The control-bar tabs stay on the bottom edge when a page is closed. They pack from the left, and the close button stays at the right.
+- Autostart → **Edit** changes an entry’s `Exec=` path. The rest of the desktop file is left as it is.
+
 ## 2026-09 — Light presets stay readable
 
 - Light presets use solid paper fills. The Bar control window is no longer a 75% veil, and text fields follow the theme instead of a fixed dark well.

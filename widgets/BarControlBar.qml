@@ -191,6 +191,8 @@ Item {
     property bool autostartLoading: false
     property string autostartStatus: ""
     property string autostartSearch: ""
+    property string autostartEditId: ""
+    property string autostartEditExec: ""
 
     // Services panel (reuse components/ServicesView.qml)
     property string servicesFilter: ""
@@ -3034,7 +3036,31 @@ Item {
         const script = bar.autostartSetScript || ""
         if (!script.length || !id)
             return
+        if (root.autostartEditId === id)
+            root.cancelAutostartEdit()
         autostartSetProcess.exec([script, "remove", id])
+    }
+
+    function beginAutostartEdit(entry) {
+        if (!entry || !entry.id)
+            return
+        root.autostartEditId = String(entry.id)
+        root.autostartEditExec = String(entry.execRaw || entry.exec || "")
+    }
+
+    function cancelAutostartEdit() {
+        root.autostartEditId = ""
+        root.autostartEditExec = ""
+    }
+
+    function saveAutostartExec() {
+        const id = root.autostartEditId
+        const exec = String(root.autostartEditExec || "").trim()
+        const script = bar.autostartSetScript || ""
+        if (!script.length || !id || !exec.length)
+            return
+        root.autostartStatus = "Saving command…"
+        autostartSetProcess.exec([script, "exec", id, exec])
     }
 
     function runAutostartNow(id) {
@@ -3508,6 +3534,8 @@ Item {
             id: autostartSetStdout
             onStreamFinished: {
                 const line = (autostartSetStdout.text || "").trim()
+                if (line.indexOf("ok exec") === 0)
+                    root.cancelAutostartEdit()
                 root.autostartStatus = line.length ? line : "Updated"
                 root.refreshAutostart()
             }
@@ -3868,11 +3896,14 @@ Item {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: controlDragBar.bottom
-                anchors.bottom: parent.bottom
+                // Stop above the tab strip. The strip is anchored to the window,
+                // so closing a page cannot pull it up off the bottom edge.
+                anchors.bottom: controlRow.top
                 anchors.margins: root.pad
+                anchors.bottomMargin: root.pad + 10
                 spacing: 8
 
-                // ── Expandable panel (fills remaining height so the toolbar stays at the bottom) ──
+                // ── Expandable panel (fills the space above the pinned tab strip) ──
                 Rectangle {
                     id: panelBox
                     visible: root.activeMenu.length > 0
@@ -5985,7 +6016,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
-                                    text: root.autostartStatus.length ? root.autostartStatus : "Toggle ✓/✕ · add from apps below"
+                                    text: root.autostartStatus.length ? root.autostartStatus : "Toggle ✓/✕ · Edit changes the command · add from apps below"
                                     color: bar.subtext
                                     font.pixelSize: 11
                                     font.family: bar.fontFamily
@@ -6083,18 +6114,25 @@ Item {
                                         id: asRow
                                         required property var modelData
                                         readonly property bool on: !!modelData.enabled
+                                        readonly property bool editing: root.autostartEditId === (modelData.id || "")
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
+                                        Layout.preferredHeight: asRowCol.implicitHeight + 12
                                         radius: root.chipR
                                         color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                         border.width: 1
-                                        border.color: asRow.on ? root.onGreen : bar.dividerStrong
+                                        border.color: asRow.editing ? bar.accent : (asRow.on ? root.onGreen : bar.dividerStrong)
                                         opacity: asRow.on ? 1.0 : 0.78
 
+                                        ColumnLayout {
+                                            id: asRowCol
+                                            x: 6
+                                            y: 6
+                                            width: Math.max(1, parent.width - 12)
+                                            spacing: 6
+
                                         RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 6
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 28
                                             spacing: 6
 
                                             // Enable toggle
@@ -6165,6 +6203,43 @@ Item {
                                                 }
                                             }
 
+                                            Rectangle {
+                                                Layout.preferredWidth: asEditLbl.implicitWidth + 12
+                                                Layout.preferredHeight: 26
+                                                radius: 4
+                                                color: asEditMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: asRow.editing || asEditMa.containsMouse ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    id: asEditLbl
+                                                    anchors.centerIn: parent
+                                                    text: asRow.editing ? "Close" : "Edit"
+                                                    color: asRow.editing || asEditMa.containsMouse ? bar.accent : bar.subtext
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: asEditMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (asRow.editing) {
+                                                            root.cancelAutostartEdit()
+                                                            return
+                                                        }
+                                                        root.beginAutostartEdit(modelData)
+                                                        Qt.callLater(function() {
+                                                            if (asEditField)
+                                                                asEditField.forceActiveFocus()
+                                                        })
+                                                    }
+                                                    ToolTip.visible: containsMouse
+                                                    ToolTip.delay: bar.tooltipDelay
+                                                    ToolTip.text: "Edit the command"
+                                                }
+                                            }
+
                                             // Run now
                                             Rectangle {
                                                 Layout.preferredWidth: 28
@@ -6218,6 +6293,81 @@ Item {
                                                 }
                                             }
                                         }
+
+                                        RowLayout {
+                                            visible: asRow.editing
+                                            Layout.fillWidth: true
+                                            spacing: 6
+                                            TextField {
+                                                id: asEditField
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 28
+                                                placeholderText: "Command (Exec=)"
+                                                color: bar.text
+                                                placeholderTextColor: bar.subtext
+                                                font.pixelSize: 12
+                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                text: root.autostartEditExec
+                                                selectByMouse: true
+                                                onTextChanged: root.autostartEditExec = text
+                                                onAccepted: root.saveAutostartExec()
+                                                background: Rectangle {
+                                                    radius: root.chipR
+                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                    border.width: 1
+                                                    border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredHeight: 28
+                                                Layout.preferredWidth: asExecSaveLbl.implicitWidth + 14
+                                                radius: root.chipR
+                                                opacity: root.autostartEditExec.trim().length ? 1 : 0.5
+                                                color: asExecSaveMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: asExecSaveMa.containsMouse ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    id: asExecSaveLbl
+                                                    anchors.centerIn: parent
+                                                    text: "Save"
+                                                    color: asExecSaveMa.containsMouse ? bar.accent : bar.subtext
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: asExecSaveMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    enabled: root.autostartEditExec.trim().length > 0
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.saveAutostartExec()
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredHeight: 28
+                                                Layout.preferredWidth: asExecCancelLbl.implicitWidth + 14
+                                                radius: root.chipR
+                                                color: asExecCancelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                border.width: 1
+                                                border.color: bar.pillBorder
+                                                Text {
+                                                    id: asExecCancelLbl
+                                                    anchors.centerIn: parent
+                                                    text: "Cancel"
+                                                    color: bar.subtext
+                                                    font.pixelSize: 11
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: asExecCancelMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.cancelAutostartEdit()
+                                                }
+                                            }
+                                        }
+                                    }
                                     }
                                 }
 
@@ -14803,94 +14953,119 @@ Item {
                     }
                 }
 
-                // ── Toolbar along the bottom (panel expands above) ──
-                Rectangle {
-                    visible: root.activeMenu.length > 0
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: bar.dividerStrong
-                }
-                RowLayout {
-                    id: controlRow
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignHCenter
-                    spacing: 8
+            }
 
-                    Repeater {
-                        model: {
-                            if (bar)
-                                void bar.widgetVisTick
-                            return root.controlTabModel()
-                        }
-                        delegate: Rectangle {
-                            required property var modelData
-                            readonly property bool active: root.activeMenu === modelData.id
-                            readonly property bool hovered: menuBtnMa.containsMouse
-                            Layout.preferredHeight: root.chipH + 4
-                            Layout.preferredWidth: Math.max(72, menuBtnLabel.implicitWidth + 20)
-                            radius: root.chipR
-                            color: root.chipBg(active, hovered)
-                            border.width: bar.controlBorderWidth
-                            border.color: root.chipBorder(active, hovered)
-                            Text {
-                                id: menuBtnLabel
-                                anchors.centerIn: parent
-                                text: modelData.label
-                                font.pixelSize: bar.fontPillLabel !== undefined ? bar.fontPillLabel : 12
-                                font.family: bar.fontFamily
-                                font.bold: active
-                                color: root.chipText(active, hovered)
-                            }
-                            MouseArea {
-                                id: menuBtnMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (modelData.id === "wallpaper")
-                                        root.refreshWallpapers()
-                                    if (modelData.id === "display")
-                                        root.refreshDisplay()
-                                    if (modelData.id === "launch")
-                                        root.refreshDesktopApps()
-                                    if (modelData.id === "autostart") {
-                                        root.refreshAutostart()
-                                        root.refreshDesktopApps()
-                                    }
-                                    if (modelData.id === "options")
-                                        root.refreshOptions()
-                                    // ServicesView loads via active binding when panel opens
-                                    root.toggleMenu(modelData.id)
-                                }
-                            }
-                        }
+            // Tab strip stays on the bottom edge whether or not a page is open.
+            // Tabs pack from the left; closing one does not slide the row inward.
+            Rectangle {
+                visible: root.activeMenu.length > 0
+                anchors.left: controlRow.left
+                anchors.right: controlRow.right
+                anchors.bottom: controlRow.top
+                anchors.bottomMargin: 8
+                height: 1
+                color: bar.dividerStrong
+            }
+            RowLayout {
+                id: controlRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.leftMargin: root.pad
+                anchors.rightMargin: root.pad
+                anchors.bottomMargin: root.pad
+                spacing: 8
+
+                Repeater {
+                    model: {
+                        if (bar)
+                            void bar.widgetVisTick
+                        return root.controlTabModel()
                     }
-
-                    Rectangle {
+                    delegate: Rectangle {
+                        required property var modelData
+                        readonly property bool active: root.activeMenu === modelData.id
+                        readonly property bool hovered: menuBtnMa.containsMouse
                         Layout.preferredHeight: root.chipH + 4
-                        Layout.preferredWidth: Math.max(36, stripCloseLbl.implicitWidth + 16)
+                        Layout.preferredWidth: Math.max(72, menuBtnMeasure.implicitWidth + 20)
                         radius: root.chipR
-                        color: stripCloseMa.containsMouse
-                               ? Qt.rgba(1, 0.24, 0.54, 0.22)
-                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                        color: root.chipBg(active, hovered)
                         border.width: bar.controlBorderWidth
-                        border.color: stripCloseMa.containsMouse ? root.offRed : bar.pillBorder
+                        border.color: root.chipBorder(active, hovered)
                         Text {
-                            id: stripCloseLbl
-                            anchors.centerIn: parent
-                            text: "✕"
-                            color: stripCloseMa.containsMouse ? root.offRed : bar.subtext
-                            font.pixelSize: 12
-                            font.bold: true
+                            id: menuBtnMeasure
+                            visible: false
+                            text: modelData.label
+                            font.pixelSize: bar.fontPillLabel !== undefined ? bar.fontPillLabel : 12
                             font.family: bar.fontFamily
+                            font.bold: true
+                        }
+                        Text {
+                            id: menuBtnLabel
+                            anchors.centerIn: parent
+                            width: parent.width - 12
+                            horizontalAlignment: Text.AlignHCenter
+                            elide: Text.ElideRight
+                            text: modelData.label
+                            font.pixelSize: bar.fontPillLabel !== undefined ? bar.fontPillLabel : 12
+                            font.family: bar.fontFamily
+                            font.bold: active
+                            color: root.chipText(active, hovered)
                         }
                         MouseArea {
-                            id: stripCloseMa
+                            id: menuBtnMa
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.hide()
+                            onClicked: {
+                                if (modelData.id === "wallpaper")
+                                    root.refreshWallpapers()
+                                if (modelData.id === "display")
+                                    root.refreshDisplay()
+                                if (modelData.id === "launch")
+                                    root.refreshDesktopApps()
+                                if (modelData.id === "autostart") {
+                                    root.refreshAutostart()
+                                    root.refreshDesktopApps()
+                                }
+                                if (modelData.id === "options")
+                                    root.refreshOptions()
+                                // ServicesView loads via active binding when panel opens
+                                root.toggleMenu(modelData.id)
+                            }
                         }
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 8
+                }
+
+                Rectangle {
+                    Layout.preferredHeight: root.chipH + 4
+                    Layout.preferredWidth: Math.max(36, stripCloseLbl.implicitWidth + 16)
+                    radius: root.chipR
+                    color: stripCloseMa.containsMouse
+                           ? Qt.rgba(1, 0.24, 0.54, 0.22)
+                           : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                    border.width: bar.controlBorderWidth
+                    border.color: stripCloseMa.containsMouse ? root.offRed : bar.pillBorder
+                    Text {
+                        id: stripCloseLbl
+                        anchors.centerIn: parent
+                        text: "✕"
+                        color: stripCloseMa.containsMouse ? root.offRed : bar.subtext
+                        font.pixelSize: 12
+                        font.bold: true
+                        font.family: bar.fontFamily
+                    }
+                    MouseArea {
+                        id: stripCloseMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.hide()
                     }
                 }
             }

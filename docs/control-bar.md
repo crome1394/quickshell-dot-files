@@ -213,8 +213,15 @@ Session user apps only (not Hyprland core). Scripts: `autostart-list-json.sh`, `
 |--------|----------|
 | **Installed app** (picker / `--desktop-id` / `--desktop-file`) | **Copy** the real `.desktop` from `/usr/share/applications` (or other XDG apps dirs) into `~/.config/autostart/`. Preserves the app’s `Exec=`, `TryExec=`, icons, and other keys. Only forces `Hidden=false`, `X-GNOME-Autostart-enabled=true`, and `X-systemd-skip=true`. |
 | **Manual** (`--name` + `--exec`) | Synthesize a minimal entry with the given command. |
+| **Edit** on an entry | Rewrites that file’s `Exec=` only. Name, icon, and the enable flag stay. The field shows the raw command, including `%U` and other field codes. |
 
 Do **not** rewrite `Exec=` to `gtk-launch …`. That breaks apps with `DBusActivatable=true` (e.g. Telegram): `gtk-launch` can exit 0 without starting the process. The working system file has a real command (`Exec=Telegram -- %U`); the autostart copy must keep that.
+
+To change a command without replacing the file, use **Edit** on the row, or:
+
+```bash
+~/.config/quickshell/scripts/autostart-set.sh exec org.telegram.desktop.desktop 'Telegram -- %U'
+```
 
 ### How entries are run
 
