@@ -367,21 +367,26 @@ Item {
             // Hex + RGB
             RowLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 24
+                Layout.preferredHeight: 30
                 spacing: 4
                 Text {
                     text: "Hex"
                     color: root.labelColor
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     font.family: root.fontFamily
                 }
                 TextField {
                     id: hexField
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 24
-                    Layout.minimumWidth: 72
-                    font.pixelSize: 11
-                    font.family: "monospace"
+                    Layout.preferredHeight: 28
+                    Layout.minimumWidth: 88
+                    topPadding: 1
+                    bottomPadding: 1
+                    leftPadding: 6
+                    rightPadding: 6
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 14
+                    font.family: "DejaVu Sans Mono"
                     color: root.labelColor
                     selectedTextColor: "#000000"
                     selectionColor: root.accentColor
@@ -415,10 +420,15 @@ Item {
                 }
                 TextField {
                     id: rField
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 24
-                    font.pixelSize: 11
-                    font.family: "monospace"
+                    Layout.preferredWidth: 46
+                    Layout.preferredHeight: 28
+                    topPadding: 1
+                    bottomPadding: 1
+                    leftPadding: 2
+                    rightPadding: 2
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 14
+                    font.family: "DejaVu Sans Mono"
                     color: root.labelColor
                     horizontalAlignment: Text.AlignHCenter
                     selectedTextColor: "#000000"
@@ -442,10 +452,15 @@ Item {
                 }
                 TextField {
                     id: gField
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 24
-                    font.pixelSize: 11
-                    font.family: "monospace"
+                    Layout.preferredWidth: 46
+                    Layout.preferredHeight: 28
+                    topPadding: 1
+                    bottomPadding: 1
+                    leftPadding: 2
+                    rightPadding: 2
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 14
+                    font.family: "DejaVu Sans Mono"
                     color: root.labelColor
                     horizontalAlignment: Text.AlignHCenter
                     selectedTextColor: "#000000"
@@ -469,10 +484,15 @@ Item {
                 }
                 TextField {
                     id: bField
-                    Layout.preferredWidth: 36
-                    Layout.preferredHeight: 24
-                    font.pixelSize: 11
-                    font.family: "monospace"
+                    Layout.preferredWidth: 46
+                    Layout.preferredHeight: 28
+                    topPadding: 1
+                    bottomPadding: 1
+                    leftPadding: 2
+                    rightPadding: 2
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 14
+                    font.family: "DejaVu Sans Mono"
                     color: root.labelColor
                     horizontalAlignment: Text.AlignHCenter
                     selectedTextColor: "#000000"

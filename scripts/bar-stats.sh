@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # bar-stats.sh
-# Ultra-lightweight poller for the centered CPU+Memory+GPU pill in the top bar.
-# Outputs a single line of JSON with CPU/GPU util+temp and memory util+used GiB.
-# Designed to be called every ~1.5-1.8s. Completes in <120ms.
+# Ultra-lightweight poller for the centered CPU+VRAM+Memory+GPU pill in the top bar.
+# Outputs a single line of JSON with CPU/GPU util+temp, VRAM util+used GiB, and memory util+used GiB.
+# Designed to be called every ~2s. Completes in <120ms.
 
 set -u
 
@@ -35,14 +35,25 @@ cpu_temp_raw=$(cat /sys/class/hwmon/hwmon2/temp1_input 2>/dev/null || echo 0)
 cpu_temp=$(( cpu_temp_raw / 1000 ))
 
 # ---------- NVIDIA RTX 5080 (minimal fast query) ----------
-nvg_raw=$(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu \
-    --format=csv,noheader,nounits 2>/dev/null || echo "0, 0")
+nvg_raw=$(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total \
+    --format=csv,noheader,nounits 2>/dev/null || echo "0, 0, 0, 0")
 
 gpu_util=$(echo "$nvg_raw" | cut -d, -f1 | xargs)
 gpu_temp=$(echo "$nvg_raw" | cut -d, -f2 | xargs)
+vram_used=$(echo "$nvg_raw" | cut -d, -f3 | xargs)
+vram_total=$(echo "$nvg_raw" | cut -d, -f4 | xargs)
 
 : "${gpu_util:=0}"
 : "${gpu_temp:=0}"
+: "${vram_used:=0}"
+: "${vram_total:=0}"
+
+# nvidia-smi can report [N/A]; force numeric values for arithmetic.
+[[ "$vram_used" =~ ^[0-9]+$ ]] || vram_used=0
+[[ "$vram_total" =~ ^[0-9]+$ ]] || vram_total=0
+
+vram_pct=$(awk "BEGIN { if ($vram_total > 0) printf \"%.1f\", ($vram_used * 100.0) / $vram_total; else printf \"0.0\" }")
+vram_used_gib=$(awk "BEGIN { printf \"%.1f\", $vram_used / 1024 }")
 
 # ---------- Memory (used % + used GiB from /proc/meminfo) ----------
 mem_total=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
@@ -59,5 +70,5 @@ fi
 ram_used_gib=$(awk "BEGIN { printf \"%.1f\", $ram_used_mib / 1024 }")
 
 # Emit clean single-line JSON (no whitespace bloat)
-printf '{"cpu":{"util":%s,"temp":%s},"mem":{"util":%s,"used_gib":%s},"gpu":{"util":%s,"temp":%s}}\n' \
-    "$cpu_util" "$cpu_temp" "$ram_pct" "$ram_used_gib" "$gpu_util" "$gpu_temp"
+printf '{"cpu":{"util":%s,"temp":%s},"vram":{"util":%s,"used_gib":%s},"mem":{"util":%s,"used_gib":%s},"gpu":{"util":%s,"temp":%s}}\n' \
+    "$cpu_util" "$cpu_temp" "$vram_pct" "$vram_used_gib" "$ram_pct" "$ram_used_gib" "$gpu_util" "$gpu_temp"

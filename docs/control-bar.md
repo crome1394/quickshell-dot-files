@@ -1,15 +1,15 @@
 <!-- Extracted from README for reference. See ../README.md for overview. -->
 
-# Bar control strip (`BarControlBar.qml`)
+# Settings (`BarControlBar.qml`)
 
-Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Closing Bar control with **Super+C** or Hyprland’s window ✕ used to leave it unable to open again; the gear icon clears that and maps the window. The in-panel ✕ and Esc still close it. It is a movable Hyprland window (title **Bar control**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Bar control)$"` (and optionally `class = org.quickshell`); size and placement are compositor-owned.
+Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Closing Settings with **Super+C** or Hyprland’s window ✕ used to leave it unable to open again; the gear icon clears that and maps the window. The in-panel ✕ and Esc still close it. It is a movable Hyprland window (title **Settings**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Settings)$"` and `class = ^(org.quickshell)$`; size and placement are compositor-owned.
 
 | Panel | What it does |
 |-------|----------------|
-| **Position** | Monitor mockups: **Classic** (one bottom bar) or **Dual** (thin top + bottom). Select, then **Apply**. Classic also has edge top/bottom. **Gap from edge**, **Flush windows to bar**, **Bar size**. |
+| **Position** | Monitor mockups: **Classic** (one bar) or **Dual** (top + bottom). Select, then **Apply**. Classic also has edge top/bottom. Dual adds **Left bar** and **Right bar** (both off until shown), each with span and alignment. **Gap from edge**, **Flush windows to bar**, **Bar size**. |
 | **Display** | Current mode, adapter/GPU, resolution slider, chips for **every res × refresh rate**, bit depth, Apply. NVIDIA Settings + Refresh bottom-right. |
 | **Wallpaper** | hyprpaper thumbs (tiles fill the panel; **Tile size** slider / Ctrl+wheel), apply, rename, delete, pick folder, add images (button or drag-and-drop) |
-| **Widgets** | Dual layout: **Top bar** and **Bottom bar** sections (classic: Left / Center / Right). Order inside a section is left-to-right on that bar. Each row: **✓/✕ + full name** · **L C R** (classic) or **T B** (dual) · **↑ ↓**; width slider 80–180%. Names use flexible width (Notifications, Hypr Inspector, etc. not clipped). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
+| **Widgets** | Dual layout: **Top bar**, **Bottom bar**, **Left bar**, and **Right bar** (classic: Left / Center / Right). Order inside a section is along that bar. Each row: **✓/✕ + full name** · zone chips · **↑ ↓**; width slider 80–180%. **Other** holds **Active Window** (show/hide and the four corners). Net·BT·Audio is one pill. **Add |** inserts a movable divider. **Reset layout** / **Reset sizes** (reset matches the active layout mode) |
 | **Options** | Behavior prefs (not layout) — **tabs** per section (table below); only the active tab scrolls |
 | **Themes** | Live colors/opacity, text roles, **Fonts**, per-metric thresholds, liquid presets; **Save as preset** (colors) and **Save setup** (colors + layout) — see Themes subsection |
 | **App Launcher** | Application Launcher pins (installed apps or custom) |
@@ -71,7 +71,7 @@ Layout (top → bottom): status · adapter · **Resolution | Refresh | Bit depth
 | **Resolution** | Stepped slider over `WxH` in the selected refresh **family**, plus chips for **all** `WxH · Hz` modes from hyprctl |
 | **Refresh rate** | Dropdown of **exact** rates for the selected resolution only (hyprctl). Changing rate refilters the **slider** list by Hz **family** (e.g. 239.76 / 239.90 / 239.97 → ~240); chips stay unfiltered |
 | **Bit depth** | Dropdown: **8-bit** / **10-bit** (pending until Apply) |
-| **Apply** | Commits pending mode + bitdepth at **scale 1.0** |
+| **Apply** | Commits pending mode + bitdepth at **scale 1.0**, with `cm = "srgb"` so 10-bit does not switch the monitor to wide/BT2020 |
 
 **Linked filtering**
 
@@ -88,7 +88,7 @@ Layout (top → bottom): status · adapter · **Resolution | Refresh | Bit depth
 Pending changes do **not** take effect until **Apply**. Apply:
 
 1. Runs `hyprctl eval` for the live mode (`scripts/monitor-mode.sh apply`).
-2. **Rewrites** `~/.config/hypr/config/monitors.lua` so the mode survives reboot / reload (backup: `monitors.lua.bak-qs`).
+2. **Rewrites** `~/.config/hypr/config/monitors.lua` so the mode survives reboot / reload (backup: `monitors.lua.bak-qs`). The written monitor block sets `cm = "srgb"`.
 
 Related CLI (outside this repo, on PATH): `hypr-resolution` — rofi menu over the same EDID modes (default 10-bit, scale 1).
 
@@ -106,20 +106,23 @@ The bar clock itself still uses local time, so after a successful region apply i
 
 ## Options panel
 
-Sticky chips under the title: **Bar** · **App Menu** · **Tooltips** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Stats** · **Dock** · **Screensaver** · **FreshRSS**. Position (Classic / Dual, edge, span, and size) lives on **Bar**. One section is shown at a time. A chip hides while its widget is off on the Widgets tab; the saved settings stay. **Bar**, **Tooltips** (the delay), and **Screensaver** stay. **Dock** hides only when every icon pill is off. The same switch hides the **App Launcher** and **Audio** tabs, the **Clock** format tab (Region stays), that widget's tooltip row, and the audio or stats blocks under Themes → Thresholds.
+Sticky chips under the title: **Bar** · **App Menu** · **Tooltips** · **Workspaces** · **Audio** · **Network** · **Bluetooth** · **Notifications** · **Stats** · **Dock** · **Active Window** · **Screensaver** · **ScreenShots** · **FreshRSS**. Position (Classic / Dual, edge, span, and size) lives on **Bar**. One section is shown at a time. A chip hides while its widget is off on the Widgets tab; the saved settings stay. **Bar**, **Tooltips** (the delay), **Screensaver**, **ScreenShots**, and **Notifications** stay. **Dock** hides only when every icon pill is off. The same switch hides the **App Launcher** and **Audio** tabs, the **Clock** format tab (Region stays), that widget's tooltip row, and the audio or stats blocks under Themes → Thresholds.
 
 | Section | Controls | Persistence |
 |---------|----------|-------------|
-| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
+| **Bar / UI** | UI scale auto/manual · **Gap from edge** · **Flush windows to bar** · **Bar size** · top and bottom span, size, and alignment · **Left bar** / **Right bar** (show, span, alignment; left means the top of the screen) · Config menu icon on bar · **Color presets section** (show/hide presets on Colors) | `bar-layout.json` |
 | **App Menu** | Pill icon (empty = 3×3 grid) · size 14–36 px · command the pill runs. Stock drawer toggles; any other command starts on each press | `bar-layout.json` |
 | **Tooltips** | Delay · per-widget side (auto / above / below / left / right) | `bar-layout.json` |
-| **Workspaces** | Magic pill · only-active · **default workspace** count, order, icon/text, **emoji font**, and **emoji size** · **Apply** / **Undo** · startup workspace · close magic on start | `bar-layout.json` |
+| **Workspaces** | **Workspace Options** (two columns): special pill · only-active · show numbers · **default** count · startup workspace · close special on startup. **Workspaces** (two columns, counts differ by at most one): special row and numbered rows. Per row: **#** (typing a number another row owns swaps them; Hyprland is not renamed) · **symbol** (≤3 chars, ✕ clears — an empty symbol shows no glyph on the pill) · **label** (✕ clears) · **font** with search, **B** / **I** · **size** · **label color** swatch (picker opens to the right of the columns; right-click clears). **Add workspace** / **Apply** / **Undo** sit in the footer left of **Refresh** | `bar-layout.json` |
 | **Audio** | Show AEC section · show Summary / device profiles / Level meters · keep Summary / Active streams expanded (AEC on/off is only in the Audio panel) | visibility/expand → `bar-layout.json` |
 | **Network** | nm-applet sticky login autostart · traffic graph on/off · **Full IP on bar** · **Last octet on bar** · **Device name on bar** | XDG / `bar-layout.json` |
 | **Bluetooth** | Blueman sticky login autostart | XDG / applet control |
-| **System stats** | Show CPU / Memory / GPU · **bar** util graphs · **menu** util graphs · metrics live updates | `bar-layout.json` |
+| **Notifications** | **Keep messages expanded** — the history list opens with every message expanded, and new ones stay expanded. Collapse all still closes them until the next open. **Stagger row colors** alternates a modest shade; the selected row still uses the accent when it is off. **Clear history at boot** empties the list on the next startup. **Show counter** is the number on the bell. Keys: **→** expand the selected row, **←** collapse it, **a** expand all, **c** collapse all, **d** DND, **Del** remove the selected row, **Ctrl+C** copy, **Ctrl+Del** clear. Toggle the window with `qs ipc call notificationBell toggleHistory`. | `bar-layout.json` (`notificationAutoExpand`, `notificationStaggerRows`, `notificationClearOnBoot`, `notificationShowCount`) |
+| **System stats** | Show CPU / Memory / GPU / VRAM · **Bar util graphs** (mini bars on the pill) · terminal · which mouse button opens `btop` / `nvtop`. The metrics popups are gone | `bar-layout.json` |
 | **Dock** | Apply to **Application Launcher** or **All icons** · Off / Magnify / Jump / Both · magnify amount · neighbor spread · jump height. Stats and volume meters stay still. | `bar-layout.json` |
-| **Screensaver** | Auto-start · **Always start after idle** · idle minutes · **Dim on start** (DDC %, G9) · **Brightness on exit** (set % or restore previous) · **video path** · **script** · **Browse** / **Preview** / **Apply**. Tab video does not block; fullscreen does unless Always start is on. | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
+| **Active Window** | Hide the pill for a class, app id, or title. **Add class** / **Add title** use the focused window. `*` is a wildcard; the rest must match exactly. The corner stays on Widgets. The list starts with `hypr-screensaver`. | `bar-layout.json` (`activeWindowExcludesJson`) |
+| **Screensaver** | **Video** or a text style (Night watch, Rain, Orbital, Warp, Pyro, Scanner) · **Clock** · warp speed / density / streak · auto-start · **Always start after idle** · idle minutes · **Dim on start** (DDC %, G9) · **Brightness on exit** · video path (hidden in text mode) · **script** · **Browse** / **Preview** / **Apply**. Tab video does not block; fullscreen does unless Always start is on. | `~/.config/hypr/screensaver.conf` + hypridle listener (no DPMS) |
+| **ScreenShots** | Default folder for saved captures · **Browse** (zenity) · **Open** · **Default** (clears to `~/Pictures`) · **Apply**. Read by `~/.local/bin/capture-screenshot`; the `SCREENSHOT_DIR` env var still overrides it. The completion toast opens the capture in satty; **Super + Alt + ,** edits the latest shot. | `bar-layout.json` (`screenshotDir`) |
 | **FreshRSS** | Filters expanded on open · HTTPS/HTTP · host · user · API password · **Test** / **Save server** | filters → `bar-layout.json`; credentials → `~/.config/freshrss-quickshell/freshrss.env` (never git) |
 
 Numeric settings that use a slider also have **‹ ›** step buttons and a typed field (`components/OptValueSlider.qml`). Toggle rows still use the right-hand chip.
@@ -135,7 +138,7 @@ Title and sub-tabs (**Theming** · **Thresholds** · **Presets**) stay fixed at 
 | Tab | Contents |
 |-----|----------|
 | **Theming** | Collapsible **Colors** · **Text** · **Special / Effects** (left) and **Opacity** (right). Includes **Running app dot**. **Main text** = menu headers; **Secondary text** = menu body; **Bar widget text** = face labels on the bar |
-| **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU** color ramps; temperature. Color picker appears only while a swatch is open. |
+| **Thresholds** | Output/input volume; Sys Stats **shared % cutoffs** plus **CPU / Memory / GPU / VRAM** color ramps; temperature. Color picker appears only while a swatch is open. |
 | **Fonts** | Two columns: **typeface** left · **size %** right. Rows: **UI**, **Monospace**, **Main**, **Secondary**, **Bar widget**. Preview shows all five |
 | **Presets** | **Dark** / **Light**. Dark: liquid family, solid, soft, nordic, ember, ocean, lavender, forest, ink, cocoa, graphite. Light: paper, daylight, mist, blossom, sage, porcelain. Hide the tab from **Options → Color presets section** |
 
@@ -180,9 +183,10 @@ Each Colors swatch writes **only** its Theme key (strict isolation). Shared look
 | CPU load | `statCpuTier1`–`4` | CPU util bar and % (AMD-red defaults) |
 | Memory load | `statMemTier1`–`4` | Memory util bar and % (cyan defaults) |
 | GPU load | `statGpuTier1`–`4` | GPU util bar and % (NVIDIA-green defaults) |
+| VRAM load | `statVramTier1`–`4` | VRAM util bar and % (GPU-green defaults) |
 | Sys Stats temperature | `statTempCool` / `Warm` / `Hot` + °C cutoffs | CPU / GPU temperature labels |
 
-**Thresholds** tab: volume has three cutoffs and four tier swatches (low → peak). Sys Stats keeps **shared % cutoffs** and **separate color ramps** for CPU, Memory, and GPU. Temperature has warm/hot °C cutoffs and three colors.
+**Thresholds** tab: volume has three cutoffs and four tier swatches (low → peak). Sys Stats keeps **shared % cutoffs** and **separate color ramps** for CPU, Memory, GPU, and VRAM. Temperature has warm/hot °C cutoffs and three colors.
 
 Changes apply **live** across the bar and widgets, and the active look is stored in `state/theme-colors.json` (survives `qs` restart). Layout prefs (including **Color presets section** visibility) stay in `bar-layout.json` — resetting colors does not move widgets.
 

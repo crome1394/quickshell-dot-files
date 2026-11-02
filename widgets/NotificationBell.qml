@@ -17,13 +17,16 @@ Rectangle {
     required property var bar
     required property Item barBg
 
-    property int count: 0
+    // Matches the history list. SwayNC's own count includes notifications
+    // that never appear in this window.
+    readonly property int count: historyItems ? historyItems.length : 0
     property bool dnd: false
     property bool inhibited: false
 
     // Local history (from notification-history.py watch / list)
     property var historyItems: []
     property bool allExpanded: false
+    property int historyCursor: 0
 
     readonly property string bellGlyph: {
         if (dnd) return count > 0 ? "󰂠" : "󰪓"
@@ -60,6 +63,15 @@ Rectangle {
                   ? bar.notificationDndAccent
                   : (bellMouse.containsMouse ? bar.accent : bar.pillBorder)
 
+    function notificationBody(raw) {
+        const s = String(raw || "")
+        if (s.indexOf("<") < 0)
+            return s
+        // Telegram sends "<b>sender</b>\\nmessage". Rich text drops the newline
+        // unless it is a break tag.
+        return s.split("\n").join("<br>")
+    }
+
     function historyScriptPath() {
         try {
             const local = Qt.resolvedUrl("../scripts/notification-history.py").toString().replace("file://", "")
@@ -71,8 +83,6 @@ Rectangle {
 
     function applyState(j) {
         if (j === undefined || j === null) return
-        if (j.count !== undefined && j.count !== null)
-            root.count = Math.max(0, Number(j.count) || 0)
         if (j.dnd !== undefined && j.dnd !== null) {
             if (typeof j.dnd === "boolean")
                 root.dnd = j.dnd
@@ -145,14 +155,16 @@ Rectangle {
                 summary: String(it.summary || ""),
                 body: String(it.body || ""),
                 icon: String(it.icon || ""),
+                image: String(it.image || ""),
                 urgency: Number(it.urgency) || 1,
-                expanded: !!it.expanded
+                expanded: root.keepMessagesExpanded() ? true : !!it.expanded
             })
         }
         // Newest first
         out.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0) })
         root.historyItems = out
         root.syncAllExpandedFlag()
+        root.clampHistoryCursor()
     }
 
     function handleHistoryEvent(j) {
@@ -174,13 +186,17 @@ Rectangle {
                 summary: String(it.summary || ""),
                 body: String(it.body || ""),
                 icon: String(it.icon || ""),
+                image: String(it.image || ""),
                 urgency: Number(it.urgency) || 1,
-                expanded: false
+                expanded: root.keepMessagesExpanded()
             })
+            if (root.historyCursor >= 0)
+                root.historyCursor = root.historyCursor + 1
             while (list.length > 80)
                 list.pop()
             root.historyItems = list
             root.syncAllExpandedFlag()
+            root.clampHistoryCursor()
         } else if ((j.type === "remove" || j.type === "dismiss") && j.id) {
             root.removeHistoryItemLocal(j.id)
         }
@@ -218,6 +234,7 @@ Rectangle {
             summary: it.summary,
             body: it.body,
             icon: it.icon,
+            image: it.image || "",
             urgency: it.urgency,
             expanded: !!on
         }
@@ -236,12 +253,46 @@ Rectangle {
                 summary: it.summary,
                 body: it.body,
                 icon: it.icon,
+                image: it.image || "",
                 urgency: it.urgency,
                 expanded: !!on
             }
         }
         root.historyItems = list
         root.allExpanded = !!on && list.length > 0
+    }
+
+    function localImageUrl(raw) {
+        raw = String(raw || "").trim()
+        if (!raw.length)
+            return ""
+        if (raw.indexOf("file://") === 0)
+            raw = raw.substring(7)
+        if (raw.charAt(0) !== "/")
+            return ""
+        var lower = raw.toLowerCase()
+        var dot = lower.lastIndexOf(".")
+        var ext = dot >= 0 ? lower.substring(dot) : ""
+        if (ext !== ".png" && ext !== ".jpg" && ext !== ".jpeg"
+                && ext !== ".webp" && ext !== ".gif" && ext !== ".bmp")
+            return ""
+        return "file://" + raw
+    }
+
+    function historyImageUrl(item) {
+        if (!item)
+            return ""
+        var direct = root.localImageUrl(item.image)
+        if (direct.length)
+            return direct
+        var fromIcon = root.localImageUrl(item.icon)
+        if (fromIcon.length)
+            return fromIcon
+        var body = String(item.body || "")
+        var match = body.match(/(\/[^\s'"<>]+?\.(?:png|jpe?g|webp|gif|bmp))/i)
+        if (match && match[1])
+            return root.localImageUrl(match[1])
+        return ""
     }
 
     function copyNotification(item) {
@@ -255,6 +306,33 @@ Rectangle {
         if (item.body)
             parts.push(String(item.body))
         const text = parts.join("\n")
+        var imagePath = root.historyImageUrl(item)
+        if (imagePath.indexOf("file://") === 0)
+            imagePath = imagePath.substring(7)
+        var mime = ""
+        const lower = imagePath.toLowerCase()
+        if (lower.endsWith(".png"))
+            mime = "image/png"
+        else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg"))
+            mime = "image/jpeg"
+        else if (lower.endsWith(".webp"))
+            mime = "image/webp"
+        else if (lower.endsWith(".gif"))
+            mime = "image/gif"
+        else if (lower.endsWith(".bmp"))
+            mime = "image/bmp"
+        // A row with a picture copies that picture. Text-only rows copy the text.
+        if (imagePath.length && mime.length) {
+            Quickshell.execDetached([
+                "sh", "-c",
+                'if [ -f "$2" ]; then wl-copy --type "$1" < "$2" || xclip -selection clipboard -t "$1" -i "$2"; elif [ -n "$3" ]; then printf "%s" "$3" | wl-copy 2>/dev/null || printf "%s" "$3" | xclip -selection clipboard 2>/dev/null || true; fi',
+                "copy",
+                mime,
+                imagePath,
+                text
+            ])
+            return
+        }
         if (!text.length)
             return
         Quickshell.execDetached([
@@ -271,6 +349,7 @@ Rectangle {
             Quickshell.execDetached(["python3", script, "clear"])
         root.historyItems = []
         root.allExpanded = false
+        root.historyCursor = 0
         // Also close SwayNC's live notifications so the badge matches the empty list.
         if (bar.notificationSupportsClearAll())
             root.clearAllNotifications()
@@ -288,6 +367,7 @@ Rectangle {
         }
         root.historyItems = list
         root.syncAllExpandedFlag()
+        root.clampHistoryCursor()
     }
 
     function dismissHistoryItem(id) {
@@ -412,7 +492,7 @@ Rectangle {
     }
 
     Rectangle {
-        visible: count > 0
+        visible: count > 0 && (!bar || bar.notificationShowCount !== false)
         z: 1
         width: Math.max(16, countLabel.implicitWidth + 6)
         height: 16
@@ -444,16 +524,175 @@ Rectangle {
         Qt.callLater(function() { root.refreshState() })
     }
 
+    function keepMessagesExpanded() {
+        return !!(bar && bar.notificationAutoExpand)
+    }
+
+    function clampHistoryCursor() {
+        const n = (root.historyItems || []).length
+        if (n <= 0) {
+            root.historyCursor = 0
+            return
+        }
+        if (root.historyCursor < 0)
+            root.historyCursor = 0
+        if (root.historyCursor >= n)
+            root.historyCursor = n - 1
+    }
+
+    function revealHistoryCursor() {
+        const n = (root.historyItems || []).length
+        if (n <= 0)
+            return
+        root.clampHistoryCursor()
+        historyList.positionViewAtIndex(root.historyCursor, ListView.Contain)
+    }
+
+    function moveHistoryCursor(delta) {
+        const n = (root.historyItems || []).length
+        if (n <= 0)
+            return
+        let next = root.historyCursor + delta
+        if (next < 0)
+            next = 0
+        if (next >= n)
+            next = n - 1
+        root.historyCursor = next
+        root.revealHistoryCursor()
+    }
+
+    function historyAtCursor() {
+        const list = root.historyItems || []
+        if (root.historyCursor < 0 || root.historyCursor >= list.length)
+            return null
+        return list[root.historyCursor]
+    }
+
+    function dismissSelected() {
+        const item = root.historyAtCursor()
+        if (item)
+            root.dismissHistoryItem(item.id)
+    }
+
+    function toggleSelectedExpanded() {
+        const item = root.historyAtCursor()
+        if (!item)
+            return
+        root.setSelectedExpanded(!item.expanded)
+    }
+
+    function setSelectedExpanded(on) {
+        const item = root.historyAtCursor()
+        if (!item || !!item.expanded === !!on)
+            return
+        root.setItemExpanded(root.historyCursor, !!on)
+        Qt.callLater(root.revealHistoryCursor)
+    }
+
+    function historyRowColor(index, selected, stagger) {
+        const base = (bar.surface !== undefined) ? bar.surface : Qt.rgba(0.08, 0.10, 0.14, 1)
+        const alt = !!stagger && ((index % 2) === 1)
+        let r = base.r
+        let g = base.g
+        let b = base.b
+        if (alt) {
+            r = Math.min(1, r * 0.72 + 0.16)
+            g = Math.min(1, g * 0.78 + 0.20)
+            b = Math.min(1, b * 0.82 + 0.28)
+        } else {
+            r = Math.min(1, r * 0.92 + 0.04)
+            g = Math.min(1, g * 0.92 + 0.04)
+            b = Math.min(1, b * 0.92 + 0.05)
+        }
+        let a = alt ? 0.78 : 0.48
+        if (selected && bar.accent) {
+            r = Math.min(1, r * 0.62 + bar.accent.r * 0.38)
+            g = Math.min(1, g * 0.62 + bar.accent.g * 0.38)
+            b = Math.min(1, b * 0.62 + bar.accent.b * 0.38)
+            a = Math.min(1, a + 0.12)
+        }
+        return Qt.rgba(r, g, b, a)
+    }
+
+    function handleHistoryKey(event) {
+        const ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+        const alt = (event.modifiers & Qt.AltModifier) !== 0
+        const meta = (event.modifiers & Qt.MetaModifier) !== 0
+        if (alt || meta)
+            return
+        if (ctrl && event.key === Qt.Key_C) {
+            const item = root.historyAtCursor()
+            if (item)
+                root.copyNotification(item)
+            event.accepted = true
+            return
+        }
+        if (ctrl && event.key === Qt.Key_Delete) {
+            root.clearHistoryLocal()
+            event.accepted = true
+            return
+        }
+        if (ctrl)
+            return
+        switch (event.key) {
+        case Qt.Key_A:
+            root.expandAllHistory(true)
+            Qt.callLater(root.revealHistoryCursor)
+            break
+        case Qt.Key_C:
+            root.expandAllHistory(false)
+            break
+        case Qt.Key_D:
+            root.toggleDoNotDisturb()
+            break
+        case Qt.Key_Delete:
+        case Qt.Key_Backspace:
+            root.dismissSelected()
+            break
+        case Qt.Key_Up:
+        case Qt.Key_K:
+            root.moveHistoryCursor(-1)
+            break
+        case Qt.Key_Down:
+        case Qt.Key_J:
+            root.moveHistoryCursor(1)
+            break
+        case Qt.Key_Right:
+            root.setSelectedExpanded(true)
+            break
+        case Qt.Key_Left:
+            root.setSelectedExpanded(false)
+            break
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+        case Qt.Key_Space:
+            root.toggleSelectedExpanded()
+            break
+        case Qt.Key_Escape:
+            root.hideHistoryPanel()
+            break
+        default:
+            return
+        }
+        event.accepted = true
+    }
+
+    function focusHistoryKeys() {
+        Qt.callLater(function() {
+            if (histKeyGrab)
+                histKeyGrab.forceActiveFocus()
+        })
+    }
+
     function hideHistoryPanel() {
         historyPopup.visible = false
     }
 
-    function showHistoryPanel() {
-        if (historyPopup.visible) {
-            hideHistoryPanel()
-            return
-        }
+    function openHistoryPanel() {
         root.loadHistoryOnce()
+        if (root.keepMessagesExpanded())
+            root.expandAllHistory(true)
+        root.historyCursor = 0
 
         var popupW = historyPopup.implicitWidth
         if (typeof bar.placePopup === "function") {
@@ -468,6 +707,32 @@ Rectangle {
             historyPopup.anchor.rect.y = bar.popupAnchorY(historyPopup.implicitHeight, 2)
         }
         historyPopup.visible = true
+        root.focusHistoryKeys()
+        Qt.callLater(root.revealHistoryCursor)
+    }
+
+    function showHistoryPanel() {
+        if (historyPopup.visible) {
+            hideHistoryPanel()
+            return
+        }
+        root.openHistoryPanel()
+    }
+
+    function toggleHistory() {
+        root.showHistoryPanel()
+    }
+
+    function showHistory() {
+        if (historyPopup.visible) {
+            root.focusHistoryKeys()
+            return
+        }
+        root.openHistoryPanel()
+    }
+
+    function hideHistory() {
+        root.hideHistoryPanel()
     }
 
     MouseArea {
@@ -503,11 +768,15 @@ Rectangle {
     PopupWindow {
         id: historyPopup
         anchor.window: bar
-        implicitWidth: 380
-        implicitHeight: 460
+        implicitWidth: 437
+        implicitHeight: 488
         visible: false
         grabFocus: true
         color: "transparent"
+        onVisibleChanged: {
+            if (visible)
+                root.focusHistoryKeys()
+        }
 
         Rectangle {
             anchors.fill: parent
@@ -556,6 +825,14 @@ Rectangle {
                 }
             }
 
+            Item {
+                id: histKeyGrab
+                z: 5
+                anchors.fill: parent
+                focus: historyPopup.visible
+                Keys.onPressed: (event) => root.handleHistoryKey(event)
+            }
+
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 12
@@ -584,22 +861,26 @@ Rectangle {
                     }
                 }
 
-                Text {
+                Item {
                     Layout.fillWidth: true
-                    visible: !(root.historyItems && root.historyItems.length)
-                    text: "No notifications captured yet.\nNew ones appear here as they arrive."
-                    color: bar.subtext
-                    font.pixelSize: 12
-                    font.family: bar.fontFamily
-                    wrapMode: Text.WordWrap
-                    horizontalAlignment: Text.AlignHCenter
-                    Layout.topMargin: 40
-                }
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 48
+
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width
+                        visible: !(root.historyItems && root.historyItems.length)
+                        text: "No notifications captured yet.\nNew ones appear here as they arrive."
+                        color: bar.subtext
+                        font.pixelSize: 12
+                        font.family: bar.fontFamily
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                    }
 
                 ListView {
                     id: historyList
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    anchors.fill: parent
                     visible: root.historyItems && root.historyItems.length > 0
                     clip: true
                     spacing: 6
@@ -613,11 +894,22 @@ Rectangle {
                         width: historyList.width
                         height: rowCol.implicitHeight + 14
                         radius: bar.buttonRadius
-                        color: bar.surface !== undefined
-                               ? Qt.rgba(bar.surface.r, bar.surface.g, bar.surface.b, 0.55)
-                               : Qt.rgba(0.08, 0.10, 0.14, 0.55)
-                        border.width: 1
-                        border.color: bar.dividerStrong
+                        color: root.historyRowColor(index, index === root.historyCursor, bar.notificationStaggerRows !== false)
+                        border.width: index === root.historyCursor ? 2 : 1
+                        border.color: index === root.historyCursor ? bar.accent : bar.dividerStrong
+
+                        // Clicks on the text expand the row. Copy and dismiss sit
+                        // inside this area and keep their own clicks.
+                        MouseArea {
+                            id: rowClick
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                root.historyCursor = index
+                                root.setItemExpanded(index, !modelData.expanded)
+                                root.focusHistoryKeys()
+                            }
 
                         ColumnLayout {
                             id: rowCol
@@ -664,7 +956,11 @@ Rectangle {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.setItemExpanded(index, !modelData.expanded)
+                                        onClicked: {
+                                            root.historyCursor = index
+                                            root.setItemExpanded(index, !modelData.expanded)
+                                            root.focusHistoryKeys()
+                                        }
                                     }
                                 }
                                 // Copy to clipboard
@@ -687,12 +983,16 @@ Rectangle {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.copyNotification(modelData)
+                                        onClicked: {
+                                            root.historyCursor = index
+                                            root.copyNotification(modelData)
+                                            root.focusHistoryKeys()
+                                        }
                                         BarToolTip {
                                             bar: root.bar
                                             preferSide: "above"
                                             visible: copyMa.containsMouse
-                                            text: "Copy to clipboard"
+                                            text: "Copy image, or the text if there is no image"
                                             anchorItem: copyMa
                                         }
                                     }
@@ -719,7 +1019,11 @@ Rectangle {
                                         anchors.fill: parent
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
-                                        onClicked: root.dismissHistoryItem(modelData.id)
+                                        onClicked: {
+                                            root.historyCursor = index
+                                            root.dismissHistoryItem(modelData.id)
+                                            root.focusHistoryKeys()
+                                        }
                                         BarToolTip {
                                             bar: root.bar
                                             preferSide: "above"
@@ -731,32 +1035,82 @@ Rectangle {
                                 }
                             }
 
-                            Text {
+                            RowLayout {
                                 Layout.fillWidth: true
-                                text: modelData.summary || "(no title)"
-                                color: bar.text
-                                font.pixelSize: 12
-                                font.bold: true
-                                font.family: bar.fontFamily
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: modelData.expanded ? 8 : 2
-                                elide: Text.ElideRight
-                            }
+                                spacing: 8
 
-                            Text {
-                                Layout.fillWidth: true
-                                visible: (modelData.body || "").length > 0
-                                         && (modelData.expanded || (modelData.summary || "").length === 0)
-                                text: modelData.body || ""
-                                color: bar.subtext
-                                font.pixelSize: 11
-                                font.family: bar.fontFamily
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: modelData.expanded ? 24 : 3
-                                elide: Text.ElideRight
+                                Rectangle {
+                                    id: histThumbFrame
+                                    readonly property string thumbUrl: modelData.expanded
+                                                                     ? root.historyImageUrl(modelData) : ""
+                                    visible: thumbUrl.length > 0 && histThumb.status !== Image.Error
+                                    Layout.preferredWidth: 112
+                                    Layout.preferredHeight: 72
+                                    Layout.alignment: Qt.AlignTop
+                                    radius: 6
+                                    clip: true
+                                    color: Qt.rgba(0, 0, 0, 0.25)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    Image {
+                                        id: histThumb
+                                        anchors.fill: parent
+                                        anchors.margins: 2
+                                        fillMode: Image.PreserveAspectFit
+                                        asynchronous: true
+                                        smooth: true
+                                        mipmap: true
+                                        sourceSize.width: 224
+                                        sourceSize.height: 144
+                                        source: histThumbFrame.thumbUrl
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: modelData.summary || "(no title)"
+                                        color: bar.text
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: modelData.expanded ? 10000 : 2
+                                        elide: modelData.expanded ? Text.ElideNone : Text.ElideRight
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        visible: (modelData.body || "").length > 0
+                                                 && (modelData.expanded || (modelData.summary || "").length === 0)
+                                        text: root.notificationBody(modelData.body)
+                                        textFormat: (modelData.body || "").indexOf("<") >= 0
+                                                    ? Text.RichText : Text.PlainText
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                        wrapMode: Text.WordWrap
+                                        maximumLineCount: modelData.expanded ? 10000 : 3
+                                        elide: modelData.expanded ? Text.ElideNone : Text.ElideRight
+                                    }
+                                }
                             }
                         }
+                        } // row click
                     }
+                }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: "↑↓ move · → expand · ← collapse · a all · c collapse all · d DND · Del remove · Ctrl+C copy · Ctrl+Del clear · Esc close"
+                    color: bar.subtext
+                    font.pixelSize: 10
+                    font.family: bar.fontFamily
                 }
 
                 // Bottom actions: Expand all + DND + clear history
@@ -787,7 +1141,10 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             enabled: parent.enabled
-                            onClicked: root.expandAllHistory(!root.allExpanded)
+                            onClicked: {
+                                root.expandAllHistory(!root.allExpanded)
+                                root.focusHistoryKeys()
+                            }
                         }
                     }
 
@@ -818,7 +1175,10 @@ Rectangle {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: root.toggleDoNotDisturb()
+                            onClicked: {
+                                root.toggleDoNotDisturb()
+                                root.focusHistoryKeys()
+                            }
                             BarToolTip {
                                 bar: root.bar
                                 preferSide: "above"
@@ -852,7 +1212,10 @@ Rectangle {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             enabled: parent.enabled
-                            onClicked: root.clearHistoryLocal()
+                            onClicked: {
+                                root.clearHistoryLocal()
+                                root.focusHistoryKeys()
+                            }
                         }
                     }
                 }

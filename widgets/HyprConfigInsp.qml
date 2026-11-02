@@ -554,12 +554,12 @@ Item {
         if (tab.view === "configfiles") {
             const entry = configFilesViewer.currentEntry()
             if (!entry) return
-            Quickshell.execDetached(["kitty", "-e", "nano", tabPath(entry)])
+            Quickshell.execDetached(["foot", "-e", "nano", tabPath(entry)])
             hide()
             return
         }
         if (!tab.file) return
-        Quickshell.execDetached(["kitty", "-e", "nano", tabPath(tab)])
+        Quickshell.execDetached(["foot", "-e", "nano", tabPath(tab)])
         hide()
     }
 

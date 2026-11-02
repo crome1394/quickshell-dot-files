@@ -14,7 +14,7 @@ Floating reader for a FreshRSS server. Opens from the bar pill or IPC (`qs ipc c
 | Options UI | Control bar → **Options → FreshRSS** |
 | Theme / limits | `Config.qml` (**FRESHRSS**) |
 
-**Auth:** Profile → **API password** (not the web form password). Without it, public RSS is read-only.
+**Auth:** Profile → **API password** (not the web form password). The configured `FRESHRSS_USER` must be the same FreshRSS account where that API password was created. Without a password, public RSS is read-only.
 
 **Data backends**
 

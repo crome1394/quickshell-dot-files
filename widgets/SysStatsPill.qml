@@ -1,19 +1,21 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Io as Io
 import "../components"
 
-// SysStatsPill — CPU / Memory / GPU on the bar; left-click metrics, right-click btop/nvtop.
-// Options: showStatCpu/Mem/Gpu, showStatGauges (bar), showStatMenuGraphs (popups).
+// SysStatsPill — CPU / Memory / GPU / VRAM on the bar; the configured mouse
+// button (Options → Stats; Config statLaunchButton) launches btop / nvtop in
+// the configured terminal (Config statTerminal). The other button does nothing.
+// The launched window gets the app name as its window class + title (e.g. "btop")
+// where the terminal supports it, so Hyprland rules / window lists match the app.
+// Options: showStatCpu/Vram/Mem/Gpu, showStatGauges (bar).
 // Face text: bar.barText / fontBarResolved / fontBarFace.
 
 Rectangle {
     id: root
 
     required property var bar
-    required property Item barBg
 
     // Horizontal scale only. Scale section widths, gauges, and fonts together so
     // labels/values never stack on top of each other when shrunk.
@@ -35,13 +37,14 @@ Rectangle {
     readonly property int _secH: Math.max(20, Math.round(26 * _ws))
     // Options: which sections / util bars appear on the pill
     readonly property bool _showCpu: bar.showStatCpu !== undefined ? !!bar.showStatCpu : true
+    readonly property bool _showVram: bar.showStatVram !== undefined ? !!bar.showStatVram : true
     readonly property bool _showMem: bar.showStatMem !== undefined ? !!bar.showStatMem : true
     readonly property bool _showGpu: bar.showStatGpu !== undefined ? !!bar.showStatGpu : true
-    // Options: util bars on the bar face (independent of menu graphs)
+    // Options: util bars on the bar face
     readonly property bool _showGauges: bar.showStatGauges !== undefined ? !!bar.showStatGauges : true
-    // Options: circular gauges + history in metrics popups (process lists always stay)
-    readonly property bool _showMenuGraphs: bar.showStatMenuGraphs !== undefined ? !!bar.showStatMenuGraphs : true
-    readonly property int _nSec: (_showCpu ? 1 : 0) + (_showMem ? 1 : 0) + (_showGpu ? 1 : 0)
+    // Option: which mouse button launches btop/nvtop ("left" or "right")
+    readonly property string _launchBtn: String(bar.statLaunchButton || "right").toLowerCase() === "left" ? "left" : "right"
+    readonly property int _nSec: (_showCpu ? 1 : 0) + (_showMem ? 1 : 0) + (_showGpu ? 1 : 0) + (_showVram ? 1 : 0)
     readonly property int _padH: Math.max(4, Math.round(bar.statPillPaddingH * _ws))
     // Full slot between sections (divider centered inside; Row spacing is 0).
     readonly property int _sepW: Math.max(6, Math.round(bar.statPillSpacing * _ws))
@@ -55,7 +58,8 @@ Rectangle {
         var cpuW = _showCpu ? _sectionW(cpuInner) : 0
         var memW = _showMem ? _sectionW(memInner) : 0
         var gpuW = _showGpu ? _sectionW(gpuInner) : 0
-        return cpuW + memW + gpuW + _nSep * _sepW
+        var vramW = _showVram ? _sectionW(vramInner) : 0
+        return cpuW + memW + gpuW + vramW + _nSep * _sepW
     }
     // Snug to content + padding. statPillWidth only expands if set larger intentionally.
     readonly property int _pillW: {
@@ -78,27 +82,11 @@ Rectangle {
     border.color: bar.pillBorder
     clip: true
 
-    readonly property bool metricsPopupOpen: cpuMetricsPopup.visible || memMetricsPopup.visible || gpuMetricsPopup.visible
-    property bool cpuLiveUpdates: true
-    property bool memLiveUpdates: true
-    property bool gpuLiveUpdates: true
-    // Session-only graphs override for left-click metrics (−1 follow Options, 0 hide, 1 show).
-    // Does not write showStatMenuGraphs.
-    property int cpuGraphsMode: -1
-    property int memGraphsMode: -1
-    property int gpuGraphsMode: -1
-
-    function graphsEffective(mode) {
-        if (mode === 1)
-            return true
-        if (mode === 0)
-            return false
-        return root._showMenuGraphs
-    }
-
-    // ===== Stats State & Polling (pill display — unchanged) =====
+    // ===== Stats State & Polling (pill display) =====
     property real cpuUtil: 0
     property int  cpuTemp: 0
+    property real vramUtil: 0
+    property real vramUsedGib: 0
     property real memUtil: 0
     property real memUsedGib: 0
     property real gpuUtil: 0
@@ -109,6 +97,10 @@ Rectangle {
         if (d.cpu) {
             cpuUtil = Number(d.cpu.util) || 0
             cpuTemp = Math.round(Number(d.cpu.temp) || 0)
+        }
+        if (d.vram) {
+            vramUtil = Number(d.vram.util) || 0
+            vramUsedGib = Number(d.vram.used_gib) || 0
         }
         if (d.mem) {
             memUtil = Number(d.mem.util) || 0
@@ -142,7 +134,8 @@ Rectangle {
 
     Timer {
         id: statsTimer
-        interval: 1600
+        // Bar pill refresh — CPU | Memory | GPU | VRAM
+        interval: 2000
         running: true
         repeat: true
         onTriggered: {
@@ -153,207 +146,48 @@ Rectangle {
     Component.onCompleted: {
         Qt.callLater(function() {
             if (!statsPoller.running) statsPoller.running = true
-            if (!bar.popupStatsPersistPause) {
-                cpuLiveUpdates = bar.popupStatsLiveUpdates
-                memLiveUpdates = bar.popupStatsLiveUpdates
-                gpuLiveUpdates = bar.popupStatsLiveUpdates
-            }
         })
     }
 
-    // ===== Rich metrics (left-click popups; terminal apps on right-click) =====
-    Io.FileView {
-        id: statsPauseState
-        path: bar.popupStatsPersistPause
-              ? "/home/crome/.config/quickshell/state/popup-stats.json"
-              : ""
-        watchChanges: bar.popupStatsPersistPause
-        onFileChanged: if (bar.popupStatsPersistPause) reload()
-        onAdapterUpdated: if (bar.popupStatsPersistPause) writeAdapter()
-        onLoaded: if (bar.popupStatsPersistPause) root.syncLiveUpdatesFromPersisted()
-        onLoadFailed: if (bar.popupStatsPersistPause) root.seedPauseStateFromConfig()
-
-        Io.JsonAdapter {
-            id: pauseAdapter
-            property bool cpuLiveUpdates: bar.popupStatsLiveUpdates
-            property bool memLiveUpdates: bar.popupStatsLiveUpdates
-            property bool gpuLiveUpdates: bar.popupStatsLiveUpdates
+    // === Terminal launches (right-click) ===
+    // Runs `app` (btop / nvtop) in the terminal picked in Options → Stats
+    // (bar.statTerminal; Config statTerminal default). Where the terminal
+    // supports it, the window class/app_id AND title are set to the app name
+    // (e.g. "btop") so Hyprland rules and window lists match the app, not the
+    // terminal. Unsupported flags are deliberately omitted — an unknown flag
+    // would abort the launch — so those terminals fall back to plain `-e`.
+    function terminalArgv(app) {
+        const term = String(bar.statTerminal || "kitty")
+        switch (term) {
+        case "kitty":          return [term, "--class", app, "--name", app, "--title", app, "-e", app]
+        case "foot":           return [term, "--app-id", app, "--title", app, app]
+        case "footclient":     return [term, "--app-id", app, "--title", app, app]
+        case "alacritty":      return [term, "--class", app, "-t", app, "-e", app]
+        case "ghostty":        return [term, "--class=" + app, "--title=" + app, "-e", app]
+        case "wezterm":        return [term, "start", "--class", app, "--", app]
+        case "gnome-terminal": return [term, "--title", app, "--", app]
+        case "xfce4-terminal": return [term, "--title", app, "-x", app]
+        case "mate-terminal":  return [term, "--title", app, "-x", app]
+        case "terminator":     return [term, "--title", app, "-x", app]
+        case "st":             return [term, "-n", app, "-T", app, "-e", app]
+        case "xterm":          return [term, "-name", app, "-T", app, "-e", app]
+        case "urxvt":          return [term, "-name", app, "-title", app, "-e", app]
+        default:               return [term, "-e", app]
         }
     }
 
-    SysMonService {
-        id: sysMonService
-        autoPoll: false
+    function launchInTerminal(app) {
+        Quickshell.execDetached(terminalArgv(app))
     }
 
-    function seedPauseStateFromConfig() {
-        pauseAdapter.cpuLiveUpdates = bar.popupStatsLiveUpdates
-        pauseAdapter.memLiveUpdates = bar.popupStatsLiveUpdates
-        pauseAdapter.gpuLiveUpdates = bar.popupStatsLiveUpdates
-        syncLiveUpdatesFromPersisted()
+    // True when `button` (Qt.LeftButton/Qt.RightButton) is the configured
+    // launch button. The other button is accepted but does nothing.
+    function clickLaunches(button) {
+        return (_launchBtn === "left") ? (button === Qt.LeftButton) : (button === Qt.RightButton)
     }
 
-    function syncLiveUpdatesFromPersisted() {
-        cpuLiveUpdates = pauseAdapter.cpuLiveUpdates
-        memLiveUpdates = pauseAdapter.memLiveUpdates
-        gpuLiveUpdates = pauseAdapter.gpuLiveUpdates
-        syncMetricsPolling()
-    }
-
-    function setLiveUpdates(section, enabled) {
-        if (section === "cpu") {
-            cpuLiveUpdates = enabled
-            if (bar.popupStatsPersistPause)
-                pauseAdapter.cpuLiveUpdates = enabled
-        } else if (section === "mem") {
-            memLiveUpdates = enabled
-            if (bar.popupStatsPersistPause)
-                pauseAdapter.memLiveUpdates = enabled
-        } else if (section === "gpu") {
-            gpuLiveUpdates = enabled
-            if (bar.popupStatsPersistPause)
-                pauseAdapter.gpuLiveUpdates = enabled
-        }
-    }
-
-    function metricsPollingEnabled() {
-        return (cpuMetricsPopup.visible && cpuLiveUpdates)
-            || (memMetricsPopup.visible && memLiveUpdates)
-            || (gpuMetricsPopup.visible && gpuLiveUpdates)
-            || (pinnedGraphWindow.visible)
-    }
-
-    function syncMetricsPolling() {
-        const poll = metricsPollingEnabled()
-        sysMonService.setAutoPoll(poll)
-        if (!poll)
-            sysMonService.stopPolling()
-        else
-            sysMonService.refresh()
-    }
-
-    // === Public API (shell IPC: qs ipc call sysStatsPill …) ===
-    function setCpuLiveUpdates(enabled) {
-        setLiveUpdates("cpu", enabled)
-        syncMetricsPolling()
-    }
-
-    function setMemLiveUpdates(enabled) {
-        setLiveUpdates("mem", enabled)
-        syncMetricsPolling()
-    }
-
-    function setGpuLiveUpdates(enabled) {
-        setLiveUpdates("gpu", enabled)
-        syncMetricsPolling()
-    }
-
-    function setMetricsLiveUpdates(enabled) {
-        setLiveUpdates("cpu", enabled)
-        setLiveUpdates("mem", enabled)
-        setLiveUpdates("gpu", enabled)
-        syncMetricsPolling()
-    }
-
-    function toggleCpuLiveUpdates() {
-        setCpuLiveUpdates(!cpuLiveUpdates)
-    }
-
-    function toggleMemLiveUpdates() {
-        setMemLiveUpdates(!memLiveUpdates)
-    }
-
-    function toggleGpuLiveUpdates() {
-        setGpuLiveUpdates(!gpuLiveUpdates)
-    }
-
-    function toggleMetricsLiveUpdates() {
-        setMetricsLiveUpdates(!(cpuLiveUpdates || memLiveUpdates || gpuLiveUpdates))
-    }
-
-    function hideMetricsPopups() {
-        cpuMetricsPopup.visible = false
-        memMetricsPopup.visible = false
-        gpuMetricsPopup.visible = false
-        root.cpuGraphsMode = -1
-        root.memGraphsMode = -1
-        root.gpuGraphsMode = -1
-        syncMetricsPolling()
-    }
-
-    function showMetricsPopup(popup, anchorItem, section) {
-        if (popup.visible) {
-            popup.visible = false
-            syncMetricsPolling()
-            return
-        }
-        if (popup !== cpuMetricsPopup) cpuMetricsPopup.visible = false
-        if (popup !== memMetricsPopup) memMetricsPopup.visible = false
-        if (popup !== gpuMetricsPopup) gpuMetricsPopup.visible = false
-        if (bar.popupStatsPersistPause) {
-            if (section === "cpu")
-                cpuLiveUpdates = pauseAdapter.cpuLiveUpdates
-            else if (section === "mem")
-                memLiveUpdates = pauseAdapter.memLiveUpdates
-            else if (section === "gpu")
-                gpuLiveUpdates = pauseAdapter.gpuLiveUpdates
-        }
-
-        root.placeMetricsPopup(popup)
-        popup.visible = true
-        syncMetricsPolling()
-    }
-
-    function metricsPopupWidth() {
-        const w = (barBg && barBg.width) ? barBg.width : 0
-        if (w >= 320)
-            return Math.round(w)
-        return bar.popupStatsMemWidth || 598
-    }
-
-    function placeMetricsPopup(popup) {
-        if (!popup)
-            return
-        const popupW = root.metricsPopupWidth()
-        popup.implicitWidth = popupW
-        const gap = (bar.popupStatsMemBarGap !== undefined) ? bar.popupStatsMemBarGap : 2
-        const extraY = (bar.popupStatsMemOffsetY !== undefined) ? bar.popupStatsMemOffsetY : 0
-        if (typeof bar.placePopup === "function")
-            bar.placePopup(popup, barBg, popupW, popup.implicitHeight, gap, 0, popupW / 2, extraY)
-    }
-
-    property string pinnedGraph: "cpu"
-
-    function pinGraph(section) {
-        const s = String(section || "cpu")
-        if (s !== "cpu" && s !== "mem" && s !== "gpu")
-            return
-        root.pinnedGraph = s
-        pinnedGraphWindow.visible = true
-        root.syncMetricsPolling()
-    }
-
-    function unpinGraph() {
-        pinnedGraphWindow.visible = false
-        root.syncMetricsPolling()
-    }
-
-    function pinnedGraphTitle() {
-        if (root.pinnedGraph === "mem")
-            return "Memory history"
-        if (root.pinnedGraph === "gpu")
-            return "GPU history"
-        return "CPU history"
-    }
-
-    function pinnedGraphHistory() {
-        if (!sysMonService)
-            return []
-        if (root.pinnedGraph === "mem")
-            return sysMonService.ramHistory || []
-        if (root.pinnedGraph === "gpu")
-            return sysMonService.gpuHistory || []
-        return sysMonService.cpuHistory || []
+    function launchHint(app) {
+        return (_launchBtn === "left" ? "Left: " : "Right: ") + app
     }
 
     // === Appearance via Theme ===
@@ -394,18 +228,14 @@ Rectangle {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) {
-                        root.hideMetricsPopups()
-                        Quickshell.execDetached(["kitty", "-e", "btop"])
-                    } else {
-                        root.showMetricsPopup(cpuMetricsPopup, cpuSection, "cpu")
-                    }
+                    if (root.clickLaunches(mouse.button))
+                        root.launchInTerminal("btop")
                 }
                 BarToolTip {
                     bar: root.bar
                     widgetId: "stats"
                     visible: cpuClick.containsMouse
-                    text: "Left: CPU metrics · Right: btop"
+                    text: root.launchHint("btop")
                     anchorItem: cpuClick
                 }
             }
@@ -481,7 +311,7 @@ Rectangle {
 
         // Separator slot: one gap budget with the divider centered (no double spacing).
         Item {
-            visible: root._showCpu && (root._showMem || root._showGpu)
+            visible: root._showCpu && (root._showMem || root._showGpu || root._showVram)
             width: root._sepW
             height: root._secH
 
@@ -514,18 +344,14 @@ Rectangle {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) {
-                        root.hideMetricsPopups()
-                        Quickshell.execDetached(["kitty", "-e", "btop"])
-                    } else {
-                        root.showMetricsPopup(memMetricsPopup, memSection, "mem")
-                    }
+                    if (root.clickLaunches(mouse.button))
+                        root.launchInTerminal("btop")
                 }
                 BarToolTip {
                     bar: root.bar
                     widgetId: "stats"
                     visible: memClick.containsMouse
-                    text: "Left: Memory metrics · Right: btop"
+                    text: root.launchHint("btop")
                     anchorItem: memClick
                 }
             }
@@ -600,7 +426,7 @@ Rectangle {
         }
 
         Item {
-            visible: root._showMem && root._showGpu
+            visible: root._showMem && (root._showGpu || root._showVram)
             width: root._sepW
             height: root._secH
 
@@ -633,18 +459,14 @@ Rectangle {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton) {
-                        root.hideMetricsPopups()
-                        Quickshell.execDetached(["kitty", "-e", "nvtop"])
-                    } else {
-                        root.showMetricsPopup(gpuMetricsPopup, gpuSection, "gpu")
-                    }
+                    if (root.clickLaunches(mouse.button))
+                        root.launchInTerminal("nvtop")
                 }
                 BarToolTip {
                     bar: root.bar
                     widgetId: "stats"
                     visible: gpuClick.containsMouse
-                    text: "Left: GPU metrics · Right: nvtop"
+                    text: root.launchHint("nvtop")
                     anchorItem: gpuClick
                 }
             }
@@ -717,664 +539,119 @@ Rectangle {
                 }
             }
         }
-    }
 
-    // ===== CPU METRICS POPUP =====
-    PopupWindow {
-        id: cpuMetricsPopup
-        anchor.window: bar
-        implicitWidth: Math.max(320, Math.round(barBg.width))
-        implicitHeight: bar.popupStatsCpuHeight
-        visible: false
-        grabFocus: true
-        color: "transparent"
-        onVisibleChanged: {
-            if (!visible) {
-                root.cpuGraphsMode = -1
-                root.syncMetricsPolling()
-            }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: bar.popupRadius
-            color: bar.glassPopupBg
-            border.width: bar.controlBorderWidth
-            border.color: bar.glassPopupBorder
+        // Separator slot between GPU and VRAM.
+        Item {
+            visible: root._showGpu && root._showVram
+            width: root._sepW
+            height: root._secH
 
             Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
-                color: bar.glassPopupHighlight
-                radius: parent.radius
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: bar.popupSpacingTight
-                spacing: bar.popupSectionSpacing
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: bar.popupSectionSpacing
-
-                    Text {
-                        text: "CPU Metrics"
-                        color: bar.text
-                        font.pixelSize: bar.popupTitleSize
-                        font.bold: true
-                        font.family: bar.fontFamily
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: cpuPinBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: cpuPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? bar.accent : bar.dividerStrong
-
-                        Text {
-                            id: cpuPinBtnLabel
-                            anchors.centerIn: parent
-                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? "Unpin graph" : "Pin graph"
-                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "cpu") ? bar.accent : bar.subtext
-                            font.pixelSize: bar.popupHintSize
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: cpuPinBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (pinnedGraphWindow.visible && root.pinnedGraph === "cpu")
-                                    root.unpinGraph()
-                                else
-                                    root.pinGraph("cpu")
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: cpuGraphsBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: cpuGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: cpuGraphsBtnLabel
-                            anchors.centerIn: parent
-                            text: root.graphsEffective(root.cpuGraphsMode) ? "Hide graphs" : "Show graphs"
-                            color: root.graphsEffective(root.cpuGraphsMode) ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !root.graphsEffective(root.cpuGraphsMode)
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: cpuGraphsBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.cpuGraphsMode = root.graphsEffective(root.cpuGraphsMode) ? 0 : 1
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: cpuLiveBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: cpuLiveBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: cpuLiveBtnLabel
-                            anchors.centerIn: parent
-                            text: cpuLiveUpdates ? "Pause updates" : "Resume updates"
-                            color: cpuLiveUpdates ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !cpuLiveUpdates
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: cpuLiveBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                setLiveUpdates("cpu", !cpuLiveUpdates)
-                                syncMetricsPolling()
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: (cpuLiveUpdates ? "live" : "paused") + " · click outside to close"
-                        color: bar.subtext
-                        font.pixelSize: bar.popupHintSize
-                        font.family: bar.fontFamily
-                    }
-                }
-
-                CpuMonitorView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    service: sysMonService
-                    showGraphs: root.graphsEffective(root.cpuGraphsMode)
-                    textColor: bar.text
-                    subtextColor: bar.subtext
-                    accentColor: bar.statCpuTier2
-                    surfaceColor: bar.surface
-                    overlayColor: bar.overlay
-                }
+                width: 1
+                height: Math.max(12, Math.round(15 * root._ws))
+                anchors.centerIn: parent
+                color: bar.divider
             }
         }
 
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onClicked: cpuMetricsPopup.visible = false
-        }
-    }
-
-    // ===== MEMORY METRICS POPUP =====
-    PopupWindow {
-        id: memMetricsPopup
-        anchor.window: bar
-        implicitWidth: Math.max(320, Math.round(barBg.width))
-        implicitHeight: bar.popupStatsMemHeight
-        visible: false
-        grabFocus: true
-        color: "transparent"
-        onVisibleChanged: {
-            if (!visible) {
-                root.memGraphsMode = -1
-                root.syncMetricsPolling()
-            }
-        }
-
+        // ----- VRAM -----
         Rectangle {
-            anchors.fill: parent
-            radius: bar.popupRadius
-            color: bar.glassPopupBg
-            border.width: bar.controlBorderWidth
-            border.color: bar.glassPopupBorder
+            id: vramSection
+            visible: root._showVram
+            width: root._sectionW(vramInner)
+            height: root._secH
+            radius: bar.workspaceRadius
+            color: vramClick.containsMouse ? bar.iconHoverBg : "transparent"
+            border.width: vramClick.containsMouse ? bar.controlBorderWidth : 0
+            border.color: vramClick.containsMouse ? bar.accent : "transparent"
 
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
-                color: bar.glassPopupHighlight
-                radius: parent.radius
-            }
+            Behavior on color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
+            Behavior on border.color { ColorAnimation { duration: 140; easing.type: Easing.OutQuad } }
 
-            ColumnLayout {
+            MouseArea {
+                id: vramClick
                 anchors.fill: parent
-                anchors.margins: bar.popupSpacingTight
-                spacing: bar.popupSectionSpacing
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: (mouse) => {
+                    if (root.clickLaunches(mouse.button))
+                        root.launchInTerminal("nvtop")
+                }
+                BarToolTip {
+                    bar: root.bar
+                    widgetId: "stats"
+                    visible: vramClick.containsMouse
+                    text: root.launchHint("nvtop")
+                    anchorItem: vramClick
+                }
+            }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: bar.popupSectionSpacing
+            Row {
+                id: vramInner
+                anchors.centerIn: parent
+                spacing: root._rowGap
+
+                Text {
+                    text: "VRAM"
+                    font.pixelSize: root._font
+                    font.bold: true
+                    font.family: root._faceFont
+                    color: vramClick.containsMouse ? bar.accent
+                           : ((bar.barText !== undefined) ? bar.barText : bar.text)
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Item {
+                    visible: root._showGauges
+                    width: root._gaugeW
+                    height: root._gaugeH
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: bar.statGaugeRadius
+                        color: bar.statTrack
+                    }
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(2, Math.min(parent.width, parent.width * (root.vramUtil / 100)))
+                        height: root._gaugeH
+                        radius: bar.statGaugeRadius
+                        color: bar.statUtilColor(root.vramUtil, "vram")
+
+                        Behavior on width {
+                            NumberAnimation { duration: 110; easing.type: Easing.OutQuad }
+                        }
+                    }
+                }
+
+                Row {
+                    spacing: root._valGap
+                    anchors.verticalCenter: parent.verticalCenter
 
                     Text {
-                        text: "Memory Metrics"
-                        color: bar.text
-                        font.pixelSize: bar.popupTitleSize
+                        text: Math.round(root.vramUtil) + "%"
+                        font.pixelSize: root._font
                         font.bold: true
-                        font.family: bar.fontFamily
+                        font.family: root._faceFont
+                        color: bar.statUtilColor(root.vramUtil, "vram")
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: memPinBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: memPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? bar.accent : bar.dividerStrong
-
-                        Text {
-                            id: memPinBtnLabel
-                            anchors.centerIn: parent
-                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? "Unpin graph" : "Pin graph"
-                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "mem") ? bar.accent : bar.subtext
-                            font.pixelSize: bar.popupHintSize
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: memPinBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (pinnedGraphWindow.visible && root.pinnedGraph === "mem")
-                                    root.unpinGraph()
-                                else
-                                    root.pinGraph("mem")
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: memGraphsBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: memGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: memGraphsBtnLabel
-                            anchors.centerIn: parent
-                            text: root.graphsEffective(root.memGraphsMode) ? "Hide graphs" : "Show graphs"
-                            color: root.graphsEffective(root.memGraphsMode) ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !root.graphsEffective(root.memGraphsMode)
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: memGraphsBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.memGraphsMode = root.graphsEffective(root.memGraphsMode) ? 0 : 1
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: memLiveBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: memLiveBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: memLiveBtnLabel
-                            anchors.centerIn: parent
-                            text: memLiveUpdates ? "Pause updates" : "Resume updates"
-                            color: memLiveUpdates ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !memLiveUpdates
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: memLiveBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                setLiveUpdates("mem", !memLiveUpdates)
-                                syncMetricsPolling()
-                            }
-                        }
-                    }
-
                     Text {
-                        text: (memLiveUpdates ? "live" : "paused") + " · click outside to close"
-                        color: bar.subtext
-                        font.pixelSize: bar.popupHintSize
-                        font.family: bar.fontFamily
+                        text: "|"
+                        font.pixelSize: root._font
+                        font.family: root._faceFont
+                        color: bar.statValueSeparator
                     }
-                }
-
-                MemoryMonitorView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    service: sysMonService
-                    showGraphs: root.graphsEffective(root.memGraphsMode)
-                    textColor: bar.text
-                    subtextColor: bar.subtext
-                    accentColor: bar.statMemTier2
-                    surfaceColor: bar.surface
-                    overlayColor: bar.overlay
-                    gaugeLowColor: bar.statMemTier1
-                    gaugeMidColor: bar.statMemTier2
-                    gaugeHighColor: bar.statMemTier4
-                }
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onClicked: memMetricsPopup.visible = false
-        }
-    }
-
-    // ===== GPU METRICS POPUP =====
-    PopupWindow {
-        id: gpuMetricsPopup
-        anchor.window: bar
-        implicitWidth: Math.max(320, Math.round(barBg.width))
-        implicitHeight: bar.popupStatsGpuHeight
-        visible: false
-        grabFocus: true
-        color: "transparent"
-        onVisibleChanged: {
-            if (!visible) {
-                root.gpuGraphsMode = -1
-                root.syncMetricsPolling()
-            }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: bar.popupRadius
-            color: bar.glassPopupBg
-            border.width: bar.controlBorderWidth
-            border.color: bar.glassPopupBorder
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
-                color: bar.glassPopupHighlight
-                radius: parent.radius
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: bar.popupSpacingTight
-                spacing: bar.popupSectionSpacing
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: bar.popupSectionSpacing
-
                     Text {
-                        text: "GPU Metrics"
-                        color: bar.text
-                        font.pixelSize: bar.popupTitleSize
+                        text: root.vramUsedGib.toFixed(1) + "G"
+                        font.pixelSize: root._font
                         font.bold: true
-                        font.family: bar.fontFamily
+                        font.family: root._faceFont
+                        color: (bar.barText !== undefined) ? bar.barText : bar.text
                     }
-
-                    Item { Layout.fillWidth: true }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: gpuPinBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: gpuPinBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? bar.accent : bar.dividerStrong
-
-                        Text {
-                            id: gpuPinBtnLabel
-                            anchors.centerIn: parent
-                            text: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? "Unpin graph" : "Pin graph"
-                            color: (pinnedGraphWindow.visible && root.pinnedGraph === "gpu") ? bar.accent : bar.subtext
-                            font.pixelSize: bar.popupHintSize
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: gpuPinBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (pinnedGraphWindow.visible && root.pinnedGraph === "gpu")
-                                    root.unpinGraph()
-                                else
-                                    root.pinGraph("gpu")
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: gpuGraphsBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: gpuGraphsBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: gpuGraphsBtnLabel
-                            anchors.centerIn: parent
-                            text: root.graphsEffective(root.gpuGraphsMode) ? "Hide graphs" : "Show graphs"
-                            color: root.graphsEffective(root.gpuGraphsMode) ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !root.graphsEffective(root.gpuGraphsMode)
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: gpuGraphsBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.gpuGraphsMode = root.graphsEffective(root.gpuGraphsMode) ? 0 : 1
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 24
-                        Layout.preferredWidth: gpuLiveBtnLabel.implicitWidth + 16
-                        radius: bar.buttonRadius
-                        color: gpuLiveBtnMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.6)
-                        border.width: bar.controlBorderWidth
-                        border.color: bar.dividerStrong
-
-                        Text {
-                            id: gpuLiveBtnLabel
-                            anchors.centerIn: parent
-                            text: gpuLiveUpdates ? "Pause updates" : "Resume updates"
-                            color: gpuLiveUpdates ? bar.subtext : bar.accent
-                            font.pixelSize: bar.popupHintSize
-                            font.bold: !gpuLiveUpdates
-                            font.family: bar.fontFamily
-                        }
-
-                        MouseArea {
-                            id: gpuLiveBtnMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                setLiveUpdates("gpu", !gpuLiveUpdates)
-                                syncMetricsPolling()
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: (gpuLiveUpdates ? "live" : "paused") + " · click outside to close"
-                        color: bar.subtext
-                        font.pixelSize: bar.popupHintSize
-                        font.family: bar.fontFamily
-                    }
-                }
-
-                GpuMonitorView {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    service: sysMonService
-                    showGraphs: root.graphsEffective(root.gpuGraphsMode)
-                    textColor: bar.text
-                    subtextColor: bar.subtext
-                    accentColor: bar.statGpuTier2
-                    surfaceColor: bar.surface
-                    overlayColor: bar.overlay
-                    gaugeLowColor: bar.statGpuTier1
-                    gaugeMidColor: bar.statGpuTier2
-                    gaugeHighColor: bar.statGpuTier4
-                }
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            z: -1
-            onClicked: gpuMetricsPopup.visible = false
-        }
-    }
-
-    Connections {
-        target: barBg
-        function onWidthChanged() {
-            if (cpuMetricsPopup.visible)
-                root.placeMetricsPopup(cpuMetricsPopup)
-            if (memMetricsPopup.visible)
-                root.placeMetricsPopup(memMetricsPopup)
-            if (gpuMetricsPopup.visible)
-                root.placeMetricsPopup(gpuMetricsPopup)
-        }
-    }
-
-    FloatingWindow {
-        id: pinnedGraphWindow
-        visible: false
-        title: "Stats history"
-        color: "transparent"
-        implicitWidth: 520
-        implicitHeight: 280
-        minimumSize: Qt.size(280, 160)
-
-        onClosed: root.syncMetricsPolling()
-        onVisibleChanged: root.syncMetricsPolling()
-
-        Rectangle {
-            anchors.fill: parent
-            radius: bar.popupRadius
-            color: bar.glassPopupBg
-            border.width: bar.controlBorderWidth
-            border.color: bar.glassPopupBorder
-
-            Rectangle {
-                anchors.top: parent.top
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: bar.popupHeaderHighlightHeight
-                color: bar.glassPopupHighlight
-                radius: parent.radius
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    Text {
-                        text: root.pinnedGraphTitle()
-                        color: bar.text
-                        font.pixelSize: bar.popupTitleSize
-                        font.bold: true
-                        font.family: bar.fontFamily
-                    }
-
-                    Repeater {
-                        model: [
-                            { id: "cpu", label: "CPU" },
-                            { id: "mem", label: "Mem" },
-                            { id: "gpu", label: "GPU" }
-                        ]
-                        delegate: Rectangle {
-                            required property var modelData
-                            readonly property bool active: root.pinnedGraph === modelData.id
-                            Layout.preferredHeight: 22
-                            implicitWidth: pinChipLbl.implicitWidth + 14
-                            radius: bar.buttonRadius
-                            color: active ? Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.18)
-                                          : (pinChipMa.containsMouse ? bar.popupButtonHoverBg : "transparent")
-                            border.width: 1
-                            border.color: active ? bar.accent : bar.pillBorder
-                            Text {
-                                id: pinChipLbl
-                                anchors.centerIn: parent
-                                text: modelData.label
-                                color: active ? bar.accent : bar.subtext
-                                font.pixelSize: 11
-                                font.family: bar.fontFamily
-                                font.bold: active
-                            }
-                            MouseArea {
-                                id: pinChipMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: root.pinnedGraph = modelData.id
-                            }
-                        }
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Text {
-                        text: "Drag the window to move · resize from edges"
-                        color: bar.subtext
-                        font.pixelSize: bar.popupHintSize
-                        font.family: bar.fontFamily
-                    }
-
-                    Rectangle {
-                        Layout.preferredHeight: 22
-                        implicitWidth: pinCloseLbl.implicitWidth + 14
-                        radius: bar.buttonRadius
-                        color: pinCloseMa.containsMouse ? bar.popupButtonHoverBg : "transparent"
-                        border.width: 1
-                        border.color: bar.pillBorder
-                        Text {
-                            id: pinCloseLbl
-                            anchors.centerIn: parent
-                            text: "Close"
-                            color: bar.subtext
-                            font.pixelSize: 11
-                            font.family: bar.fontFamily
-                        }
-                        MouseArea {
-                            id: pinCloseMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: root.unpinGraph()
-                        }
-                    }
-                }
-
-                Sparkline {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: 80
-                    history: root.pinnedGraph === "mem"
-                             ? (sysMonService.ramHistory || [])
-                             : (root.pinnedGraph === "gpu"
-                                ? (sysMonService.gpuHistory || [])
-                                : (sysMonService.cpuHistory || []))
-                    fixedRange: true
-                    minValue: 0
-                    maxValue: 100
-                    drawGrid: true
-                    gridStep: 10
-                    chartTitle: ""
-                    titleColor: bar.text
-                    lineColor: bar.accent
-                    fillColor: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.22)
-                    labelColor: bar.subtext
-                    gridColor: Qt.rgba(1, 1, 1, 0.12)
                 }
             }
         }

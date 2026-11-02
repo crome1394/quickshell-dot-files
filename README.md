@@ -13,22 +13,25 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 
 ## Features
 
-- Liquid-glass bar: **Classic** (one bar, left / center / right) or **Dual** (top + bottom, centered)
-- **Control strip** — movable Hyprland window titled **Bar control** (gear or right-click chrome). Opens on **Position**. Tabs fill the window; actions sit bottom-right. Drag the top strip; Esc / ✕ close.
-- **Widgets** — dual layout lists **Top bar** / **Bottom bar** (classic: Left / Center / Right); reorder, show/hide, width %
+- Liquid-glass bar: **Classic** (one bar, left / center / right) or **Dual** (top + bottom). Dual can also show a **left bar** and a **right bar**; both start off
+- **Settings** — movable Hyprland window (gear or right-click chrome). Opens on **Position**. Tabs fill the window; actions sit bottom-right. Drag the top strip; Esc / ✕ close.
+- **Widgets** — reorder, show/hide, width %. Classic zones are Left / Center / Right. Dual zones are Top / Bottom / Left / Right. **Active Window** sits under **Other** and picks a screen corner
 - **Wallpaper** — fill-width thumbs, tile-size slider, rename/delete, drag-and-drop add (panel stays open while dropping)
-- **Dock** — Mac-style magnify / jump (Options → Dock). Quick Launch or all icon widgets; CPU/Mem/GPU and volume stay still
+- **Dock** — Mac-style magnify / jump (Options → Dock). Quick Launch or all icon widgets; CPU/Mem/GPU/VRAM and volume stay still
 - **Quick Launch** — Mac-style running **dot** on the pill bottom edge (color: Themes → Running app dot)
-- **Sys Stats** — per-metric load colors (CPU / Memory / GPU); left-click popups with session Show graphs and pin-to-desktop history
+- **Sys Stats** — CPU | Memory | GPU | VRAM on the bar, each with its own load colors. The button chosen in Options → Stats opens `btop` (CPU/Memory) or `nvtop` (GPU/VRAM). The other button does nothing
+- **Transparency** — Apps and Satty sliders, 5–100%. 100% is solid. Fullscreen and Settings stay solid
+- **Tailscale** — left click opens machines (copy IP, name, or DNS, exit node, Taildrop). Right click runs `tailscale up` or `down`
+- **Active Window** — corner overlay with the focused window’s icon, class, and title. A skip list hides chosen apps (the screensaver is skipped by default)
 - **Network** — per-adapter on/off + Enable after disconnect; Options for full IP, last octet, and device name on the bar
 - **Themes** — colors, opacity, fonts, per-metric thresholds; **Save as preset** (colors) and **Save setup** (colors + layout)
-- **Screensaver** — idle mpv (no DPMS); mouse/click/Esc dismiss; tab video does not block; fullscreen does unless Always start; optional DDC dim / exit brightness
-- Net · BT · Audio (combined pill), workspaces, tray, notifications (history, DND, copy, per-item dismiss), power, FreshRSS
+- **Screensaver** — video (mpv) or a text style (Night watch, Rain, Orbital, Warp, Pyro, Scanner). No DPMS. Mouse/click/Esc dismiss. Tab video does not block; fullscreen does unless Always start. Optional DDC dim / exit brightness
+- Net · BT · Audio (combined pill), workspaces, tray, notifications (history window, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
 
 ## Requirements
 
-Quickshell (`qs`), Hyprland, and helpers used by scripts (`jq`, `nmcli`, PipeWire/`pactl`, optional `curl`, `btop`, `nvtop`). Screensaver DDC dim needs `ddcutil` and DDC/CI on the monitor.
+Quickshell (`qs`), Hyprland, and helpers used by scripts (`jq`, `nmcli`, PipeWire/`pactl`, optional `curl`, `btop`, `nvtop`). Text screensaver needs `kitty`. Transparency writes Hyprland window rules through `hyprctl`. Tailscale needs the `tailscale` CLI. Screensaver DDC dim needs `ddcutil` and DDC/CI on the monitor.
 
 ## Quick start
 
@@ -50,10 +53,11 @@ qs --daemonize -n
 | Screensaver | `~/.config/hypr/screensaver.conf` + hypridle listener |
 | Display mode | `~/.config/hypr/config/monitors.lua` (on Apply) |
 | FreshRSS secrets | `~/.config/freshrss-quickshell/freshrss.env` (not in git) |
+| Transparency | `~/.config/hypr/opacity.state` and `opacity.lua` |
 
 ## Bar layout
 
-Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**). Each mode keeps its own widget order in `state/bar-layout.json`. Hyprland should float the window with `title = "^(Bar control)$"` (size/placement are compositor rules).
+Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**). Each mode keeps its own widget order in `state/bar-layout.json`. Hyprland should float the window with `title = "^(Settings)$"` and `class = ^(org.quickshell)$` (size/placement are compositor rules).
 
 **Classic** (default — one bar, L / C / R):
 
@@ -61,16 +65,18 @@ Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**).
 |------|---------|
 | **Left** | Application Menu, Application Launcher, FreshRSS |
 | **Center** | Workspaces |
-| **Right** | System Stat Bars, Tray, Net·BT·Audio, Clock, Notifications, Config Menu Icon, Power |
+| **Right** | System Stat Bars, Tray, Net·BT·Audio, Tailscale, Clock, Notifications, Config Menu Icon, Transparency, Power |
 
 **Dual** (top + bottom, centered; glass hugs the widget row):
 
 | Bar | Widgets |
 |------|---------|
 | **Top** | Clock, Workspaces, Tray, Notifications, Power |
-| **Bottom** | System Stat Bars, Application Menu, Application Launcher, FreshRSS, Config Menu Icon, Net·BT·Audio |
+| **Bottom** | System Stat Bars, Application Menu, Application Launcher, FreshRSS, Config Menu Icon, Transparency, Net·BT·Audio, Tailscale |
 
-Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B in Dual). Theme in **Themes**. Options for gauges, graphs, applets, dock, screensaver. **Save setup** (Themes → Presets) snapshots colors plus this layout.
+**Left bar** and **Right bar** are off until Options → **Bar** turns them on. Faces on a side bar rotate 90° clockwise. Popups stay upright.
+
+Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B/L/R in Dual). **Active Window** is not in those lists. It lives under **Other**, and the corner chips place it. Theme in **Themes**. Options cover stats, dock, screensaver, and screenshots. **Save setup** (Themes → Presets) snapshots colors plus this layout.
 
 ## IPC (cheat sheet)
 
@@ -83,7 +89,12 @@ qs ipc call shell setBarEdgeMargin 8
 qs ipc call shell setBarSizeScale 1.1
 qs ipc call shell setFlushWindowsToBar true
 qs ipc call shell setUiScale 0.85
+qs ipc call shell toggleShowOpacityPill
+qs ipc call shell setActiveWindowCorner topLeft
 qs ipc call networkPill togglePopup
+qs ipc call notificationBell toggleHistory
+qs ipc call notificationBell showHistory
+qs ipc call notificationBell hideHistory
 qs ipc call notificationBell toggleDoNotDisturb
 ```
 
@@ -93,10 +104,10 @@ Full tables: [docs/ipc.md](docs/ipc.md)
 
 | Guide | Topic |
 |-------|--------|
-| [Control bar](docs/control-bar.md) | Panels, Wallpaper, Themes, Display, MIME, Dock, Screensaver |
+| [Settings](docs/control-bar.md) | Panels, Wallpaper, Themes, Display, MIME, Dock, Screensaver |
 | [Config tokens](docs/config.md) | `Config.qml` reference |
 | [IPC](docs/ipc.md) | All IPC targets |
-| [Screensaver](docs/screensaver.md) | Idle mpv, mouse dismiss, tab vs fullscreen, DDC dim |
+| [Screensaver](docs/screensaver.md) | Video or text styles, mouse dismiss, tab vs fullscreen, DDC dim |
 | [Audio](docs/audio.md) · [Network](docs/network.md) · [Bluetooth](docs/bluetooth.md) | Connectivity pills |
 | [FreshRSS](docs/freshrss.md) · [Workspaces](docs/workspaces.md) · [Inspector](docs/inspector.md) | Feature guides |
 | [Changelog](CHANGELOG.md) | Upgrade notes |

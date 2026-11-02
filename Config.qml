@@ -140,6 +140,7 @@ QtObject {
         "statCpuTier1", "statCpuTier2", "statCpuTier3", "statCpuTier4",
         "statMemTier1", "statMemTier2", "statMemTier3", "statMemTier4",
         "statGpuTier1", "statGpuTier2", "statGpuTier3", "statGpuTier4",
+        "statVramTier1", "statVramTier2", "statVramTier3", "statVramTier4",
         "statTempCool", "statTempWarm", "statTempHot",
         "qlRunningDot"
     ]
@@ -226,6 +227,12 @@ QtObject {
         { key: "statGpuTier2", label: "GPU mid",    opacity: false },
         { key: "statGpuTier3", label: "GPU high",   opacity: false },
         { key: "statGpuTier4", label: "GPU peak",   opacity: false }
+    ]
+    readonly property var themeStatVramTierUiRows: [
+        { key: "statVramTier1", label: "VRAM low",    opacity: false },
+        { key: "statVramTier2", label: "VRAM mid",    opacity: false },
+        { key: "statVramTier3", label: "VRAM high",   opacity: false },
+        { key: "statVramTier4", label: "VRAM peak",   opacity: false }
     ]
 
     // SysStats temperature label colors (CPU / GPU).
@@ -352,6 +359,10 @@ QtObject {
         case "statGpuTier2": return statGpuTier2
         case "statGpuTier3": return statGpuTier3
         case "statGpuTier4": return statGpuTier4
+        case "statVramTier1": return statVramTier1
+        case "statVramTier2": return statVramTier2
+        case "statVramTier3": return statVramTier3
+        case "statVramTier4": return statVramTier4
         case "statTempCool": return statTempCool
         case "statTempWarm": return statTempWarm
         case "statTempHot": return statTempHot
@@ -438,6 +449,10 @@ QtObject {
         case "statGpuTier2": statGpuTier2 = c; break
         case "statGpuTier3": statGpuTier3 = c; break
         case "statGpuTier4": statGpuTier4 = c; break
+        case "statVramTier1": statVramTier1 = c; break
+        case "statVramTier2": statVramTier2 = c; break
+        case "statVramTier3": statVramTier3 = c; break
+        case "statVramTier4": statVramTier4 = c; break
         case "statTempCool": statTempCool = c; break
         case "statTempWarm": statTempWarm = c; break
         case "statTempHot": statTempHot = c; break
@@ -2017,65 +2032,14 @@ QtObject {
     // --- BluetoothPill (adapter power, devices, profiles)
     readonly property int popupBluetoothWidth:  popupW(380)
     readonly property int popupBluetoothHeight: popupH(480)
+    readonly property int popupTailscaleWidth:  popupW(460)
+    readonly property int popupTailscaleHeight: popupH(700)
     readonly property int bluetoothScanSeconds: 45   // Auto-stop discovery after this many seconds
     // --- NetworkPill (nm-applet replacement: wired/WiFi, radios, connection info)
     // Main column width; WiFi AP list opens as a second column of popupNetworkWifiWidth
     readonly property int popupNetworkWidth:      popupW(520)
     readonly property int popupNetworkWifiWidth:  popupW(340)   // right column when scanning / changing network
     readonly property int popupNetworkHeight:     popupH(580)
-    // --- SysStatsPill metrics popups (left-click CPU / Memory / GPU on the bar pill)
-    // These are the large dropdown panels with charts and process lists — not the
-    // compact numbers shown on the pill itself. Each section has its own size.
-    readonly property int popupStatsCpuWidth:  popupW(598)   // CPU popup width in pixels
-    readonly property int popupStatsCpuHeight: popupH(850)   // CPU popup height in pixels
-    readonly property int popupStatsMemWidth:  popupW(598)   // Memory popup width in pixels
-    readonly property int popupStatsMemHeight: popupH(850)   // Memory popup height in pixels
-    readonly property int popupStatsGpuWidth:  popupW(598)   // GPU popup width in pixels
-    readonly property int popupStatsGpuHeight: popupH(850)   // GPU popup height in pixels
-
-    // --- Where each metrics popup appears on screen (widgets/SysStatsPill.qml)
-    // Right-click CPU, Memory, or GPU to open its popup. Position is tuned per section
-    // so popups do not overlap each other or fall off the screen edge.
-    //
-    // Shared terms (same meaning for Cpu / Mem / Gpu):
-    //   anchorX          — which part of the pill section to line up under:
-    //                      0 = left edge, 0.5 = middle, 1 = right edge
-    //   anchorWholePill  — false = anchor under that section only (CPU, Memory, or GPU)
-    //                      true  = anchor under the entire stats pill as one block
-    //   offsetX          — slide popup left (negative) or right (positive) in pixels
-    //   offsetY          — slide popup up (negative) or down (positive) in pixels
-    //   barGap           — space between the bar and the popup (larger = farther away)
-
-    // CPU section (left third of the pill)
-    readonly property real popupStatsCpuAnchorX: 0.5
-    readonly property bool popupStatsCpuAnchorWholePill: false
-    readonly property int popupStatsCpuOffsetX: sp(200)
-    readonly property int popupStatsCpuOffsetY: sp(7)
-    readonly property int popupStatsCpuBarGap: sp(2)
-
-    // Memory section (middle third)
-    readonly property real popupStatsMemAnchorX: 0.5
-    readonly property bool popupStatsMemAnchorWholePill: false
-    readonly property int popupStatsMemOffsetX: 0
-    readonly property int popupStatsMemOffsetY: sp(7)
-    readonly property int popupStatsMemBarGap: sp(2)
-
-    // GPU section (right third)
-    readonly property real popupStatsGpuAnchorX: 0.5
-    readonly property bool popupStatsGpuAnchorWholePill: false
-    readonly property int popupStatsGpuOffsetX: -sp(200)
-    readonly property int popupStatsGpuOffsetY: sp(7)
-    readonly property int popupStatsGpuBarGap: sp(2)
-
-    // When you right-click and open a metrics popup, should charts update live?
-    // true  = live graphs and numbers (uses a bit more CPU while open)
-    // false = frozen snapshot until you close and reopen
-    readonly property bool popupStatsLiveUpdates: true
-
-    // Remember your Pause / Resume choice across reboots?
-    // false = always use popupStatsLiveUpdates when you open a popup
-    // true  = save per-section pause state to state/popup-stats.json
-    readonly property bool popupStatsPersistPause: false
     readonly property int popupHelpWidth:     popupW(1060)  // Hypr Config Inspector default width
     readonly property int popupHelpHeight:    popupH(720)   // Hypr Config Inspector default height
     readonly property int popupTrayMaxHeight:  popupH(520)   // SystemTrayPill menu max height before scroll
@@ -2112,6 +2076,8 @@ QtObject {
     readonly property bool showClockPill:           true   // ClockPill.qml
     readonly property bool showNotificationPill:     true   // NotificationBell.qml
     readonly property bool showPowerPill:           true   // PowerMenu.qml
+    readonly property bool showOpacityPill:        true   // OpacityPill.qml
+    readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
     readonly property bool showRadarPill:          false  // RadarPill.qml (removed from bar; set true + re-add in shell.qml to restore)
     readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
@@ -2121,7 +2087,7 @@ QtObject {
     readonly property string barPositionIconTop:    "󰁝"  // shown when bar is on bottom (click → move to top)
     readonly property string barPositionIconBottom: "󰁅"  // shown when bar is on top (click → move to bottom)
     readonly property string iconHyprInsp:          "󰓙"  // Hyprland Config Inspector (spotlight, not cog)
-    readonly property string iconControlBar:        "󰢻"  // Bar control / config menu pill
+    readonly property string iconControlBar:        "󰢻"  // Settings / config menu pill
 
     // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)
     // CLI/rofi: hypr-resolution (on PATH). Script: list/status/apply for the control strip.
@@ -2146,6 +2112,7 @@ QtObject {
     readonly property string autostartSetScript:  "/home/crome/.config/quickshell/scripts/autostart-set.sh"
     readonly property string autostartAddScript:  "/home/crome/.config/quickshell/scripts/autostart-add.sh"
     readonly property string autostartRunScript:  "/home/crome/.config/quickshell/scripts/autostart-run.sh"
+    readonly property string opacityApplyScript: "/home/crome/.config/quickshell/scripts/opacity-apply.sh"
 
     // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
@@ -2179,14 +2146,18 @@ QtObject {
         { id: "stats",         zone: "right" },
         { id: "tray",          zone: "right" },
         { id: "connectivity",  zone: "right" },
+        { id: "tailscale",     zone: "right" },
         { id: "clock",         zone: "right" },
         { id: "notifications", zone: "right" },
         { id: "hyprInsp",      zone: "right" },
         { id: "controlBar",    zone: "right" },
+        { id: "opacity",       zone: "right" },
         { id: "power",         zone: "right" }
     ]
 
-    // Dual layout (two centered bars). zone: "top" | "bottom".
+    // Dual layout (top + bottom, plus optional left and right edge bars).
+    // zone: "top" | "bottom" | "left" | "right". Left and right stay empty
+    // until Options → Bar shows that edge bar.
     // Hidden-by-default pills (hyprInsp) stay in the catalog so
     // the Widgets panel can show them on either bar.
     readonly property var defaultDualWidgetLayout: [
@@ -2201,7 +2172,9 @@ QtObject {
         { id: "quickLaunch",   zone: "bottom" },
         { id: "freshRss",      zone: "bottom" },
         { id: "controlBar",    zone: "bottom" },
-        { id: "connectivity",  zone: "bottom" }
+        { id: "opacity",       zone: "bottom" },
+        { id: "connectivity",  zone: "bottom" },
+        { id: "tailscale",     zone: "bottom" }
     ]
 
     // =========================================================================
@@ -2288,19 +2261,20 @@ QtObject {
     // ~/.local/state/quickshell/notification-history.json. Left-click the bell opens
     // that panel. Right-click toggles DND. SwayNC's control center is not used in the UI.
     //
-    //   notificationSubscribe    — live badge/DND updates (SwayNC: swaync-client -s)
+    //   notificationSubscribe    — live DND updates (SwayNC: swaync-client -s)
     //   notificationTogglePanel  — unused in UI (SwayNC control center); kept for IPC/scripts
     //   notificationToggleDnd    — DND on the history panel + right-click the bell
     //   notificationClearAll     — also run from the history panel "Clear list"
-    //   notificationSync         — backup poll script; prints one JSON line per run:
-    //                              {"count":N,"dnd":true|false}
+    //   notificationSync         — backup poll for DND. The bell badge is the history
+    //                              list length, not the "count" field in this JSON.
     //   notificationDndAccent    — border/bell color when Do Not Disturb is on
 
     readonly property var notificationSubscribe:    ["swaync-client", "-s", "-sw"]  // Live JSON stream (optional)
     readonly property var notificationTogglePanel: ["swaync-client", "-t", "-sw"]   // Unused in UI
     readonly property var notificationToggleDnd:   ["swaync-client", "-d", "-sw"]   // History panel + right-click
     readonly property var notificationClearAll:    ["swaync-client", "-C", "-sw"]   // History "Clear list"
-    // Timer poller — reliable badge/DND backup; script must print {"count":N,"dnd":true|false}
+    // Timer poller — DND backup. Script still prints {"count":N,"dnd":true|false};
+    // the bell ignores count and uses the history list length.
     readonly property var notificationSync: [
         "/home/crome/.config/quickshell/scripts/notification-sync.sh"
     ]
@@ -2449,6 +2423,8 @@ QtObject {
     readonly property string iconNetworkPortal:         "󰖟"   // Captive portal
     // Power menu
     readonly property string iconPower:         "󰐥"
+    // Material Design circle-opacity (U+F1853) in Symbols Nerd Font.
+    readonly property string iconOpacity: "󱡓"
     readonly property string iconLock:          "󰌾"
     readonly property string iconLogout:        "󰍃"
     readonly property string iconReboot:        "󰑓"
@@ -2543,7 +2519,8 @@ QtObject {
     // Pill display:
     //   wsShowOnlyActive false → always show numbered pills 1..wsMinimumShown
     //   wsShowOnlyActive true  → only occupied/active numbered pills (+ extras)
-    //   wsShowSpecialPill      → config default for magic pill (IPC can override at runtime)
+    //   wsShowSpecialPill      → config default for the special pill (IPC can override at runtime)
+    //   wsShowNumbers          → config default for workspace numbers on numbered pills
     //
     // qs startup (shell.qml) — runs on every qs start AND reload (qs has no session vs reload distinction):
     //   wsStartupWorkspace 0 → do not change Hyprland workspace (recommended; preserves focus on qs reload)
@@ -2553,6 +2530,7 @@ QtObject {
     readonly property bool wsShowSpecialPill: true    // Magic pill default (toggle via qs ipc call shell setShowMagicWorkspacePill)
     readonly property int  wsMinimumShown: 3           // Default pills 1..N (IPC: qs ipc call shell setWsMinimumShown)
     readonly property bool wsShowOnlyActive: false    // IPC: qs ipc call shell setWsShowOnlyActive
+    readonly property bool wsShowNumbers: true        // IPC: qs ipc call shell setWsShowNumbers
     readonly property int  wsStartupWorkspace: 0       // 0 = preserve focus on start/reload. IPC: setWsStartupWorkspace
     readonly property bool wsStartupCloseMagic: false  // Close magic on qs start (only if wsStartupWorkspace > 0). IPC: setWsStartupCloseMagic
 
@@ -2598,7 +2576,8 @@ QtObject {
     //   Files / misc:    📁 🗂️  󰈹 󰈸 🔥 ⭐ ✨ 🪄
 
     // --- Hyprland special workspace (negative id; toggled via Super+S in keybindings.lua)
-    // wsSpecialName must match hl.dsp.workspace.toggle_special('<name>') and special:<name> moves.
+    // wsSpecialName is the fallback when Options → Workspaces leaves the name blank.
+    // The saved name must match hl.dsp.workspace.toggle_special('<name>') and special:<name> moves.
     readonly property string wsSpecialName:  "magic"
     readonly property string wsIconSpecial:  "🪄"     // Magic space — colorful emoji, icon-only pill
 
@@ -2629,14 +2608,27 @@ QtObject {
     // SYS STATS PILL (widgets/SysStatsPill.qml — CPU | Memory | GPU)
     // =========================================================================
     // The centered bar pill that shows live CPU, Memory, and GPU stats.
-    // Left-click a section opens its metrics popup; right-click CPU/Memory launches
-    // btop, right-click GPU launches nvtop (see popupStats* above for popup size).
+    // One mouse button (statLaunchButton, below) launches btop on CPU/Memory and
+    // nvtop on GPU/VRAM; the other button does nothing (the former metrics
+    // popups were removed).
     //
     // Layout notes (SysStatsPill.qml) — snug by default, still readable:
     //   - Sections hug label + gauge + values (Memory wider than CPU/GPU).
     //   - Pill width fits content + padding (no empty side ballast).
     //   - statPillWidth / statPillSectionWidth only expand if you raise them above 0.
     // If text ever clips, raise statPillPaddingH or statPillSpacing slightly.
+
+    // Terminal for right-click launches (btop / nvtop) on the pill.
+    // Options → Stats lists installed terminals (scripts/list-terminals.sh) and
+    // persists your pick to state/bar-layout.json (this value is the default).
+    // The launched window gets the app name as window class + title (e.g. "btop")
+    // where the terminal supports it, so Hyprland rules match the app.
+    readonly property string statTerminal: "kitty"
+
+    // Which mouse button on a pill section launches btop / nvtop: "right" or
+    // "left". The other button does nothing. Options → Stats toggles it; the
+    // pick persists in state/bar-layout.json (this value is the default).
+    readonly property string statLaunchButton: "right"
 
     // Optional preferred pill width. 0 = fit content (default, no wasted side space).
     // Set e.g. sp(640) only if you want intentional extra width with centered content.
@@ -2665,6 +2657,7 @@ QtObject {
     property color statUtilTier4: "#EF4444"
 
     // Per-metric util ramps (Themes → Thresholds). Defaults: AMD red / cyan / NVIDIA green.
+    // VRAM starts on the GPU green ramp; it can be customized independently.
     property color statCpuTier1: "#E8A0A4"
     property color statCpuTier2: "#ED1C24"
     property color statCpuTier3: "#C4161C"
@@ -2677,6 +2670,10 @@ QtObject {
     property color statGpuTier2: "#C4D600"
     property color statGpuTier3: "#FFC800"
     property color statGpuTier4: "#FF5A00"
+    property color statVramTier1: "#76B900"
+    property color statVramTier2: "#C4D600"
+    property color statVramTier3: "#FFC800"
+    property color statVramTier4: "#FF5A00"
 
     // Quick Launch running-app dot (Themes → Theming / Options → Dock).
     property color qlRunningDot: "#00F5FF"
@@ -2711,6 +2708,8 @@ QtObject {
             t1 = statMemTier1; t2 = statMemTier2; t3 = statMemTier3; t4 = statMemTier4
         } else if (m === "gpu") {
             t1 = statGpuTier1; t2 = statGpuTier2; t3 = statGpuTier3; t4 = statGpuTier4
+        } else if (m === "vram") {
+            t1 = statVramTier1; t2 = statVramTier2; t3 = statVramTier3; t4 = statVramTier4
         }
         if (u <= statUtilThreshold1) return t1
         if (u <= statUtilThreshold2) return t2

@@ -11,11 +11,11 @@ Edit `Config.qml` to change:
 - Bar position and size (`barPosition`, `barLayoutMode` classic/dual, `barHeight`, `barEdgeMargin`, `flushWindowsToBar`)
 - Bar pill visibility defaults (`showLauncherPill`, `showAudioPill`, etc.) and launcher command (`launcherCommand`)
 - **Quick Launch** apps (`quickLaunchApps`) and dock hover defaults (`dockEffect`, `dockScope`, `qlRunningDot`)
-- Sys Stats per-metric load colors (`statCpuTier*`, `statMemTier*`, `statGpuTier*`)
+- Sys Stats per-metric load colors (`statCpuTier*`, `statMemTier*`, `statGpuTier*`, `statVramTier*`)
 - **Notification bell** daemon commands (`notification*`)
 - **Power menu** session commands (`power*Command`, `powerMenuActions`)
 - Workspace pill count, active-only mode, magic pill default, startup focus, and workspace colors (search **WORKSPACES**; IPC: `setWsMinimumShown`, `setWsShowOnlyActive`, `setWsStartupWorkspace`, `setWsStartupCloseMagic`)
-- System Stats pill and metrics popups (search **SYS STATS PILL** and `popupStats*`)
+- System Stats pill (search **SYS STATS PILL**)
 - Inspector sizing and semantic colors (search `insp*` properties)
 - Wallpaper folder / apply scripts / default tile size (search **Wallpaper**; runtime folder and tile size persist in `state/bar-layout.json`)
 - Clock format presets (`clockFormatPresets`) and timezone helper (`timezoneControlScript`)
@@ -28,7 +28,7 @@ The file is named `Config.qml` (capital **C**) because QML requires that naming 
 
 # System Stats pill (`Config.qml`)
 
-Search for **SYS STATS PILL** for the compact bar widget (CPU | Memory | GPU), and **popupStats** for the large right-click dropdowns.
+Search for **SYS STATS PILL** for the compact bar widget (CPU | Memory | GPU | VRAM).
 
 **Bar pill size** — snug to content by default. Raise these only if you want more room:
 
@@ -42,21 +42,7 @@ Search for **SYS STATS PILL** for the compact bar widget (CPU | Memory | GPU), a
 
 **Bar pill colors** — utilization bar tiers (`statUtilTier1`–`4`, `statUtilThreshold1`–`3`) and CPU/GPU temperature label colors (`statTempCool` / `Warm` / `Hot`, `statTempWarmAt` / `HotAt`).
 
-**Metrics popups** (right-click a section) — each section has its own size and screen position:
-
-| Prefix | Section |
-|--------|---------|
-| `popupStatsCpu*` | CPU (left) |
-| `popupStatsMem*` | Memory (middle) |
-| `popupStatsGpu*` | GPU (right) |
-
-- `*Width` / `*Height` — popup panel size in pixels
-- `*AnchorX` — `0` = align to left of section, `0.5` = center, `1` = right
-- `*AnchorWholePill` — `true` = anchor to the full pill instead of that section
-- `*OffsetX` / `*OffsetY` — nudge popup left/right or up/down in pixels
-- `*BarGap` — distance between the bar and the popup
-
-**Live updates** — `popupStatsLiveUpdates` sets whether charts refresh while a popup is open. `popupStatsPersistPause: true` saves Pause/Resume choices to `state/popup-stats.json`.
+**Clicks** — the button chosen in Options → Stats (`statLaunchButton` in `Config.qml`, default `right`) launches `btop` on CPU/Memory and `nvtop` on GPU/VRAM; the other button does nothing (the former metrics popups were removed). Launches use the terminal picked in Options → Stats (`statTerminal`; both picks persist in `state/bar-layout.json`), and the terminal window gets the app name as its window class and title (e.g. `btop`) where the terminal supports it — so Hyprland rules match the app instead of the terminal. Installed terminals are detected by `scripts/list-terminals.sh`.
 
 ## Notification bell (`Config.qml` + `NotificationBell.qml`)
 
@@ -66,15 +52,15 @@ Left-click the bell opens the **history panel** (every notification, expand / co
 
 | Property | SwayNC default | Purpose |
 |----------|----------------|---------|
-| `notificationSubscribe` | `["swaync-client", "-s", "-sw"]` | Optional live stream for badge / DND updates |
+| `notificationSubscribe` | `["swaync-client", "-s", "-sw"]` | Optional live stream for DND updates |
 | `notificationTogglePanel` | `["swaync-client", "-t", "-sw"]` | Unused in UI (SwayNC control center) |
 | `notificationToggleDnd` | `["swaync-client", "-d", "-sw"]` | History-panel DND button + right-click the bell |
 | `notificationClearAll` | `["swaync-client", "-C", "-sw"]` | Also run from history **Clear list** (closes live SwayNC notifications) |
-| `notificationSync` | `["…/scripts/notification-sync.sh"]` | Timer poller; prints `{"count":N,"dnd":true\|false}` |
+| `notificationSync` | `["…/scripts/notification-sync.sh"]` | Timer poller for DND. The badge is the history list length, not SwayNC's count |
 | `notificationSyncIntervalMs` | `2500` | How often the sync script runs |
 | `notificationDndAccent` | `#e85d5d` | Pill border, bell, and badge tint when DND is on |
 
-Use `[]` to disable subscribe, sync, or any action. Keep `notificationSync` enabled for reliable badge/DND state; subscribe is optional live updates on top. Config command lists are QML lists — the bell copies them to JS arrays before starting `Io.Process` (do not bind lists directly).
+Use `[]` to disable subscribe, sync, or any action. Keep `notificationSync` enabled for reliable DND state. The badge counts rows in the history list, so an empty list shows no number. Subscribe is optional live DND updates on top. Config command lists are QML lists — the bell copies them to JS arrays before starting `Io.Process` (do not bind lists directly).
 
 **SwayNC tip:** run only one instance (e.g. `swaync.service` via systemd, not also `hl.exec_cmd("swaync")` in Hyprland autostart). If `notify-send` shows nothing, check DND: `swaync-client -D -sw` — use `swaync-client -df -sw` to turn off.
 

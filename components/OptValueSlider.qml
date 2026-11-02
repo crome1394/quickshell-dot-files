@@ -8,7 +8,7 @@ RowLayout {
     id: root
     spacing: 6
     Layout.fillWidth: true
-    implicitHeight: 26
+    implicitHeight: 30
 
     property var bar: null
     property real from: 0
@@ -17,7 +17,7 @@ RowLayout {
     property real value: 0
     property string suffix: ""
     property bool showField: true
-    property int fieldWidth: 44
+    property int fieldWidth: 58
     property bool enabled: true
 
     property color accent: (bar && bar.accent !== undefined) ? bar.accent : "#00F0E0"
@@ -66,6 +66,9 @@ RowLayout {
         root.emit(Number(root.value) + dir * Number(root.stepSize), true)
     }
 
+    // Do not bind `value` to root.value. A binding breaks the first time
+    // the handle moves, and the next outside update (a late config read)
+    // cannot move the handle, so the control snaps back to its first number.
     Slider {
         id: sl
         Layout.fillWidth: true
@@ -76,8 +79,10 @@ RowLayout {
         snapMode: Slider.SnapAlways
         live: true
         enabled: root.enabled
-        value: root.value
-        onMoved: root.emit(value, false)
+        onMoved: {
+            if (pressed)
+                root.emit(value, false)
+        }
         onPressedChanged: {
             if (!pressed)
                 root.emit(value, true)
@@ -165,13 +170,22 @@ RowLayout {
         visible: root.showField
         enabled: root.enabled
         Layout.preferredWidth: root.fieldWidth
-        Layout.preferredHeight: 22
+        Layout.preferredHeight: 28
         horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
+        // Default control padding clips the glyph in a short field.
+        topPadding: 1
+        bottomPadding: 1
+        leftPadding: 4
+        rightPadding: 4
         color: root.textColor
-        font.pixelSize: 11
-        font.family: root.fontMono
+        font.pixelSize: 14
+        // A real text face. The theme mono stack often names a font that is not
+        // installed, and the UI stack leads with an icon font that cannot draw digits.
+        font.family: "DejaVu Sans Mono"
         selectByMouse: true
-        text: root.format(root.value)
+        // No binding on `text`. A binding puts 10 back in the field while
+        // the number is being typed, and a later config read cannot win.
         background: Rectangle {
             radius: 4
             color: field.activeFocus ? root.fieldBgFocus : root.fieldBg
@@ -198,9 +212,30 @@ RowLayout {
         Layout.preferredWidth: implicitWidth
     }
 
+    function syncSlider() {
+        if (sl.pressed)
+            return
+        const n = root.snap(root.value)
+        if (Math.abs(sl.value - n) > 0.0001)
+            sl.value = n
+    }
+
+    function syncField() {
+        if (field.activeFocus)
+            return
+        const next = root.format(root.value)
+        if (field.text !== next)
+            field.text = next
+    }
+
     onValueChanged: {
-        if (!field.activeFocus)
-            field.text = root.format(root.value)
+        root.syncSlider()
+        root.syncField()
+    }
+
+    Component.onCompleted: {
+        root.syncField()
+        root.syncSlider()
     }
 
     function commitField() {

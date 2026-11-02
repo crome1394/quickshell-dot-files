@@ -4,6 +4,8 @@
 
 Workspace pill behavior is configured in `Config.qml` and applied by `widgets/WorkspacesPill.qml`.
 
+Options → **Workspaces** has two sections. **Workspace Options** holds the special pill, only-active, show numbers, default count, startup workspace, and close special on startup, in two columns. **Workspaces** lists the special row and the numbered rows in two columns. The left column takes one more card when the count is odd.
+
 | Setting | Default | IPC (`shell` target) | Description |
 |---------|---------|----------------------|-------------|
 | `wsShowSpecialPill` | `true` | `setShowMagicWorkspacePill` / `toggleShowMagicWorkspacePill` | Show the magic-space pill (🪄) before workspace 1 |

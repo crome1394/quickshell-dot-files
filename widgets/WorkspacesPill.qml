@@ -398,6 +398,10 @@ Rectangle {
     Connections {
         target: bar
         function onShowMagicWorkspacePillChanged() { root.updateShownWorkspaces(); }
+        function onWsSpecialNameChanged() {
+            root.requestSpecialSync()
+            root.updateShownWorkspaces()
+        }
         function onWsMinimumShownChanged() { root.updateShownWorkspaces(); }
         function onWsShowOnlyActiveChanged() { root.updateShownWorkspaces(); }
         function onWsSlotsChanged() { root.updateShownWorkspaces(); }
@@ -486,7 +490,7 @@ Rectangle {
                 }
                 property bool isHovered: wsMouse.containsMouse
 
-                width: Math.max(root._btnW, Math.min(Math.round(root._btnW * 2.6), wsFace.implicitWidth + 12))
+                width: Math.max(root._btnW, Math.min(Math.round(root._btnW * 4.2), wsFace.implicitWidth + 12))
                 height: root._btnH
                 radius: bar.workspaceRadius
                 color: isActive ? bar.wsActiveBg :
@@ -540,12 +544,16 @@ Rectangle {
                     spacing: 3
 
                     Text {
+                        // Hidden when the symbol is empty so the Row adds no
+                        // stray gap — the pill shows label/number only.
+                        visible: text.length > 0
                         text: {
                             void bar.wsSlots
                             void bar.hasWsSlots
                             void bar.wsMinimumShown
                             if (isSpecial) {
                                 void bar.wsIconSpecialCustom
+                                void bar.wsSpecialText
                                 return (bar.wsSpecialIcon ? bar.wsSpecialIcon() : bar.wsIconSpecial)
                             }
                             const id = modelData ? modelData.id : 0
@@ -556,7 +564,12 @@ Rectangle {
                         font.pixelSize: {
                             void bar.wsSlots
                             void bar.hasWsSlots
-                            if (isSpecial || !bar || typeof bar.wsFontPxForId !== "function")
+                            void bar.wsSpecialFontPx
+                            if (isSpecial) {
+                                const px = Math.round(Number(bar.wsSpecialFontPx) || 0)
+                                return px >= 8 ? px : bar.wsIconSize
+                            }
+                            if (!bar || typeof bar.wsFontPxForId !== "function")
                                 return bar.wsIconSize
                             const px = bar.wsFontPxForId(modelData ? modelData.id : 0)
                             return px >= 8 ? px : bar.wsIconSize
@@ -567,15 +580,114 @@ Rectangle {
                         font.family: {
                             void bar.wsSlots
                             void bar.hasWsSlots
-                            if (isSpecial || !bar || typeof bar.wsFontForId !== "function")
+                            void bar.wsSpecialFont
+                            if (isSpecial) {
+                                const custom = String(bar.wsSpecialFont || "")
+                                return custom.length ? custom : bar.fontFamily
+                            }
+                            if (!bar || typeof bar.wsFontForId !== "function")
                                 return bar.fontFamily
                             const custom = bar.wsFontForId(modelData ? modelData.id : 0)
                             return (custom && String(custom).length) ? custom : bar.fontFamily
                         }
-                        font.bold: true
+                        font.bold: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialBold
+                            if (isSpecial)
+                                return bar.wsSpecialBold !== false
+                            if (!bar || typeof bar.wsBoldForId !== "function")
+                                return true
+                            return bar.wsBoldForId(modelData ? modelData.id : 0)
+                        }
+                        font.italic: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialItalic
+                            if (isSpecial)
+                                return !!bar.wsSpecialItalic
+                            if (!bar || typeof bar.wsItalicForId !== "function")
+                                return false
+                            return bar.wsItalicForId(modelData ? modelData.id : 0)
+                        }
+                    }
+                    // Word label from Options → Workspaces (symbol + label pill face).
+                    Text {
+                        visible: text.length > 0
+                        // Cap so long labels elide inside the pill width instead of
+                        // overflowing onto neighbors.
+                        width: Math.min(implicitWidth, Math.round(root._btnW * 2.2))
+                        elide: Text.ElideRight
+                        text: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialText
+                            if (isSpecial)
+                                return String(bar.wsSpecialText || "")
+                            if (!bar || typeof bar.wsTextForId !== "function")
+                                return ""
+                            return bar.wsTextForId(modelData ? modelData.id : 0)
+                        }
+                        font.pixelSize: bar.wsNumberSize || 15
+                        font.family: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialFont
+                            const custom = isSpecial
+                                ? String(bar.wsSpecialFont || "")
+                                : ((bar && typeof bar.wsFontForId === "function")
+                                    ? bar.wsFontForId(modelData ? modelData.id : 0) : "")
+                            return (custom && String(custom).length) ? custom : bar.fontFamily
+                        }
+                        font.bold: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialBold
+                            if (isSpecial)
+                                return bar.wsSpecialBold !== false
+                            if (!bar || typeof bar.wsBoldForId !== "function")
+                                return true
+                            return bar.wsBoldForId(modelData ? modelData.id : 0)
+                        }
+                        font.italic: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialItalic
+                            if (isSpecial)
+                                return !!bar.wsSpecialItalic
+                            if (!bar || typeof bar.wsItalicForId !== "function")
+                                return false
+                            return bar.wsItalicForId(modelData ? modelData.id : 0)
+                        }
+                        color: {
+                            void bar.wsSlots
+                            void bar.hasWsSlots
+                            void bar.wsSpecialColor
+                            const custom = isSpecial
+                                ? String(bar.wsSpecialColor || "")
+                                : ((bar && typeof bar.wsColorForId === "function")
+                                    ? bar.wsColorForId(modelData ? modelData.id : 0) : "")
+                            if (custom && custom.length)
+                                return custom
+                            return isActive ? bar.wsActiveText :
+                                   (isHovered ? (bar.buttonTextActive !== undefined ? bar.buttonTextActive : bar.accent)
+                                              : (bar.wsInactiveText !== undefined ? bar.wsInactiveText : bar.text))
+                        }
                     }
                     Text {
-                        visible: !isSpecial
+                        // Numbers stay off the special pill. Turning Show workspace
+                        // numbers off hides them on numbered pills that have a symbol or label.
+                        visible: {
+                            if (isSpecial)
+                                return false
+                            void bar.wsShowNumbers
+                            if (!bar || bar.wsShowNumbers !== false)
+                                return true
+                            const id = modelData ? modelData.id : 0
+                            const sym = (typeof bar.wsLabelForId === "function") ? String(bar.wsLabelForId(id) || "") : ""
+                            const lab = (typeof bar.wsTextForId === "function") ? String(bar.wsTextForId(id) || "") : ""
+                            return !sym.length && !lab.length
+                        }
                         text: modelData ? modelData.id : ""
                         font.pixelSize: bar.wsNumberSize || 15
                         font.bold: true

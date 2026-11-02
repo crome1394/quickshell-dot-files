@@ -55,7 +55,7 @@ try:
     j = json.loads(raw) if raw.startswith("{") else {}
 except Exception:
     j = {}
-if j.get("ok"):
+if j.get("ok") and not j.get("fever_auth_failed"):
     mode = j.get("mode") or "?"
     unread = j.get("unread")
     auth = j.get("auth")

@@ -62,6 +62,9 @@ Item {
     property string clockTab: "region"
     // Options panel live reads (refreshed on open / toggle)
     property int optionsTick: 0
+    // Installed terminal emulators (scripts/list-terminals.sh) for the
+    // Options → Stats terminal picker. Refreshed when the Stats tab opens.
+    property var statTerminals: []
     // Options sub-tabs (one section per tab instead of a long scroll)
     property string optionsTab: "bar"
     // False when the open Options page belongs to a widget that is turned off.
@@ -196,9 +199,6 @@ Item {
 
     // Services panel (reuse components/ServicesView.qml)
     property string servicesFilter: ""
-
-    // Audio panel (reuse components/AudioMonitorView.qml)
-    property string audioFilter: ""
 
     // Keybinds panel (components/KeybindsView.qml)
     property string keybindsFilter: ""
@@ -354,6 +354,7 @@ Item {
         const extra = root.volumeTierRows().concat(root.micVolumeTierRows())
             .concat(root.statUtilTierRows())
             .concat(root.statCpuTierRows()).concat(root.statMemTierRows()).concat(root.statGpuTierRows())
+            .concat(root.statVramTierRows())
             .concat(root.statTempRows())
             .concat([{ key: "qlRunningDot", label: "Running app dot" }])
         for (let j = 0; j < extra.length; j++) {
@@ -497,6 +498,7 @@ Item {
 
     property string layoutModeDraft: ""
     property string appMenuIconDraft: ""
+    property string activeWindowExcludeDraft: ""
     property int appMenuPxDraft: 0
     property string appMenuCmdDraft: ""
     property string appMenuUndoIcon: ""
@@ -705,7 +707,7 @@ Item {
     // Dock edits hover for every icon pill. Hide it only when all of those pills are off.
     function dockSettingsVisible() {
         const ids = ["launcher", "quickLaunch", "freshRss", "workspaces", "tray",
-                     "network", "bluetooth", "notifications", "hyprInsp", "controlBar", "power"]
+                     "network", "bluetooth", "notifications", "hyprInsp", "controlBar", "tailscale", "opacity", "power"]
         for (let i = 0; i < ids.length; i++) {
             if (root.widgetShown(ids[i]))
                 return true
@@ -715,7 +717,7 @@ Item {
 
     function optionsSectionVisible(id) {
         const tab = String(id || "")
-        if (tab === "bar" || tab === "tooltips" || tab === "screensaver")
+        if (tab === "bar" || tab === "tooltips" || tab === "screensaver" || tab === "screenshot" || tab === "notifications")
             return true
         if (tab === "dock")
             return root.dockSettingsVisible()
@@ -726,7 +728,8 @@ Item {
             "network": "network",
             "bluetooth": "bluetooth",
             "stats": "stats",
-            "freshrss": "freshRss"
+            "freshrss": "freshRss",
+            "activewindow": "activeWindow"
         }[tab]
         if (!widget)
             return true
@@ -742,9 +745,12 @@ Item {
             { id: "audio", label: "Audio" },
             { id: "network", label: "Network" },
             { id: "bluetooth", label: "Bluetooth" },
+            { id: "notifications", label: "Notifications" },
             { id: "stats", label: "Stats" },
             { id: "dock", label: "Dock" },
+            { id: "activewindow", label: "Active Window" },
             { id: "screensaver", label: "Screensaver" },
+            { id: "screenshot", label: "ScreenShots" },
             { id: "freshrss", label: "FreshRSS" }
         ]
         const out = []
@@ -804,7 +810,7 @@ Item {
         const t = String(tab || "bar")
         const allowed = {
             "bar": 1, "appmenu": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
-            "bluetooth": 1, "stats": 1, "dock": 1, "screensaver": 1, "freshrss": 1
+            "bluetooth": 1, "notifications": 1, "stats": 1, "dock": 1, "activewindow": 1, "screensaver": 1, "screenshot": 1, "freshrss": 1
         }
         let next = allowed[t] ? t : "bar"
         if (!root.optionsSectionVisible(next))
@@ -816,6 +822,8 @@ Item {
             root.refreshSystemFonts()
             root.ensureWsDraft()
         }
+        if (root.optionsTab === "screenshot")
+            root.seedScreenshotDir()
         if (typeof optionsBodyFlick !== "undefined" && optionsBodyFlick) {
             optionsBodyFlick.contentY = 0
             if (optionsBodyFlick.returnToBounds)
@@ -838,6 +846,8 @@ Item {
             bar.refreshOptionsState()
         root.refreshFreshRssSecrets()
         root.refreshScreensaver()
+        if (root.optionsTab === "screenshot")
+            root.seedScreenshotDir()
         root.optionsTick++
         root.menuTick++
     }
@@ -870,13 +880,6 @@ Item {
         void root.optionsTick
         if (typeof bar.getBluetoothAppletAutostart === "function")
             return !!bar.getBluetoothAppletAutostart()
-        return true
-    }
-
-    function optMetricsLive() {
-        void root.optionsTick
-        if (typeof bar.getMetricsLiveUpdates === "function")
-            return !!bar.getMetricsLiveUpdates()
         return true
     }
 
@@ -929,6 +932,8 @@ Item {
             { id: "notifications", label: "Notifications" },
             { id: "hyprInsp", label: "Hypr Inspector" },
             { id: "controlBar", label: "Config Menu Icon" },
+            { id: "tailscale", label: "Tailscale" },
+            { id: "opacity", label: "Transparency" },
             { id: "power", label: "Power" }
         ]
         const out = []
@@ -957,6 +962,10 @@ Item {
             if (typeof bar.setWsShowOnlyActive === "function")
                 bar.setWsShowOnlyActive(on)
             break
+        case "setWsShowNumbers":
+            if (typeof bar.setWsShowNumbers === "function")
+                bar.setWsShowNumbers(on)
+            break
         case "setWsStartupCloseMagic":
             if (typeof bar.setWsStartupCloseMagic === "function")
                 bar.setWsStartupCloseMagic(on)
@@ -973,10 +982,6 @@ Item {
             if (typeof bar.setBluetoothAppletAutostart === "function")
                 bar.setBluetoothAppletAutostart(on)
             break
-        case "setMetricsLiveUpdates":
-            if (typeof bar.setMetricsLiveUpdates === "function")
-                bar.setMetricsLiveUpdates(on)
-            break
         case "setShowControlBarPill":
             if (typeof bar.setShowControlBarPill === "function")
                 bar.setShowControlBarPill(on)
@@ -991,6 +996,10 @@ Item {
             if (typeof bar.setShowStatCpu === "function")
                 bar.setShowStatCpu(on)
             break
+        case "setShowStatVram":
+            if (typeof bar.setShowStatVram === "function")
+                bar.setShowStatVram(on)
+            break
         case "setShowStatMem":
             if (typeof bar.setShowStatMem === "function")
                 bar.setShowStatMem(on)
@@ -1002,10 +1011,6 @@ Item {
         case "setShowStatGauges":
             if (typeof bar.setShowStatGauges === "function")
                 bar.setShowStatGauges(on)
-            break
-        case "setShowStatMenuGraphs":
-            if (typeof bar.setShowStatMenuGraphs === "function")
-                bar.setShowStatMenuGraphs(on)
             break
         case "setShowNetTrafficGraph":
             if (typeof bar.setShowNetTrafficGraph === "function")
@@ -1059,6 +1064,11 @@ Item {
         Qt.callLater(root.refreshOptions)
     }
 
+    // ScreenShots options (output folder — saved in bar-layout.json)
+    readonly property string screenshotPickDirScript: "/home/crome/.config/quickshell/scripts/capture-screenshot-pick-dir.sh"
+    property string screenshotDirDraft: ""
+    property string screenshotStatus: ""
+
     // FreshRSS Options (server credentials — external env file)
     property string frScheme: "https"
     property string frHost: ""
@@ -1068,12 +1078,20 @@ Item {
     property string frStatus: ""
     property bool frLoading: false
 
-    // Screensaver (idle mpv — no DPMS). Source of truth: ~/.config/hypr/screensaver.conf
+    // Screensaver (video or text — no DPMS). Source of truth: ~/.config/hypr/screensaver.conf
     readonly property string screensaverConfigScript: "/home/crome/.local/bin/screensaver-config.sh"
     property bool ssEnabled: true
     property int ssTimeoutMin: 10
     property string ssVideo: ""
     property string ssScript: ""
+    property string ssMode: "video"
+    property string ssStyle: "night"
+    property bool ssClock: true
+    property int ssWarpSpeed: 4
+    property int ssWarpDensity: 5
+    property int ssWarpStreak: 6
+    property int ssEditGen: 0
+    property int ssGetGen: 0
     property bool ssVideoOk: false
     property bool ssScriptOk: false
     property bool ssIgnoreInhibit: false
@@ -1084,12 +1102,145 @@ Item {
     property string ssStatus: ""
     property bool ssLoading: false
 
+    // --- ScreenShots options ---
+    function screenshotDefaultDir() {
+        let home = String(Quickshell.env("HOME") || "/home/crome")
+        while (home.length > 1 && home.charAt(home.length - 1) === "/")
+            home = home.substring(0, home.length - 1)
+        return home + "/Pictures"
+    }
+
+    function screenshotEffectiveDir() {
+        const d = (bar && bar.screenshotDir !== undefined)
+                ? String(bar.screenshotDir || "").trim() : ""
+        return d.length ? d : root.screenshotDefaultDir()
+    }
+
+    function seedScreenshotDir() {
+        root.screenshotDirDraft = root.screenshotEffectiveDir()
+        root.screenshotStatus = ""
+    }
+
+    function pickScreenshotDir() {
+        const script = root.screenshotPickDirScript
+        if (!script.length || screenshotPickDirProcess.running)
+            return
+        root.screenshotStatus = "Pick a folder…"
+        screenshotPickDirProcess.exec([script, root.screenshotEffectiveDir()])
+    }
+
+    function applyScreenshotDir() {
+        let d = String(root.screenshotDirDraft || "").trim()
+        if (!d.length) {
+            root.screenshotStatus = "Enter a folder or use Default"
+            return
+        }
+        if (d.charAt(0) === "~")
+            d = String(Quickshell.env("HOME") || "/home/crome") + d.substring(1)
+        if (d.charAt(0) !== "/") {
+            root.screenshotStatus = "Use an absolute path or ~/folder"
+            return
+        }
+        while (d.length > 1 && d.charAt(d.length - 1) === "/")
+            d = d.substring(0, d.length - 1)
+        if (typeof bar.setScreenshotDir === "function")
+            bar.setScreenshotDir(d)
+        Quickshell.execDetached(["mkdir", "-p", d])
+        root.screenshotDirDraft = d
+        root.screenshotStatus = "Saved · " + d
+        root.optionsTick++
+    }
+
+    function resetScreenshotDir() {
+        if (typeof bar.setScreenshotDir === "function")
+            bar.setScreenshotDir("")
+        root.seedScreenshotDir()
+        root.screenshotStatus = "Using default · " + root.screenshotDefaultDir()
+        root.optionsTick++
+    }
+
+    function openScreenshotDir() {
+        Quickshell.execDetached(["xdg-open", root.screenshotEffectiveDir()])
+    }
+
+    function ssStyleModel() {
+        return [
+            { id: "video", label: "Video" },
+            { id: "night", label: "Night watch" },
+            { id: "rain", label: "Rain" },
+            { id: "orbital", label: "Orbital" },
+            { id: "warp", label: "Warp" },
+            { id: "pyro", label: "Pyro" },
+            { id: "scanner", label: "Scanner" }
+        ]
+    }
+
+    function ssKnownStyle(id) {
+        return id === "night" || id === "rain" || id === "orbital"
+            || id === "warp" || id === "pyro" || id === "scanner"
+    }
+
+    function ssStyleLabel(id) {
+        if (id === "rain") return "rain"
+        if (id === "orbital") return "orbital"
+        if (id === "warp") return "warp"
+        if (id === "pyro") return "pyro"
+        if (id === "scanner") return "scanner"
+        return "night watch"
+    }
+
+    function ssMarkEdit() {
+        root.ssEditGen++
+    }
+
+    function ssIngest(j) {
+        root.ssEnabled = !!j.enabled
+        root.ssTimeoutMin = Math.max(1, parseInt(j.timeout_min, 10) || 10)
+        root.ssVideo = j.video || root.ssVideo || ""
+        root.ssScript = j.script || root.ssScript || ""
+        root.ssVideoOk = !!j.video_ok
+        root.ssScriptOk = !!j.script_ok
+        root.ssIgnoreInhibit = !!j.ignore_inhibit
+        if (j.dim_enable !== undefined)
+            root.ssDimEnable = !!j.dim_enable
+        if (j.dim_level !== undefined)
+            root.ssDimLevel = Math.max(0, Math.min(100, parseInt(j.dim_level, 10) || 10))
+        if (j.restore_enable !== undefined)
+            root.ssRestoreEnable = !!j.restore_enable
+        if (j.restore_level !== undefined)
+            root.ssRestoreLevel = Math.max(0, Math.min(100, parseInt(j.restore_level, 10) || 80))
+        root.ssMode = j.mode === "text" ? "text" : "video"
+        if (root.ssKnownStyle(j.style))
+            root.ssStyle = j.style
+        if (j.clock !== undefined)
+            root.ssClock = !!j.clock
+        if (j.warp_speed !== undefined)
+            root.ssWarpSpeed = Math.max(1, Math.min(10, parseInt(j.warp_speed, 10) || 4))
+        if (j.warp_density !== undefined)
+            root.ssWarpDensity = Math.max(1, Math.min(10, parseInt(j.warp_density, 10) || 5))
+        if (j.warp_streak !== undefined)
+            root.ssWarpStreak = Math.max(1, Math.min(10, parseInt(j.warp_streak, 10) || 6))
+    }
+
+    function ssStatusLine(prefix) {
+        let detail = root.ssVideoOk ? "video ok" : "missing video"
+        if (root.ssMode === "text")
+            detail = root.ssStyleLabel(root.ssStyle)
+        const delay = root.ssEnabled ? (root.ssTimeoutMin + " min") : "manual only"
+        if (prefix === "saved")
+            return "Saved · " + delay + " · " + detail
+        if (!root.ssEnabled)
+            return "auto-start off · " + detail
+        return root.ssTimeoutMin + " min idle · " + detail
+    }
+
     function refreshScreensaver() {
         const script = root.screensaverConfigScript
         if (!script.length)
             return
         if (ssGetProcess.running)
             return
+        root.ssGetGen = root.ssEditGen
         root.ssLoading = true
         ssGetProcess.exec([script, "get"])
     }
@@ -1109,20 +1260,32 @@ Item {
         if (mins > 180)
             mins = 180
         root.ssTimeoutMin = mins
-        root.ssStatus = "Saving…"
-        root.ssLoading = true
-        ssSetProcess.exec([
+        let scriptPath = (root.ssScript || "").trim()
+        if (!scriptPath.length)
+            scriptPath = "/home/crome/.local/bin/screensaver.sh"
+        const args = [
             script, "set",
             "--enabled", root.ssEnabled ? "1" : "0",
             "--timeout-min", String(mins),
-            "--video", (root.ssVideo || "").trim(),
-            "--script", (root.ssScript || "").trim(),
+            "--script", scriptPath,
+            "--mode", root.ssMode === "text" ? "text" : "video",
+            "--style", root.ssKnownStyle(root.ssStyle) ? root.ssStyle : "night",
+            "--clock", root.ssClock ? "1" : "0",
+            "--warp-speed", String(Math.max(1, Math.min(10, root.ssWarpSpeed))),
+            "--warp-density", String(Math.max(1, Math.min(10, root.ssWarpDensity))),
+            "--warp-streak", String(Math.max(1, Math.min(10, root.ssWarpStreak))),
             "--ignore-inhibit", root.ssIgnoreInhibit ? "1" : "0",
             "--dim-enable", root.ssDimEnable ? "1" : "0",
             "--dim-level", String(Math.max(0, Math.min(100, parseInt(root.ssDimLevel, 10) || 10))),
             "--restore-enable", root.ssRestoreEnable ? "1" : "0",
             "--restore-level", String(Math.max(0, Math.min(100, parseInt(root.ssRestoreLevel, 10) || 80)))
-        ])
+        ]
+        const videoPath = (root.ssVideo || "").trim()
+        if (videoPath.length)
+            args.push("--video", videoPath)
+        root.ssStatus = "Saving…"
+        root.ssLoading = true
+        ssSetProcess.exec(args)
     }
 
     function pickScreensaverVideo() {
@@ -1233,8 +1396,14 @@ Item {
     property bool _wsDraftReady: false
     property var wsUndoSnapshot: []
     property bool wsUndoHasSnapshot: false
-    property string wsMagicDraft: ""
-    property string wsMagicUndo: ""
+    // Special workspace draft. Same fields as a numbered row, plus Hyprland name.
+    // name "" means the Config default (magic). The bar updates on Apply.
+    property var wsSpecialDraft: ({ name: "", label: "", font: "", fontPx: 0, text: "", bold: true, italic: false, color: "" })
+    property var wsSpecialUndo: ({})
+    // Label-color picker state: which row's swatch opened the picker (-1 = none)
+    // and the in-progress color (committed to the draft on the picker's Done).
+    property int wsColorPickIndex: -1
+    property string wsColorPreview: ""
 
     function cloneWsSlots(slots) {
         const out = []
@@ -1245,7 +1414,11 @@ Item {
                 id: Math.round(Number(s.id)) || 0,
                 label: String(s.label || ""),
                 font: String(s.font || ""),
-                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0
+                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0,
+                text: String(s.text || ""),
+                bold: s.bold === undefined ? true : !!s.bold,
+                italic: !!s.italic,
+                color: (bar && typeof bar.wsColorNorm === "function") ? bar.wsColorNorm(s.color) : String(s.color || "")
             })
         }
         return out
@@ -1256,22 +1429,134 @@ Item {
         for (let i = 0; i < list.length; i++) {
             const s = list[i] || {}
             const px = (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0
-            parts.push(Math.round(Number(s.id)) + "\t" + String(s.label || "") + "\t" + String(s.font || "") + "\t" + px)
+            const color = (bar && typeof bar.wsColorNorm === "function") ? bar.wsColorNorm(s.color) : String(s.color || "")
+            parts.push(Math.round(Number(s.id)) + "\t" + String(s.label || "") + "\t" + String(s.font || "") + "\t" + px
+                       + "\t" + String(s.text || "") + "\t" + (s.bold === undefined ? true : !!s.bold) + "\t" + !!s.italic + "\t" + color)
         }
         return parts.join("\n")
+    }
+    function cloneSpecial(src) {
+        const s = src || {}
+        return {
+            name: String(s.name || ""),
+            label: String(s.label || ""),
+            font: String(s.font || ""),
+            fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(s.fontPx) : 0,
+            text: String(s.text || ""),
+            bold: s.bold === undefined ? true : !!s.bold,
+            italic: !!s.italic,
+            color: (bar && typeof bar.wsColorNorm === "function") ? bar.wsColorNorm(s.color) : String(s.color || "")
+        }
+    }
+    function liveSpecial() {
+        return root.cloneSpecial({
+            name: (bar && bar.wsSpecialNameCustom) || "",
+            label: (bar && bar.wsIconSpecialCustom) || "",
+            font: (bar && bar.wsSpecialFont) || "",
+            fontPx: bar ? bar.wsSpecialFontPx : 0,
+            text: (bar && bar.wsSpecialText) || "",
+            bold: !bar || bar.wsSpecialBold !== false,
+            italic: !!(bar && bar.wsSpecialItalic),
+            color: (bar && bar.wsSpecialColor) || ""
+        })
+    }
+    function specialSignature(src) {
+        const s = root.cloneSpecial(src)
+        return s.name + "\t" + s.label + "\t" + s.font + "\t" + s.fontPx + "\t"
+            + s.text + "\t" + s.bold + "\t" + s.italic + "\t" + s.color
+    }
+    function wsSpecialRow() {
+        void root.wsDraftTick
+        return root.cloneSpecial(root.wsSpecialDraft)
+    }
+    function mutateSpecial(mutator) {
+        const cur = root.cloneSpecial(root.wsSpecialDraft)
+        if (typeof mutator === "function")
+            mutator(cur)
+        root.wsSpecialDraft = cur
+        root.wsDraftTick++
+    }
+    function setWsSpecialName(name) {
+        root.mutateSpecial(function(cur) {
+            cur.name = (bar && typeof bar.wsSpecialNameNorm === "function")
+                ? bar.wsSpecialNameNorm(name) : String(name || "").trim()
+        })
+    }
+    function setWsSpecialFace(label, font, fontPx) {
+        root.mutateSpecial(function(cur) {
+            if (label !== undefined && label !== null) {
+                let text = String(label).trim()
+                const chars = Array.from(text)
+                if (chars.length > 3)
+                    text = chars.slice(0, 3).join("")
+                cur.label = text
+            }
+            if (font !== undefined && font !== null) {
+                let name = String(font).trim()
+                if (name.length > 120)
+                    name = name.substring(0, 120)
+                cur.font = name
+            }
+            if (fontPx !== undefined && fontPx !== null) {
+                cur.fontPx = (bar && typeof bar.wsFontPxClamp === "function")
+                    ? bar.wsFontPxClamp(fontPx) : 0
+            }
+        })
+    }
+    function setWsSpecialText(text) {
+        root.mutateSpecial(function(cur) {
+            let t = String(text === undefined || text === null ? "" : text).trim()
+            const chars = Array.from(t)
+            if (chars.length > 24)
+                t = chars.slice(0, 24).join("")
+            cur.text = t
+        })
+    }
+    function setWsSpecialStyle(bold, italic) {
+        root.mutateSpecial(function(cur) {
+            if (bold !== undefined && bold !== null)
+                cur.bold = !!bold
+            if (italic !== undefined && italic !== null)
+                cur.italic = !!italic
+        })
+    }
+    function setWsSpecialColor(color) {
+        root.mutateSpecial(function(cur) {
+            cur.color = (bar && typeof bar.wsColorNorm === "function")
+                ? bar.wsColorNorm(color) : String(color || "")
+        })
+    }
+    function stepWsSpecialFont(delta, labelText) {
+        const choices = root.wsFontChoices()
+        const n = choices.length
+        if (n < 2)
+            return
+        const row = root.wsSpecialRow()
+        let idx = root.wsFontComboIndex(row.font) + Math.round(Number(delta) || 0)
+        idx = ((idx % n) + n) % n
+        root.setWsSpecialFace(labelText, root.wsFontFromCombo(idx), undefined)
+    }
+    function stepWsSpecialFontPx(delta, labelText) {
+        const row = root.wsSpecialRow()
+        const cur = root.wsEmojiPx(row.fontPx)
+        const next = Math.max(8, Math.min(32, cur + Math.round(Number(delta) || 0)))
+        if (next === cur)
+            return
+        root.setWsSpecialFace(labelText, row.font, next)
     }
     function seedWsDraft() {
         const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
         root.wsDraft = root.cloneWsSlots(live)
-        root.wsMagicDraft = String((bar && bar.wsIconSpecialCustom) || "")
+        root.wsSpecialDraft = root.liveSpecial()
+        root.wsColorPickIndex = -1
+        root.wsColorPreview = ""
         root.wsDraftTick++
     }
     function wsDraftDirty() {
         void root.wsDraftTick
         const live = (bar && typeof bar.wsSlotsEffective === "function") ? bar.wsSlotsEffective() : []
         const slotsDirty = root.wsSlotsSignature(root.wsDraft) !== root.wsSlotsSignature(live)
-        const magicLive = String((bar && bar.wsIconSpecialCustom) || "")
-        return slotsDirty || root.wsMagicDraft !== magicLive
+        return slotsDirty || root.specialSignature(root.wsSpecialDraft) !== root.specialSignature(root.liveSpecial())
     }
     function ensureWsDraft() {
         if (!root._wsDraftReady || !root.wsDraftDirty())
@@ -1310,10 +1595,13 @@ Item {
                 return
             if (label !== undefined && label !== null) {
                 let text = String(label).trim()
-                if (text.length > 6)
-                    text = text.substring(0, 6)
-                if (!text.length && bar && typeof bar.wsIconForId === "function")
-                    text = bar.wsIconForId(cur[i].id)
+                // Symbol: max 3 characters (code points; emoji/Nerd Font glyphs
+                // can be surrogate pairs, so never slice raw UTF-16).
+                const chars = Array.from(text)
+                if (chars.length > 3)
+                    text = chars.slice(0, 3).join("")
+                // "" stays blank — clearing no longer snaps back to the
+                // built-in icon; the pill then shows label/number only.
                 cur[i].label = text
             }
             if (font !== undefined && font !== null) {
@@ -1327,6 +1615,74 @@ Item {
                     ? bar.wsFontPxClamp(fontPx) : 0
             }
         })
+    }
+    // Word label shown next to the symbol on the pill ("" = none). Max 24 chars.
+    function setWsDraftText(index, text) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= cur.length)
+                return
+            let t = String(text === undefined || text === null ? "" : text).trim()
+            const chars = Array.from(t)
+            if (chars.length > 24)
+                t = chars.slice(0, 24).join("")
+            cur[i].text = t
+        })
+    }
+    // Bold/italic apply to the symbol and the label. undefined = leave as-is.
+    function setWsDraftStyle(index, bold, italic) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= cur.length)
+                return
+            if (bold !== undefined && bold !== null)
+                cur[i].bold = !!bold
+            if (italic !== undefined && italic !== null)
+                cur[i].italic = !!italic
+        })
+    }
+    // Label text color ("#rrggbb"); "" clears to theme default.
+    function setWsDraftColor(index, color) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            if (i < 0 || i >= cur.length)
+                return
+            cur[i].color = (bar && typeof bar.wsColorNorm === "function")
+                ? bar.wsColorNorm(color) : String(color || "")
+        })
+    }
+    // Re-bind a row to a different workspace number WITHOUT touching Hyprland:
+    // the row keeps its symbol/label/style and gets the new id. If another row
+    // owns that id, the two rows swap numbers.
+    function setWsDraftId(index, id) {
+        root.mutateWsDraft(function(cur) {
+            const i = Math.round(Number(index))
+            const n = Math.round(Number(id))
+            if (i < 0 || i >= cur.length || !(n >= 1) || n > 10)
+                return
+            if (cur[i].id === n)
+                return
+            for (let j = 0; j < cur.length; j++) {
+                if (j !== i && cur[j].id === n) {
+                    cur[j].id = cur[i].id
+                    cur[i].id = n
+                    return
+                }
+            }
+            cur[i].id = n
+        })
+    }
+    // Color the picker opens with: the row's draft color, else the theme text color.
+    function wsPickColorCurrent() {
+        const rows = root.wsSlotRows()
+        if (root.wsColorPickIndex === -2) {
+            const specialColor = String(root.wsSpecialRow().color || "")
+            return specialColor.length ? specialColor : bar.text
+        }
+        const i = root.wsColorPickIndex
+        if (i >= 0 && i < rows.length && String(rows[i].color || "").length)
+            return rows[i].color
+        return bar.text
     }
     function wsEmojiPx(fontPx) {
         const n = (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(fontPx) : 0
@@ -1358,6 +1714,8 @@ Item {
         })
     }
     function removeWsDraft(index) {
+        root.wsColorPickIndex = -1
+        root.wsColorPreview = ""
         root.mutateWsDraft(function(cur) {
             const i = Math.round(Number(index))
             if (cur.length <= 1 || i < 0 || i >= cur.length)
@@ -1381,10 +1739,10 @@ Item {
             return
         const live = bar.wsSlotsEffective()
         root.wsUndoSnapshot = root.cloneWsSlots(live)
-        root.wsMagicUndo = String(bar.wsIconSpecialCustom || "")
+        root.wsSpecialUndo = root.liveSpecial()
         root.wsUndoHasSnapshot = true
-        if (typeof bar.setWsIconSpecial === "function")
-            bar.setWsIconSpecial(root.wsMagicDraft)
+        if (typeof bar.applyWsSpecialFields === "function")
+            bar.applyWsSpecialFields(root.wsSpecialDraft)
         bar.commitWsSlots(root.wsDraft)
         root.seedWsDraft()
     }
@@ -1395,8 +1753,8 @@ Item {
         }
         if (!root.wsUndoHasSnapshot || !bar || typeof bar.commitWsSlots !== "function")
             return
-        if (typeof bar.setWsIconSpecial === "function")
-            bar.setWsIconSpecial(root.wsMagicUndo)
+        if (typeof bar.applyWsSpecialFields === "function")
+            bar.applyWsSpecialFields(root.wsSpecialUndo)
         bar.commitWsSlots(root.wsUndoSnapshot)
         root.wsUndoHasSnapshot = false
         root.wsUndoSnapshot = []
@@ -1405,6 +1763,28 @@ Item {
     function wsUndoEnabled() {
         void root.wsDraftTick
         return root.wsDraftDirty() || root.wsUndoHasSnapshot
+    }
+    // Text faces for typed fields. The UI stack leads with an icon font, and
+    // emoji faces have no Latin, so a TextField using either draws the value tiny.
+    function entryFont() {
+        void root.colorsTick
+        void root.systemFontsLoaded
+        let want = ""
+        if (bar && typeof bar.primaryUiFontFamily === "function")
+            want = String(bar.primaryUiFontFamily() || "").trim()
+        if (want.length && root.fontIndexFor(want) >= 0)
+            return want
+        return "Inter"
+    }
+    function entryMonoFont() {
+        void root.colorsTick
+        void root.systemFontsLoaded
+        let want = ""
+        if (bar && typeof bar.primaryFontFamily === "function")
+            want = String(bar.primaryFontFamily((bar && bar.fontMono) || "") || "").trim()
+        if (want.length && root.fontIndexFor(want) >= 0)
+            return want
+        return "DejaVu Sans Mono"
     }
     function wsFontChoices() {
         void root.systemFontFamilies
@@ -1456,10 +1836,21 @@ Item {
                 id: slots[i].id,
                 label: String(slots[i].label || ""),
                 font: String(slots[i].font || ""),
-                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(slots[i].fontPx) : 0
+                fontPx: (bar && typeof bar.wsFontPxClamp === "function") ? bar.wsFontPxClamp(slots[i].fontPx) : 0,
+                text: String(slots[i].text || ""),
+                bold: slots[i].bold === undefined ? true : !!slots[i].bold,
+                italic: !!slots[i].italic,
+                color: String(slots[i].color || "")
             })
         }
         return rows
+    }
+    // Cards under Workspaces: 1 special row + the numbered rows.
+    // The left column takes the special row plus this many numbered rows,
+    // which is ceil(total / 2) cards, so the columns differ by at most one.
+    function wsNumberedLeftCount() {
+        const n = (root.wsSlotRows() || []).length
+        return Math.max(0, Math.ceil((1 + n) / 2) - 1)
     }
 
     function chipBg(active, hovered) {
@@ -1585,11 +1976,23 @@ Item {
         ]
     }
 
+    function statVramTierRows() {
+        if (bar && bar.themeStatVramTierUiRows)
+            return bar.themeStatVramTierUiRows
+        return [
+            { key: "statVramTier1", label: "VRAM low" },
+            { key: "statVramTier2", label: "VRAM mid" },
+            { key: "statVramTier3", label: "VRAM high" },
+            { key: "statVramTier4", label: "VRAM peak" }
+        ]
+    }
+
     function statMetricGroups() {
         return [
             { kind: "cpu", title: "CPU load", hint: "AMD-red family by default. Used on the CPU util bar and %." },
             { kind: "mem", title: "Memory load", hint: "Cyan family by default. Used on the Memory util bar and %." },
-            { kind: "gpu", title: "GPU load", hint: "NVIDIA-green family by default. Used on the GPU util bar and %." }
+            { kind: "gpu", title: "GPU load", hint: "NVIDIA-green family by default. Used on the GPU util bar and %." },
+            { kind: "vram", title: "VRAM load", hint: "GPU memory used. Green family by default. Used on the VRAM util bar and %." }
         ]
     }
 
@@ -1600,6 +2003,8 @@ Item {
             return root.statMemTierRows()
         if (kind === "gpu")
             return root.statGpuTierRows()
+        if (kind === "vram")
+            return root.statVramTierRows()
         return root.statUtilTierRows()
     }
 
@@ -1624,6 +2029,7 @@ Item {
             || key.indexOf("statCpuTier") === 0
             || key.indexOf("statMemTier") === 0
             || key.indexOf("statGpuTier") === 0
+            || key.indexOf("statVramTier") === 0
             || key.indexOf("statUtilThreshold") === 0
             || key.indexOf("statTemp") === 0
     }
@@ -1917,6 +2323,97 @@ Item {
         Qt.callLater(reposition)
     }
 
+    function activeWindowCorner() {
+        void root.menuTick
+        if (bar && bar.activeWindowPillCorner !== undefined) {
+            const c = String(bar.activeWindowPillCorner || "")
+            if (c === "topRight" || c === "bottomLeft" || c === "bottomRight")
+                return c
+        }
+        return "topLeft"
+    }
+
+    function activeWindowCornerChoices() {
+        return [
+            { id: "topLeft",     label: "Top left",     tip: "Place the active-window pill in the top-left corner" },
+            { id: "topRight",    label: "Top right",    tip: "Place the active-window pill in the top-right corner" },
+            { id: "bottomLeft",  label: "Bottom left",  tip: "Place the active-window pill in the bottom-left corner" },
+            { id: "bottomRight", label: "Bottom right", tip: "Place the active-window pill in the bottom-right corner" }
+        ]
+    }
+
+    function setActiveWindowCorner(corner) {
+        if (typeof bar.setActiveWindowCorner === "function")
+            bar.setActiveWindowCorner(corner)
+        root.menuTick++
+        Qt.callLater(reposition)
+    }
+
+    function activeWindowExcludes() {
+        void root.menuTick
+        void root.optionsTick
+        if (bar && bar.activeWindowExcludes && bar.activeWindowExcludes.length !== undefined)
+            return bar.activeWindowExcludes
+        return []
+    }
+
+    function focusedWindowFields() {
+        const top = Hyprland.activeToplevel
+        if (!top)
+            return { cls: "", title: "" }
+        const ipc = top.lastIpcObject || null
+        function field(obj, key) {
+            if (!obj)
+                return ""
+            const value = obj[key]
+            if (value === undefined || value === null)
+                return ""
+            return String(value)
+        }
+        const wayland = top.wayland
+        const appId = wayland ? String(wayland.appId || "") : ""
+        const ipcClass = field(ipc, "class")
+        const initialClass = field(ipc, "initialClass")
+        let title = String(top.title || "")
+        if (!title && wayland)
+            title = String(wayland.title || "")
+        if (!title)
+            title = field(ipc, "initialTitle")
+        return { cls: appId || ipcClass || initialClass, title: title }
+    }
+
+    function commitActiveWindowExclude() {
+        if (!bar || typeof bar.addActiveWindowExclude !== "function")
+            return
+        if (bar.addActiveWindowExclude(root.activeWindowExcludeDraft)) {
+            root.activeWindowExcludeDraft = ""
+            if (awExcludeField)
+                awExcludeField.text = ""
+        }
+        root.optionsTick++
+        root.menuTick++
+        Qt.callLater(reposition)
+    }
+
+    function addFocusedWindowExclude(which) {
+        const idn = root.focusedWindowFields()
+        const value = which === "title" ? idn.title : idn.cls
+        if (!bar || typeof bar.addActiveWindowExclude !== "function")
+            return
+        bar.addActiveWindowExclude(value)
+        root.optionsTick++
+        root.menuTick++
+        Qt.callLater(reposition)
+    }
+
+    function removeActiveWindowExclude(pattern) {
+        if (bar && typeof bar.removeActiveWindowExclude === "function")
+            bar.removeActiveWindowExclude(pattern)
+        root.optionsTick++
+        root.menuTick++
+        Qt.callLater(reposition)
+    }
+
     function currentClockFormat() {
         void root.menuTick
         return (bar.clockFormat && String(bar.clockFormat).length)
@@ -2031,7 +2528,7 @@ Item {
         out.sort(function (a, b) {
             const dual = bar.barLayoutMode === "dual"
             const zoneOrder = dual
-                ? { top: 0, bottom: 1 }
+                ? { top: 0, bottom: 1, left: 2, right: 3 }
                 : { left: 0, center: 1, right: 2 }
             const za = zoneOrder[a.zone] !== undefined ? zoneOrder[a.zone] : 9
             const zb = zoneOrder[b.zone] !== undefined ? zoneOrder[b.zone] : 9
@@ -2049,7 +2546,9 @@ Item {
         if (bar && bar.barLayoutMode === "dual")
             return [
                 { id: "top", title: "Top bar", hint: "Upper strip, left to right" },
-                { id: "bottom", title: "Bottom bar", hint: "Lower strip, left to right" }
+                { id: "bottom", title: "Bottom bar", hint: "Lower strip, left to right" },
+                { id: "left", title: "Left bar", hint: "Left edge, top to bottom" },
+                { id: "right", title: "Right bar", hint: "Right edge, top to bottom" }
             ]
         return [
             { id: "left", title: "Left", hint: "Left side of the bar, left to right" },
@@ -2073,7 +2572,9 @@ Item {
         if (bar && bar.barLayoutMode === "dual")
             return [
                 { id: "top", label: "T" },
-                { id: "bottom", label: "B" }
+                { id: "bottom", label: "B" },
+                { id: "left", label: "L" },
+                { id: "right", label: "R" }
             ]
         return [
             { id: "left", label: "L" },
@@ -3220,6 +3721,29 @@ Item {
         onTriggered: root.refreshDisplayStatusOnly()
     }
 
+    // ── Installed terminals (Options → Stats → Terminal picker) ──────────
+    Io.Process {
+        id: listTerminalsProcess
+        running: false
+        command: ["/home/crome/.config/quickshell/scripts/list-terminals.sh"]
+        stdout: Io.SplitParser {
+            splitMarker: "\n"
+            onRead: (line) => {
+                const name = line.trim()
+                if (name.length && root.statTerminals.indexOf(name) < 0)
+                    root.statTerminals = root.statTerminals.concat([name])
+            }
+        }
+    }
+
+    // Re-detect whenever the Stats options tab opens (picks up new installs).
+    onOptionsTabChanged: {
+        if (optionsTab !== "stats" || listTerminalsProcess.running)
+            return
+        root.statTerminals = []
+        listTerminalsProcess.running = true
+    }
+
     Io.Process {
         id: displayStatusProcess
         running: false
@@ -3677,19 +4201,12 @@ Item {
                 }
                 try {
                     const j = JSON.parse(text)
-                    root.ssEnabled = !!j.enabled
-                    root.ssTimeoutMin = Math.max(1, parseInt(j.timeout_min, 10) || 10)
-                    root.ssVideo = j.video || ""
-                    root.ssScript = j.script || ""
-                    root.ssVideoOk = !!j.video_ok
-                    root.ssScriptOk = !!j.script_ok
-                    root.ssIgnoreInhibit = !!j.ignore_inhibit
-                    root.ssDimEnable = !!j.dim_enable
-                    root.ssDimLevel = Math.max(0, Math.min(100, parseInt(j.dim_level, 10) || 10))
-                    root.ssRestoreEnable = !!j.restore_enable
-                    root.ssRestoreLevel = Math.max(0, Math.min(100, parseInt(j.restore_level, 10) || 80))
-                    const delay = root.ssEnabled ? (root.ssTimeoutMin + " min idle") : "auto-start off"
-                    root.ssStatus = delay + (root.ssVideoOk ? " · video ok" : " · missing video")
+                    if (root.ssEditGen !== root.ssGetGen)
+                        root.ssStatus = root.ssStatusLine("")
+                    else {
+                        root.ssIngest(j)
+                        root.ssStatus = root.ssStatusLine("")
+                    }
                 } catch (e) {
                     root.ssStatus = "Parse error"
                 }
@@ -3714,24 +4231,8 @@ Item {
                 if (text.startsWith("{")) {
                     try {
                         const j = JSON.parse(text)
-                        root.ssEnabled = !!j.enabled
-                        root.ssTimeoutMin = Math.max(1, parseInt(j.timeout_min, 10) || 10)
-                        root.ssVideo = j.video || root.ssVideo
-                        root.ssScript = j.script || root.ssScript
-                        root.ssVideoOk = !!j.video_ok
-                        root.ssScriptOk = !!j.script_ok
-                        root.ssIgnoreInhibit = !!j.ignore_inhibit
-                        if (j.dim_enable !== undefined)
-                            root.ssDimEnable = !!j.dim_enable
-                        if (j.dim_level !== undefined)
-                            root.ssDimLevel = Math.max(0, Math.min(100, parseInt(j.dim_level, 10) || 10))
-                        if (j.restore_enable !== undefined)
-                            root.ssRestoreEnable = !!j.restore_enable
-                        if (j.restore_level !== undefined)
-                            root.ssRestoreLevel = Math.max(0, Math.min(100, parseInt(j.restore_level, 10) || 80))
-                        root.ssStatus = j.ok
-                            ? ("Saved · " + (root.ssEnabled ? (root.ssTimeoutMin + " min") : "manual only"))
-                            : (j.error || "Save failed")
+                        root.ssIngest(j)
+                        root.ssStatus = j.ok ? root.ssStatusLine("saved") : (j.error || "Save failed")
                     } catch (e) {
                         root.ssStatus = "Saved"
                     }
@@ -3785,11 +4286,39 @@ Item {
     }
 
     Io.Process {
+        id: screenshotPickDirProcess
+        running: false
+        stdout: Io.StdioCollector {
+            id: screenshotPickDirStdout
+            onStreamFinished: {
+                const p = (screenshotPickDirStdout.text || "").trim()
+                if (p.length) {
+                    root.screenshotDirDraft = p
+                    root.screenshotStatus = "Selected — Apply to save"
+                } else {
+                    root.screenshotStatus = "Cancelled"
+                }
+                root.optionsTick++
+            }
+        }
+        onExited: (code) => {
+            if (code !== 0 && !(screenshotPickDirStdout.text || "").trim())
+                root.screenshotStatus = "Cancelled"
+        }
+    }
+
+    Io.Process {
         id: ssPreviewProcess
         running: false
         stdout: Io.StdioCollector { id: ssPreviewStdout }
+        stderr: Io.StdioCollector { id: ssPreviewStderr }
         onExited: (code) => {
-            root.ssStatus = (code === 0) ? "Running — click or move to dismiss" : "Start failed"
+            if (code === 0) {
+                root.ssStatus = "Running — click or move to dismiss"
+                return
+            }
+            const err = (ssPreviewStderr.text || ssPreviewStdout.text || "").trim()
+            root.ssStatus = err.length ? err : "Start failed"
         }
     }
 
@@ -3804,7 +4333,7 @@ Item {
 
     FloatingWindow {
         id: controlPopup
-        title: "Bar control"
+        title: "Settings"
         color: "transparent"
         visible: false
         implicitWidth: 1192
@@ -3879,7 +4408,7 @@ Item {
                     anchors.left: parent.left
                     anchors.leftMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "Bar control"
+                    text: "Settings"
                     color: bar.subtext
                     font.pixelSize: 11
                     font.family: bar.fontFamily
@@ -5090,7 +5619,7 @@ Item {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
                                     text: (bar.barLayoutMode === "dual")
-                                          ? "Grouped by bar. ✓/✕ · name · T/B · ↑↓ · width % (80–180)"
+                                          ? "Grouped by bar. ✓/✕ · name · T/B/L/R · ↑↓ · width % (80–180)"
                                           : "Grouped by side. ✓/✕ · name · L/C/R · ↑↓ · width % (80–180)"
                                     color: bar.subtext
                                     font.pixelSize: bar.popupHintSize
@@ -5220,7 +5749,7 @@ Item {
                                                     }
                                                 }
 
-                                                // Column 2: zone L C R (classic) or T B (dual)
+                                                // Column 2: zone L C R (classic) or T B L R (dual)
                                                 RowLayout {
                                                     readonly property int zoneBtnCount: root.zoneChoices().length
                                                     Layout.preferredWidth: zoneBtnCount * 22 + (zoneBtnCount - 1) * 4
@@ -5353,17 +5882,19 @@ Item {
                                     }
                                 } // widgetRowCard
 
-                                Repeater {
-                                    model: root.widgetZoneSections()
-                                    delegate: ColumnLayout {
-                                        required property var modelData
-                                        required property int index
-                                        readonly property var zoneWidgets: {
-                                            void root.menuTick
-                                            return root.widgetEntriesInZone(modelData.id)
-                                        }
-                                        Layout.fillWidth: true
-                                        spacing: 8
+                                Component {
+                                    id: zoneSection
+                                    ColumnLayout {
+                                            required property var modelData
+                                            required property int index
+                                            readonly property var zoneWidgets: {
+                                                void root.menuTick
+                                                return root.widgetEntriesInZone(modelData.id)
+                                            }
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            Layout.alignment: Qt.AlignTop
+                                            spacing: 12
 
                                         RowLayout {
                                             Layout.fillWidth: true
@@ -5443,11 +5974,241 @@ Item {
                                                     horizontalAlignment: Text.AlignHCenter
                                                     wrapMode: Text.WordWrap
                                                     text: (bar.barLayoutMode === "dual")
-                                                          ? "Nothing here yet — use T/B on a widget to move it."
+                                                          ? "Nothing here yet — use T/B/L/R on a widget to move it."
                                                           : "Nothing here yet — use L/C/R on a widget to move it."
                                                     color: bar.subtext
                                                     font.pixelSize: 11
                                                     font.family: bar.fontFamily
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 16
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 16
+                                        Repeater {
+                                            model: {
+                                                void root.menuTick
+                                                const all = root.widgetZoneSections()
+                                                if (bar && bar.barLayoutMode === "dual")
+                                                    return all.slice(0, 2)
+                                                return all
+                                            }
+                                            delegate: zoneSection
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        visible: bar && bar.barLayoutMode === "dual"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 16
+                                        Repeater {
+                                            model: {
+                                                void root.menuTick
+                                                const all = root.widgetZoneSections()
+                                                if (!(bar && bar.barLayoutMode === "dual"))
+                                                    return []
+                                                return all.slice(2)
+                                            }
+                                            delegate: zoneSection
+                                        }
+                                    }
+                                }
+
+                                // ===== OTHER (screen-corner overlays) =====
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 10
+
+                                        Rectangle {
+                                            Layout.preferredWidth: 3
+                                            Layout.preferredHeight: 28
+                                            radius: 2
+                                            color: bar.accent
+                                        }
+
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 1
+                                            Text {
+                                                text: "Other"
+                                                color: bar.text
+                                                font.pixelSize: 13
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: "Overlays placed in a screen corner, outside the bar."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                wrapMode: Text.WordWrap
+                                            }
+                                        }
+
+                                        Rectangle {
+                                            Layout.preferredHeight: 22
+                                            Layout.preferredWidth: Math.max(28, otherCountLbl.implicitWidth + 12)
+                                            radius: 11
+                                            color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.14)
+                                            border.width: 1
+                                            border.color: Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.28)
+                                            Text {
+                                                id: otherCountLbl
+                                                anchors.centerIn: parent
+                                                text: "1"
+                                                color: bar.accent
+                                                font.pixelSize: 11
+                                                font.bold: true
+                                                font.family: bar.fontFamily
+                                            }
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        implicitHeight: otherInner.implicitHeight + 16
+                                        radius: 10
+                                        color: Qt.rgba(1, 1, 1, 0.035)
+                                        border.width: 1
+                                        border.color: Qt.rgba(1, 1, 1, 0.08)
+
+                                        ColumnLayout {
+                                            id: otherInner
+                                            x: 8
+                                            y: 8
+                                            width: parent.width - 16
+                                            spacing: 6
+
+                                            Rectangle {
+                                                id: activeWindowRow
+                                                readonly property bool activeWindowOn: root.isWidgetOn("activeWindow")
+                                                readonly property string activeCorner: root.activeWindowCorner()
+
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 58
+                                                radius: root.chipR
+                                                color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                                border.width: bar.controlBorderWidth
+                                                border.color: bar.dividerStrong
+                                                opacity: activeWindowOn ? 1.0 : 0.78
+
+                                                RowLayout {
+                                                    anchors.fill: parent
+                                                    anchors.leftMargin: 8
+                                                    anchors.rightMargin: 6
+                                                    anchors.topMargin: 5
+                                                    anchors.bottomMargin: 5
+                                                    spacing: 10
+
+                                                    // Toggle + name
+                                                    RowLayout {
+                                                        Layout.fillWidth: true
+                                                        Layout.minimumWidth: 120
+                                                        spacing: 6
+
+                                                        Rectangle {
+                                                            Layout.preferredWidth: 28
+                                                            Layout.preferredHeight: 24
+                                                            Layout.alignment: Qt.AlignVCenter
+                                                            radius: 4
+                                                            color: awVisMa.containsMouse
+                                                                   ? (activeWindowRow.activeWindowOn
+                                                                      ? Qt.rgba(0.29, 0.87, 0.50, 0.18)
+                                                                      : Qt.rgba(0.97, 0.44, 0.44, 0.18))
+                                                                   : "transparent"
+                                                            border.width: 1
+                                                            border.color: activeWindowRow.activeWindowOn ? root.onGreen : root.offRed
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: activeWindowRow.activeWindowOn ? "✓" : "✕"
+                                                                color: activeWindowRow.activeWindowOn ? root.onGreen : root.offRed
+                                                                font.pixelSize: 14
+                                                                font.bold: true
+                                                                font.family: bar.fontFamily
+                                                            }
+                                                            MouseArea {
+                                                                id: awVisMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.toggleWidget("activeWindow")
+                                                                ToolTip.visible: containsMouse
+                                                                ToolTip.delay: bar.tooltipDelay
+                                                                ToolTip.text: activeWindowRow.activeWindowOn
+                                                                              ? "Hide the active-window pill"
+                                                                              : "Show the active-window pill"
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            Layout.fillWidth: true
+                                                            Layout.minimumWidth: 72
+                                                            elide: Text.ElideRight
+                                                            text: "Active Window"
+                                                            color: bar.text
+                                                            font.pixelSize: 12
+                                                            font.family: bar.fontFamily
+                                                            verticalAlignment: Text.AlignVCenter
+                                                        }
+                                                    }
+
+                                                    // Screen corner
+                                                    RowLayout {
+                                                        Layout.alignment: Qt.AlignVCenter
+                                                        spacing: 4
+
+                                                        Repeater {
+                                                            model: root.activeWindowCornerChoices()
+                                                            delegate: Rectangle {
+                                                                required property var modelData
+                                                                readonly property bool cornerOn: activeWindowRow.activeCorner === modelData.id
+
+                                                                Layout.preferredWidth: cornerLbl.implicitWidth + 18
+                                                                Layout.preferredHeight: 24
+                                                                radius: 4
+                                                                color: cornerOn
+                                                                       ? bar.controlActiveBg
+                                                                       : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                                border.width: 1
+                                                                border.color: cornerOn ? root.activeLabelColor() : bar.pillBorder
+
+                                                                Text {
+                                                                    id: cornerLbl
+                                                                    anchors.centerIn: parent
+                                                                    text: modelData.label
+                                                                    font.pixelSize: 10
+                                                                    font.family: bar.fontFamily
+                                                                    color: cornerOn ? root.activeLabelColor() : bar.subtext
+                                                                }
+
+                                                                MouseArea {
+                                                                    anchors.fill: parent
+                                                                    hoverEnabled: true
+                                                                    cursorShape: Qt.PointingHandCursor
+                                                                    onClicked: root.setActiveWindowCorner(modelData.id)
+                                                                    ToolTip.visible: containsMouse
+                                                                    ToolTip.delay: bar.tooltipDelay
+                                                                    ToolTip.text: modelData.tip
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -5757,14 +6518,17 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         id: appSearchField
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "Search apps…"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryFont()
                                         background: Rectangle {
                                             radius: root.chipR
                                             color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
@@ -5876,12 +6640,16 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 TextField {
+                                    font.family: root.entryFont()
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 28
                                     placeholderText: "Name (tooltip)"
                                     color: bar.text
                                     placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
+                                    font.pixelSize: 14
                                     text: root.customName
                                     onTextChanged: root.customName = text
                                     background: Rectangle {
@@ -5892,12 +6660,16 @@ Item {
                                     }
                                 }
                                 TextField {
+                                    font.family: root.entryFont()
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 28
                                     placeholderText: "Command (e.g. gtk-launch firefox or /usr/bin/app)"
                                     color: bar.text
                                     placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
+                                    font.pixelSize: 14
                                     text: root.customCommand
                                     onTextChanged: root.customCommand = text
                                     background: Rectangle {
@@ -5908,12 +6680,16 @@ Item {
                                     }
                                 }
                                 TextField {
+                                    font.family: root.entryFont()
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 28
                                     placeholderText: "Icon path (optional, e.g. /home/…/icons/app.svg)"
                                     color: bar.text
                                     placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
+                                    font.pixelSize: 14
                                     text: root.customIcon
                                     onTextChanged: root.customIcon = text
                                     background: Rectangle {
@@ -6299,14 +7075,17 @@ Item {
                                             Layout.fillWidth: true
                                             spacing: 6
                                             TextField {
+                                                topPadding: 1
+                                                bottomPadding: 1
+                                                verticalAlignment: Text.AlignVCenter
                                                 id: asEditField
                                                 Layout.fillWidth: true
                                                 Layout.preferredHeight: 28
                                                 placeholderText: "Command (Exec=)"
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
-                                                font.pixelSize: 12
-                                                font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                font.pixelSize: 14
+                                                font.family: root.entryMonoFont()
                                                 text: root.autostartEditExec
                                                 selectByMouse: true
                                                 onTextChanged: root.autostartEditExec = text
@@ -6397,14 +7176,17 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         id: asSearchField
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "Search apps…"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryFont()
                                         background: Rectangle {
                                             radius: root.chipR
                                             color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
@@ -6650,7 +7432,7 @@ Item {
                                 ColumnLayout {
                                     visible: root.optionsTab === "bar"
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: 12
                                 Text {
                                     text: "Bar / UI"
                                     color: bar.text
@@ -6842,13 +7624,22 @@ Item {
                                         }
                                     }
                                 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 18
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 12
                                 Text {
                                     text: root.layoutModeChoice() === "dual" ? "Top bar" : "Bar"
                                     color: bar.text
                                     font.pixelSize: 13
                                     font.bold: true
                                     font.family: bar.fontFamily
-                                    Layout.topMargin: 4
+                                    Layout.topMargin: 10
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
@@ -6991,14 +7782,14 @@ Item {
                                 ColumnLayout {
                                     visible: root.layoutModeChoice() === "dual"
                                     Layout.fillWidth: true
-                                    spacing: 8
+                                    spacing: 12
                                     Text {
                                         text: "Bottom bar"
                                         color: bar.text
                                         font.pixelSize: 13
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                        Layout.topMargin: 6
+                                        Layout.topMargin: 10
                                     }
                                     Rectangle {
                                         Layout.fillWidth: true
@@ -7141,6 +7932,360 @@ Item {
                                             }
                                         }
                                     }
+                                }
+                                    }
+                                    ColumnLayout {
+                                        visible: root.layoutModeChoice() === "dual"
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 12
+                                ColumnLayout {
+                                    visible: root.layoutModeChoice() === "dual"
+                                    Layout.fillWidth: true
+                                    spacing: 12
+                                    Text {
+                                        text: "Left bar"
+                                        color: bar.text
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                        Layout.topMargin: 10
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text { text: "Show left bar"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                                Text {
+                                                    text: "Vertical strip on the left edge."
+                                                    color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showLeftBar === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showLeftBar === true) ? "✓" : "✕"
+                                                    color: (bar.showLeftBar === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14; font.bold: true
+                                                }
+                                                MouseArea {
+                                                    id: leftBarShowMa
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (typeof bar.setShowLeftBar === "function")
+                                                            bar.setShowLeftBar(!(bar.showLeftBar === true))
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        visible: bar.showLeftBar === true
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text { text: "Span the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                                Text {
+                                                    text: "Off hugs the widgets. On fills the height between the horizontal bars."
+                                                    color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.leftBarSpanFull === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.leftBarSpanFull === true) ? "✓" : "✕"
+                                                    color: (bar.leftBarSpanFull === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14; font.bold: true
+                                                }
+                                                MouseArea {
+                                                    id: leftBarSpanMa
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (typeof bar.setLeftBarSpanFull === "function")
+                                                            bar.setLeftBarSpanFull(!(bar.leftBarSpanFull === true))
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        visible: bar.showLeftBar === true
+                                        text: "Widget alignment"
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        visible: bar.showLeftBar === true
+                                        text: "Left is the top of the screen. Right is the bottom."
+                                        color: bar.subtext
+                                        font.pixelSize: 10
+                                        font.family: bar.fontFamily
+                                    }
+                                    RowLayout {
+                                        visible: bar.showLeftBar === true
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Repeater {
+                                            model: [
+                                                { id: "left", label: "Left" },
+                                                { id: "center", label: "Center" },
+                                                { id: "right", label: "Right" }
+                                            ]
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property bool on: ((bar.leftBarAlign === "left" || bar.leftBarAlign === "right") ? bar.leftBarAlign : "center") === modelData.id
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 32
+                                                radius: root.chipR
+                                                color: on ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                          : (leftSideAlignMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                                border.width: 1
+                                                border.color: on ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: modelData.label
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.bold: on
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: leftSideAlignMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setLeftBarAlign === "function")
+                                                            bar.setLeftBarAlign(modelData.id)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ColumnLayout {
+                                    visible: root.layoutModeChoice() === "dual"
+                                    Layout.fillWidth: true
+                                    spacing: 12
+                                    Text {
+                                        text: "Right bar"
+                                        color: bar.text
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                        Layout.topMargin: 10
+                                    }
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text { text: "Show right bar"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                                Text {
+                                                    text: "Vertical strip on the right edge."
+                                                    color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showRightBar === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showRightBar === true) ? "✓" : "✕"
+                                                    color: (bar.showRightBar === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14; font.bold: true
+                                                }
+                                                MouseArea {
+                                                    id: rightBarShowMa
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (typeof bar.setShowRightBar === "function")
+                                                            bar.setShowRightBar(!(bar.showRightBar === true))
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Rectangle {
+                                        visible: bar.showRightBar === true
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 40
+                                        radius: root.chipR
+                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                        border.width: 1
+                                        border.color: bar.dividerStrong
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.leftMargin: 10
+                                            anchors.rightMargin: 10
+                                            spacing: 10
+                                            ColumnLayout {
+                                                Layout.fillWidth: true
+                                                spacing: 0
+                                                Text { text: "Span the monitor"; color: bar.text; font.pixelSize: 12; font.family: bar.fontFamily }
+                                                Text {
+                                                    text: "Off hugs the widgets. On fills the height between the horizontal bars."
+                                                    color: bar.subtext; font.pixelSize: 10; font.family: bar.fontFamily
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                            }
+                                            Rectangle {
+                                                Layout.preferredWidth: root.optToggleW
+                                                Layout.preferredHeight: root.optToggleH
+                                                Layout.alignment: Qt.AlignVCenter
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.rightBarSpanFull === true) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.rightBarSpanFull === true) ? "✓" : "✕"
+                                                    color: (bar.rightBarSpanFull === true) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14; font.bold: true
+                                                }
+                                                MouseArea {
+                                                    id: rightBarSpanMa
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (typeof bar.setRightBarSpanFull === "function")
+                                                            bar.setRightBarSpanFull(!(bar.rightBarSpanFull === true))
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Text {
+                                        visible: bar.showRightBar === true
+                                        text: "Widget alignment"
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        visible: bar.showRightBar === true
+                                        text: "Left is the top of the screen. Right is the bottom."
+                                        color: bar.subtext
+                                        font.pixelSize: 10
+                                        font.family: bar.fontFamily
+                                    }
+                                    RowLayout {
+                                        visible: bar.showRightBar === true
+                                        Layout.fillWidth: true
+                                        spacing: 6
+                                        Repeater {
+                                            model: [
+                                                { id: "left", label: "Left" },
+                                                { id: "center", label: "Center" },
+                                                { id: "right", label: "Right" }
+                                            ]
+                                            delegate: Rectangle {
+                                                required property var modelData
+                                                readonly property bool on: ((bar.rightBarAlign === "left" || bar.rightBarAlign === "right") ? bar.rightBarAlign : "center") === modelData.id
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: 32
+                                                radius: root.chipR
+                                                color: on ? (bar.controlActiveBg || Qt.rgba(0, 0.77, 0.96, 0.22))
+                                                          : (rightSideAlignMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg))
+                                                border.width: 1
+                                                border.color: on ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: modelData.label
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.bold: on
+                                                    font.family: bar.fontFamily
+                                                }
+                                                MouseArea {
+                                                    id: rightSideAlignMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setRightBarAlign === "function")
+                                                            bar.setRightBarAlign(modelData.id)
+                                                        root.optionsTick++
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                    }
+                                }
+                                Text {
+                                    text: "Misc"
+                                    color: bar.text
+                                    font.pixelSize: 13
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                    Layout.topMargin: 12
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
@@ -7567,6 +8712,9 @@ Item {
                                                 }
                                             }
                                             TextField {
+                                                topPadding: 1
+                                                bottomPadding: 1
+                                                verticalAlignment: Text.AlignVCenter
                                                 Layout.preferredWidth: 72
                                                 Layout.preferredHeight: 30
                                                 horizontalAlignment: Text.AlignHCenter
@@ -7575,7 +8723,7 @@ Item {
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
                                                 font.pixelSize: 16
-                                                font.family: bar.fontFamily
+                                                font.family: root.entryFont()
                                                 background: Rectangle {
                                                     radius: root.chipR
                                                     color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
@@ -7712,6 +8860,9 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 6
                                         TextField {
+                                            topPadding: 1
+                                            bottomPadding: 1
+                                            verticalAlignment: Text.AlignVCenter
                                             id: appMenuCmdField
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 32
@@ -7719,8 +8870,8 @@ Item {
                                             placeholderText: "~/.local/bin/rofi-app-drawer"
                                             color: bar.text
                                             placeholderTextColor: bar.subtext
-                                            font.pixelSize: 12
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            font.pixelSize: 14
+                                            font.family: root.entryMonoFont()
                                             background: Rectangle {
                                                 radius: root.chipR
                                                 color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
@@ -7940,11 +9091,344 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 8
                                 Text {
+                                    text: "Workspace Options"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 16
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 8
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 36
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                spacing: 10
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    Layout.minimumWidth: 0
+                                                    spacing: 0
+                                                    Text {
+                                                        text: "Special workspace pill"
+                                                        color: bar.text
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+                                                Item {
+                                                    Layout.preferredWidth: root.optControlColW
+                                                    Layout.maximumWidth: root.optControlColW
+                                                    Layout.minimumWidth: root.optControlColW
+                                                    Layout.fillHeight: true
+                                                    Rectangle {
+                                                        anchors.centerIn: parent
+                                                        width: root.optToggleW
+                                                        height: root.optToggleH
+                                                        radius: 4
+                                                        border.width: 1
+                                                        border.color: (bar.showMagicWorkspacePill) ? root.onGreen : root.offRed
+                                                        color: "transparent"
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: (bar.showMagicWorkspacePill) ? "✓" : "✕"
+                                                            color: (bar.showMagicWorkspacePill) ? root.onGreen : root.offRed
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setOptToggle("setShowMagicWorkspacePill", !bar.showMagicWorkspacePill)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                spacing: 10
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    Layout.minimumWidth: 0
+                                                    spacing: 0
+                                                    Text {
+                                                        text: "Show only active workspace"
+                                                        color: bar.text
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text {
+                                                        text: "Hide empty numbered pills"
+                                                        color: bar.subtext
+                                                        font.pixelSize: 10
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+                                                Item {
+                                                    Layout.preferredWidth: root.optControlColW
+                                                    Layout.maximumWidth: root.optControlColW
+                                                    Layout.minimumWidth: root.optControlColW
+                                                    Layout.fillHeight: true
+                                                    Rectangle {
+                                                        anchors.centerIn: parent
+                                                        width: root.optToggleW
+                                                        height: root.optToggleH
+                                                        radius: 4
+                                                        border.width: 1
+                                                        border.color: (bar.wsShowOnlyActive) ? root.onGreen : root.offRed
+                                                        color: "transparent"
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: (bar.wsShowOnlyActive) ? "✓" : "✕"
+                                                            color: (bar.wsShowOnlyActive) ? root.onGreen : root.offRed
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setOptToggle("setWsShowOnlyActive", !bar.wsShowOnlyActive)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                spacing: 10
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    Layout.minimumWidth: 0
+                                                    spacing: 0
+                                                    Text {
+                                                        text: "Show workspace numbers"
+                                                        color: bar.text
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text {
+                                                        text: "Off leaves only the symbol and label"
+                                                        color: bar.subtext
+                                                        font.pixelSize: 10
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+                                                Item {
+                                                    Layout.preferredWidth: root.optControlColW
+                                                    Layout.maximumWidth: root.optControlColW
+                                                    Layout.minimumWidth: root.optControlColW
+                                                    Layout.fillHeight: true
+                                                    Rectangle {
+                                                        anchors.centerIn: parent
+                                                        width: root.optToggleW
+                                                        height: root.optToggleH
+                                                        radius: 4
+                                                        border.width: 1
+                                                        border.color: (bar.wsShowNumbers !== false) ? root.onGreen : root.offRed
+                                                        color: "transparent"
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: (bar.wsShowNumbers !== false) ? "✓" : "✕"
+                                                            color: (bar.wsShowNumbers !== false) ? root.onGreen : root.offRed
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setOptToggle("setWsShowNumbers", !(bar.wsShowNumbers !== false))
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 8
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 56
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                anchors.topMargin: 6
+                                                anchors.bottomMargin: 6
+                                                spacing: 2
+                                                Text {
+                                                    text: "Default workspaces"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                }
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 1
+                                                    to: 10
+                                                    stepSize: 1
+                                                    value: Math.max(1, root.wsSlotRows().length || 1)
+                                                    onValueEdited: (v) => root.setWsDraftCount(Math.round(v))
+                                                    onValueCommitted: (v) => root.setWsDraftCount(Math.round(v))
+                                                }
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 56
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                anchors.topMargin: 6
+                                                anchors.bottomMargin: 6
+                                                spacing: 2
+                                                Text {
+                                                    text: "Startup workspace"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                }
+                                                OptValueSlider {
+                                                    bar: bar
+                                                    fieldBg: root.optFieldBg
+                                                    fieldBgFocus: root.optFieldBgFocus
+                                                    from: 0
+                                                    to: 10
+                                                    stepSize: 1
+                                                    value: (bar && bar.wsStartupWorkspace) || 0
+                                                    onValueEdited: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
+                                                    onValueCommitted: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
+                                                }
+                                            }
+                                        }
+                                        Rectangle {
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 40
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 10
+                                                spacing: 10
+                                                ColumnLayout {
+                                                    Layout.fillWidth: true
+                                                    Layout.minimumWidth: 0
+                                                    spacing: 0
+                                                    Text {
+                                                        text: "Close special on startup"
+                                                        color: bar.text
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                    Text {
+                                                        text: "Only if startup workspace > 0"
+                                                        color: bar.subtext
+                                                        font.pixelSize: 10
+                                                        font.family: bar.fontFamily
+                                                        elide: Text.ElideRight
+                                                        Layout.fillWidth: true
+                                                    }
+                                                }
+                                                Item {
+                                                    Layout.preferredWidth: root.optControlColW
+                                                    Layout.maximumWidth: root.optControlColW
+                                                    Layout.minimumWidth: root.optControlColW
+                                                    Layout.fillHeight: true
+                                                    Rectangle {
+                                                        anchors.centerIn: parent
+                                                        width: root.optToggleW
+                                                        height: root.optToggleH
+                                                        radius: 4
+                                                        border.width: 1
+                                                        border.color: (bar.wsStartupCloseMagic) ? root.onGreen : root.offRed
+                                                        color: "transparent"
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: (bar.wsStartupCloseMagic) ? "✓" : "✕"
+                                                            color: (bar.wsStartupCloseMagic) ? root.onGreen : root.offRed
+                                                            font.pixelSize: 14
+                                                            font.bold: true
+                                                        }
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setOptToggle("setWsStartupCloseMagic", !bar.wsStartupCloseMagic)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
                                     text: "Workspaces"
                                     color: bar.text
                                     font.pixelSize: 12
                                     font.bold: true
                                     font.family: bar.fontFamily
+                                    Layout.topMargin: 10
                                 }
                                 Text {
                                     Layout.fillWidth: true
@@ -7954,228 +9438,27 @@ Item {
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
                                 }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 36
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Magic workspace pill"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.showMagicWorkspacePill) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.showMagicWorkspacePill) ? "✓" : "✕"
-                                                    color: (bar.showMagicWorkspacePill) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setShowMagicWorkspacePill", !bar.showMagicWorkspacePill)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 48
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 0
-                                            Text {
-                                                text: "Magic icon"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                            }
-                                            Text {
-                                                text: "Emoji or short text. Empty uses the built-in icon. Apply saves it."
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        TextField {
-                                            Layout.preferredWidth: 72
-                                            Layout.preferredHeight: 30
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: root.wsMagicDraft
-                                            placeholderText: "🪄"
-                                            color: bar.text
-                                            placeholderTextColor: bar.subtext
-                                            font.pixelSize: 16
-                                            font.family: bar.fontFamily
-                                            background: Rectangle {
-                                                radius: root.chipR
-                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                border.width: 1
-                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
-                                            }
-                                            onEditingFinished: {
-                                                root.wsMagicDraft = text.substring(0, 6)
-                                                root.wsDraftTick++
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Show only active workspace"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Hide empty numbered pills"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.wsShowOnlyActive) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.wsShowOnlyActive) ? "✓" : "✕"
-                                                    color: (bar.wsShowOnlyActive) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setWsShowOnlyActive", !bar.wsShowOnlyActive)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 56
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        anchors.topMargin: 6
-                                        anchors.bottomMargin: 6
-                                        spacing: 2
-                                        Text {
-                                            text: "Default workspaces"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 1
-                                            to: 10
-                                            stepSize: 1
-                                            value: Math.max(1, root.wsSlotRows().length || 1)
-                                            onValueEdited: (v) => root.setWsDraftCount(Math.round(v))
-                                            onValueCommitted: (v) => root.setWsDraftCount(Math.round(v))
-                                        }
-                                    }
-                                }
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "The font and size change the emoji only. The workspace number stays on the bar font. ‹ › step through faces. − + change the emoji size (8–32). The bar stays as it is until Apply."
+                                    text: "Per row: # binds the row to a workspace number — typing a number another row owns swaps them (Hyprland is not renamed). Symbol takes up to 3 characters; ✕ clears it. Label puts text next to the symbol; ✕ clears it. B / I style symbol + label. Open the font box and search. − + sets size 8–32. The palette sets the label color (right-click clears; picker Done commits). Show workspace numbers turns the number off. The special row takes a Hyprland name instead of a number and uses the same symbol, label, font, and style. The bar stays as it is until Apply."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
                                 }
-                                Repeater {
-                                    model: root.wsSlotRows()
-                                    delegate: Rectangle {
+                                Component {
+                                    id: wsSlotCard
+                                    Rectangle {
                                         id: wsSlotRow
                                         required property var modelData
                                         readonly property int emojiPx: root.wsEmojiPx(modelData.fontPx)
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: Math.max(84, emojiPx + 62)
+                                        Layout.preferredHeight: Math.max(78, emojiPx + 52)
                                         radius: root.chipR
                                         color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
                                         border.width: 1
                                         border.color: bar.dividerStrong
+                                        clip: true
                                         ColumnLayout {
                                             anchors.fill: parent
                                             anchors.leftMargin: 8
@@ -8186,36 +9469,101 @@ Item {
                                         RowLayout {
                                             Layout.fillWidth: true
                                             spacing: 6
-                                            Text {
-                                                text: String(wsSlotRow.modelData.id)
-                                                color: bar.subtext
-                                                font.pixelSize: 12
-                                                font.bold: true
-                                                font.family: bar.fontFamily
-                                                Layout.preferredWidth: 16
-                                                horizontalAlignment: Text.AlignHCenter
-                                            }
                                             TextField {
-                                                id: wsSlotLabelField
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: Math.max(28, wsSlotRow.emojiPx + 8)
+                                                id: wsSlotIdField
+                                                Layout.preferredWidth: 44
+                                                Layout.preferredHeight: 28
+                                                horizontalAlignment: Text.AlignHCenter
                                                 selectByMouse: true
-                                                placeholderText: "icon or text"
+                                                placeholderText: "#"
+                                                topPadding: 1
+                                                bottomPadding: 1
+                                                verticalAlignment: Text.AlignVCenter
                                                 color: bar.text
                                                 placeholderTextColor: bar.subtext
-                                                font.pixelSize: wsSlotRow.emojiPx
-                                                font.family: wsSlotRow.modelData.font.length ? wsSlotRow.modelData.font : bar.fontFamily
-                                                text: wsSlotRow.modelData.label
-                                                horizontalAlignment: Text.AlignHCenter
+                                                font.pixelSize: 15
+                                                font.bold: true
+                                                font.family: root.entryFont()
+                                                text: String(wsSlotRow.modelData.id)
+                                                ToolTip.visible: wsSlotIdMa.hovered
+                                                ToolTip.delay: bar.tooltipDelay !== undefined ? bar.tooltipDelay : 400
                                                 background: Rectangle {
                                                     radius: root.chipR
                                                     color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
                                                     border.width: 1
                                                     border.color: parent.activeFocus ? bar.accent : bar.pillBorder
                                                 }
+                                                HoverHandler { id: wsSlotIdMa }
+                                                ToolTip.text: "Workspace number this row binds to (1–10). Typing a number another row owns swaps them — Hyprland is not touched."
                                                 onEditingFinished: {
-                                                    if (text !== wsSlotRow.modelData.label)
-                                                        root.setWsDraftFace(wsSlotRow.modelData.index, text, wsSlotRow.modelData.font)
+                                                    const n = Math.round(Number(text))
+                                                    if (n >= 1 && n <= 10 && n !== wsSlotRow.modelData.id)
+                                                        root.setWsDraftId(wsSlotRow.modelData.index, n)
+                                                    else
+                                                        text = String(wsSlotRow.modelData.id)
+                                                }
+                                            }
+                                            Item {
+                                                id: wsSymFieldBox
+                                                Layout.fillWidth: true
+                                                Layout.preferredHeight: Math.max(28, wsSlotRow.emojiPx + 8)
+                                                TextField {
+                                                    id: wsSlotLabelField
+                                                    anchors.fill: parent
+                                                    selectByMouse: true
+                                                    placeholderText: "symbol (≤3 chars)"
+                                                    leftPadding: 8
+                                                    rightPadding: wsSymClear.visible ? 24 : 8
+                                                    topPadding: 1
+                                                    bottomPadding: 1
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    color: bar.text
+                                                    placeholderTextColor: bar.subtext
+                                                    font.pixelSize: wsSlotLabelField.text.length ? wsSlotRow.emojiPx : 14
+                                                    font.family: (wsSlotLabelField.text.length && wsSlotRow.modelData.font.length)
+                                                                  ? wsSlotRow.modelData.font : root.entryFont()
+                                                    font.bold: wsSlotLabelField.text.length ? wsSlotRow.modelData.bold : false
+                                                    font.italic: wsSlotLabelField.text.length ? wsSlotRow.modelData.italic : false
+                                                    text: wsSlotRow.modelData.label
+                                                    horizontalAlignment: Text.AlignLeft
+                                                    background: Rectangle {
+                                                        radius: root.chipR
+                                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                        border.width: 1
+                                                        border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                    }
+                                                    onEditingFinished: {
+                                                        if (text !== wsSlotRow.modelData.label)
+                                                            root.setWsDraftFace(wsSlotRow.modelData.index, text, wsSlotRow.modelData.font)
+                                                    }
+                                                }
+                                                // ✕ clears the symbol (empty = no symbol on the pill)
+                                                Rectangle {
+                                                    id: wsSymClear
+                                                    visible: wsSlotLabelField.text.length > 0
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 5
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: 16
+                                                    height: 16
+                                                    radius: 8
+                                                    color: wsSymClearMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.25) : "transparent"
+                                                    border.width: 1
+                                                    border.color: root.offRed
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "✕"
+                                                        color: root.offRed
+                                                        font.pixelSize: 9
+                                                        font.bold: true
+                                                    }
+                                                    MouseArea {
+                                                        id: wsSymClearMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.setWsDraftFace(wsSlotRow.modelData.index, "", wsSlotRow.modelData.font)
+                                                    }
                                                 }
                                             }
                                             Rectangle {
@@ -8291,127 +9639,175 @@ Item {
                                         }
                                         RowLayout {
                                             Layout.fillWidth: true
-                                            spacing: 4
-                                        ComboBox {
-                                            id: wsFontCombo
+                                            spacing: 6
+                                            Item {
+                                                id: wsTextFieldBox
+                                                Layout.fillWidth: true
+                                                Layout.minimumWidth: 140
+                                                Layout.preferredWidth: 180
+                                                Layout.preferredHeight: 28
+                                                clip: true
+                                                TextField {
+                                                    id: wsSlotTextField
+                                                    clip: true
+                                                    anchors.fill: parent
+                                                    selectByMouse: true
+                                                    placeholderText: "label (e.g. Coding)"
+                                                    leftPadding: 8
+                                                    rightPadding: wsTextClear.visible ? 24 : 8
+                                                    topPadding: 1
+                                                    bottomPadding: 1
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    color: wsSlotRow.modelData.color.length ? wsSlotRow.modelData.color : bar.text
+                                                    placeholderTextColor: bar.subtext
+                                                    font.pixelSize: 14
+                                                    font.family: root.entryFont()
+                                                    font.bold: wsSlotRow.modelData.bold
+                                                    font.italic: wsSlotRow.modelData.italic
+                                                    text: wsSlotRow.modelData.text
+                                                    background: Rectangle {
+                                                        radius: root.chipR
+                                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                        border.width: 1
+                                                        border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                    }
+                                                    onEditingFinished: {
+                                                        if (text !== wsSlotRow.modelData.text)
+                                                            root.setWsDraftText(wsSlotRow.modelData.index, text)
+                                                    }
+                                                }
+                                                // ✕ clears the label text
+                                                Rectangle {
+                                                    id: wsTextClear
+                                                    visible: wsSlotTextField.text.length > 0
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 5
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: 16
+                                                    height: 16
+                                                    radius: 8
+                                                    color: wsTextClearMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.25) : "transparent"
+                                                    border.width: 1
+                                                    border.color: root.offRed
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "✕"
+                                                        color: root.offRed
+                                                        font.pixelSize: 9
+                                                        font.bold: true
+                                                    }
+                                                    MouseArea {
+                                                        id: wsTextClearMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.setWsDraftText(wsSlotRow.modelData.index, "")
+                                                    }
+                                                }
+                                            }
+                                            // Label color swatch — left: open/close picker · right: clear color
+                                            Rectangle {
+                                                id: wsColorSwatch
+                                                Layout.preferredWidth: 40
+                                                Layout.preferredHeight: 28
+                                                radius: 4
+                                                color: {
+                                                    if (root.wsColorPickIndex === wsSlotRow.modelData.index && root.wsColorPreview.length)
+                                                        return root.wsColorPreview
+                                                    return wsSlotRow.modelData.color.length ? wsSlotRow.modelData.color : "transparent"
+                                                }
+                                                border.width: 1
+                                                border.color: (root.wsColorPickIndex === wsSlotRow.modelData.index) ? bar.accent : bar.pillBorder
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: "🎨"
+                                                    font.pixelSize: 16
+                                                    font.family: "Noto Color Emoji"
+                                                }
+                                                MouseArea {
+                                                    id: wsColorSwatchMa
+                                                    anchors.fill: parent
+                                                    hoverEnabled: true
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                    onClicked: (mouse) => {
+                                                        if (mouse.button === Qt.RightButton) {
+                                                            root.setWsDraftColor(wsSlotRow.modelData.index, "")
+                                                            if (root.wsColorPickIndex === wsSlotRow.modelData.index) {
+                                                                root.wsColorPickIndex = -1
+                                                                root.wsColorPreview = ""
+                                                            }
+                                                            return
+                                                        }
+                                                        if (root.wsColorPickIndex === wsSlotRow.modelData.index) {
+                                                            root.wsColorPickIndex = -1
+                                                            root.wsColorPreview = ""
+                                                        } else {
+                                                            root.wsColorPreview = ""
+                                                            root.wsColorPickIndex = wsSlotRow.modelData.index
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        WsFontCombo {
                                             Layout.fillWidth: true
+                                            Layout.minimumWidth: 120
+                                            Layout.preferredWidth: 180
                                             Layout.preferredHeight: 28
-                                            model: root.wsFontChoices()
-                                            currentIndex: root.wsFontComboIndex(wsSlotRow.modelData.font)
-                                            onActivated: function(index) {
+                                            bar: root.bar
+                                            host: root
+                                            fontName: wsSlotRow.modelData.font
+                                            onFontPicked: function(name) {
                                                 root.setWsDraftFace(
                                                     wsSlotRow.modelData.index,
                                                     wsSlotLabelField.text,
-                                                    root.wsFontFromCombo(index))
-                                            }
-                                            contentItem: Text {
-                                                leftPadding: 8
-                                                rightPadding: wsFontCombo.indicator.width + 10
-                                                text: {
-                                                    const f = wsSlotRow.modelData.font
-                                                    return f.length ? f : "Bar font"
-                                                }
-                                                font.pixelSize: 12
-                                                font.family: wsSlotRow.modelData.font.length ? wsSlotRow.modelData.font : bar.fontFamily
-                                                color: bar.text
-                                                verticalAlignment: Text.AlignVCenter
-                                                elide: Text.ElideRight
-                                            }
-                                            background: Rectangle {
-                                                radius: root.chipR
-                                                color: root.optFieldBg
-                                                border.width: 1
-                                                border.color: wsFontCombo.popup.visible ? bar.accent : bar.pillBorder
-                                            }
-                                            indicator: Text {
-                                                x: wsFontCombo.width - width - 8
-                                                y: (wsFontCombo.height - height) / 2
-                                                text: wsFontCombo.popup.visible ? "▴" : "▾"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                            }
-                                            popup: Popup {
-                                                y: wsFontCombo.height + 2
-                                                width: wsFontCombo.width
-                                                implicitHeight: Math.min(280, contentItem.implicitHeight + 4)
-                                                padding: 2
-                                                contentItem: ListView {
-                                                    clip: true
-                                                    implicitHeight: contentHeight
-                                                    model: wsFontCombo.popup.visible ? wsFontCombo.delegateModel : null
-                                                    currentIndex: wsFontCombo.highlightedIndex
-                                                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                                                }
-                                                background: Rectangle {
-                                                    radius: 8
-                                                    color: bar.glassPopupBg !== undefined ? bar.glassPopupBg : Qt.rgba(0.06, 0.08, 0.12, 0.96)
-                                                    border.width: 1
-                                                    border.color: bar.glassPopupBorder !== undefined ? bar.glassPopupBorder : bar.pillBorder
-                                                }
-                                            }
-                                            delegate: ItemDelegate {
-                                                width: wsFontCombo.width
-                                                height: 30
-                                                required property int index
-                                                required property string modelData
-                                                highlighted: wsFontCombo.highlightedIndex === index
-                                                contentItem: Text {
-                                                    text: modelData === "Bar font" ? "Bar font" : modelData
-                                                    color: bar.text
-                                                    font.family: modelData === "Bar font" ? bar.fontFamily : modelData
-                                                    font.pixelSize: 13
-                                                    elide: Text.ElideRight
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    leftPadding: 8
-                                                }
-                                                background: Rectangle {
-                                                    color: parent.highlighted
-                                                           ? (bar.controlActiveBg !== undefined ? bar.controlActiveBg : Qt.rgba(0, 0.7, 0.75, 0.35))
-                                                           : "transparent"
-                                                    radius: 4
-                                                }
+                                                    name)
                                             }
                                         }
                                         Rectangle {
                                             Layout.preferredWidth: 26
                                             Layout.preferredHeight: 28
                                             radius: 4
-                                            color: wsFontPrevMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            color: wsBoldMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
                                             border.width: 1
-                                            border.color: bar.pillBorder
+                                            border.color: wsSlotRow.modelData.bold ? bar.accent : bar.pillBorder
                                             Text {
                                                 anchors.centerIn: parent
-                                                text: "‹"
-                                                color: bar.subtext
-                                                font.pixelSize: 16
+                                                text: "B"
+                                                color: wsSlotRow.modelData.bold ? bar.accent : bar.subtext
+                                                font.pixelSize: 13
+                                                font.bold: true
+                                                font.family: bar.fontFamily
                                             }
                                             MouseArea {
-                                                id: wsFontPrevMa
+                                                id: wsBoldMa
                                                 anchors.fill: parent
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.stepWsDraftFont(wsSlotRow.modelData.index, -1, wsSlotLabelField.text)
+                                                onClicked: root.setWsDraftStyle(wsSlotRow.modelData.index, !wsSlotRow.modelData.bold, undefined)
                                             }
                                         }
                                         Rectangle {
                                             Layout.preferredWidth: 26
                                             Layout.preferredHeight: 28
                                             radius: 4
-                                            color: wsFontNextMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            color: wsItalicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
                                             border.width: 1
-                                            border.color: bar.pillBorder
+                                            border.color: wsSlotRow.modelData.italic ? bar.accent : bar.pillBorder
                                             Text {
                                                 anchors.centerIn: parent
-                                                text: "›"
-                                                color: bar.subtext
-                                                font.pixelSize: 16
+                                                text: "I"
+                                                color: wsSlotRow.modelData.italic ? bar.accent : bar.subtext
+                                                font.pixelSize: 13
+                                                font.italic: true
+                                                font.family: bar.fontFamily
                                             }
                                             MouseArea {
-                                                id: wsFontNextMa
+                                                id: wsItalicMa
                                                 anchors.fill: parent
                                                 hoverEnabled: true
                                                 cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.stepWsDraftFont(wsSlotRow.modelData.index, 1, wsSlotLabelField.text)
+                                                onClicked: root.setWsDraftStyle(wsSlotRow.modelData.index, undefined, !wsSlotRow.modelData.italic)
                                             }
                                         }
                                         Rectangle {
@@ -8472,188 +9868,440 @@ Item {
                                         }
                                     }
                                 }
-                                Rectangle {
-                                    Layout.preferredHeight: 28
-                                    Layout.preferredWidth: wsAddLbl.implicitWidth + 16
-                                    Layout.alignment: Qt.AlignLeft
-                                    opacity: root.wsSlotRows().length >= 10 ? 0.4 : 1
-                                    radius: root.chipR
-                                    color: wsAddMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                    border.width: 1
-                                    border.color: bar.pillBorder
-                                    Text {
-                                        id: wsAddLbl
-                                        anchors.centerIn: parent
-                                        text: "Add workspace"
-                                        color: bar.subtext
-                                        font.pixelSize: 11
-                                        font.family: bar.fontFamily
-                                    }
-                                    MouseArea {
-                                        id: wsAddMa
-                                        anchors.fill: parent
-                                        enabled: root.wsSlotRows().length < 10
-                                        hoverEnabled: true
-                                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                        onClicked: root.addWsDraft()
-                                    }
-                                }
+                                // Special row plus numbered rows, split so the two
+                                // columns differ by at most one. The label-color picker
+                                // opens to their right and takes no space while closed.
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: 8
-                                    Rectangle {
-                                        Layout.preferredHeight: 28
-                                        Layout.preferredWidth: wsApplyLbl.implicitWidth + 18
-                                        opacity: root.wsDraftDirty() ? 1 : 0.4
-                                        radius: root.chipR
-                                        color: wsApplyMa.containsMouse && root.wsDraftDirty()
-                                               ? bar.glassHover
-                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: root.wsDraftDirty() ? bar.accent : bar.pillBorder
-                                        Text {
-                                            id: wsApplyLbl
-                                            anchors.centerIn: parent
-                                            text: "Apply"
-                                            color: root.wsDraftDirty() ? bar.accent : bar.subtext
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: wsApplyMa
-                                            anchors.fill: parent
-                                            enabled: root.wsDraftDirty()
-                                            hoverEnabled: true
-                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: root.applyWsDraft()
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 28
-                                        Layout.preferredWidth: wsUndoLbl.implicitWidth + 18
-                                        opacity: root.wsUndoEnabled() ? 1 : 0.4
-                                        radius: root.chipR
-                                        color: wsUndoMa.containsMouse && root.wsUndoEnabled()
-                                               ? bar.glassHover
-                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: wsUndoLbl
-                                            anchors.centerIn: parent
-                                            text: "Undo"
-                                            color: bar.subtext
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: wsUndoMa
-                                            anchors.fill: parent
-                                            enabled: root.wsUndoEnabled()
-                                            hoverEnabled: true
-                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                            onClicked: root.undoWsDraft()
-                                        }
-                                    }
-                                    Item { Layout.fillWidth: true }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 56
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
+                                    Layout.alignment: Qt.AlignTop
+                                    spacing: 10
                                     ColumnLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        anchors.topMargin: 6
-                                        anchors.bottomMargin: 6
-                                        spacing: 2
-                                        Text {
-                                            text: "Startup workspace"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 0
-                                            to: 10
-                                            stepSize: 1
-                                            value: (bar && bar.wsStartupWorkspace) || 0
-                                            onValueEdited: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
-                                            onValueCommitted: (v) => root.setOptNumber("setWsStartupWorkspace", Math.round(v))
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 8
+                                        Rectangle {
+                                            id: wsSpecialCard
+                                            readonly property var spec: root.wsSpecialRow()
+                                            readonly property int emojiPx: root.wsEmojiPx(spec.fontPx)
+                                            readonly property string shownName: spec.name.length
+                                                ? spec.name
+                                                : ((bar && bar.wsSpecialNameDefault) ? bar.wsSpecialNameDefault : "magic")
+                                            readonly property int cardH: 34 + Math.max(28, emojiPx + 8) + 36
                                             Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Close magic on startup"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
+                                            Layout.preferredHeight: cardH
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            clip: true
+                                            function syncFields() {
+                                                if (!wsSpecialNameField.activeFocus)
+                                                    wsSpecialNameField.text = shownName
+                                                if (!wsSpecialLabelField.activeFocus)
+                                                    wsSpecialLabelField.text = spec.label
+                                                if (!wsSpecialTextField.activeFocus)
+                                                    wsSpecialTextField.text = spec.text
                                             }
-                                            Text {
-                                                text: "Only if startup workspace > 0"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
+                                            onSpecChanged: syncFields()
+                                            Component.onCompleted: syncFields()
+                                            ColumnLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 8
+                                                anchors.rightMargin: 6
+                                                anchors.topMargin: 6
+                                                anchors.bottomMargin: 6
+                                                spacing: 4
+                                                Text {
+                                                    text: "Special workspace"
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: bar.fontFamily
+                                                }
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 6
+                                                    TextField {
+                                                        id: wsSpecialNameField
+                                                        Layout.preferredWidth: 120
+                                                        Layout.preferredHeight: 28
+                                                        horizontalAlignment: Text.AlignHCenter
+                                                        selectByMouse: true
+                                                        placeholderText: "name"
+                                                        topPadding: 1
+                                                        bottomPadding: 1
+                                                        verticalAlignment: Text.AlignVCenter
+                                                        color: bar.text
+                                                        placeholderTextColor: bar.subtext
+                                                        font.pixelSize: 14
+                                                        font.bold: true
+                                                        font.family: root.entryFont()
+                                                        ToolTip.visible: wsSpecialNameMa.hovered
+                                                        ToolTip.delay: bar.tooltipDelay !== undefined ? bar.tooltipDelay : 400
+                                                        ToolTip.text: "Hyprland special workspace name, such as Hidden. Blank uses magic. Apply saves it."
+                                                        background: Rectangle {
+                                                            radius: root.chipR
+                                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                            border.width: 1
+                                                            border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                        }
+                                                        HoverHandler { id: wsSpecialNameMa }
+                                                        onEditingFinished: {
+                                                            root.setWsSpecialName(text)
+                                                            text = wsSpecialCard.shownName
+                                                        }
+                                                    }
+                                                    Item {
+                                                        Layout.fillWidth: true
+                                                        Layout.preferredHeight: Math.max(28, wsSpecialCard.emojiPx + 8)
+                                                        TextField {
+                                                            id: wsSpecialLabelField
+                                                            anchors.fill: parent
+                                                            selectByMouse: true
+                                                            placeholderText: "symbol (≤3 chars)"
+                                                            leftPadding: 8
+                                                            rightPadding: wsSpecialSymClear.visible ? 24 : 8
+                                                            topPadding: 1
+                                                            bottomPadding: 1
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            color: bar.text
+                                                            placeholderTextColor: bar.subtext
+                                                            font.pixelSize: wsSpecialLabelField.text.length ? wsSpecialCard.emojiPx : 14
+                                                            font.family: (wsSpecialLabelField.text.length && wsSpecialCard.spec.font.length)
+                                                                          ? wsSpecialCard.spec.font : root.entryFont()
+                                                            font.bold: wsSpecialLabelField.text.length ? wsSpecialCard.spec.bold : false
+                                                            font.italic: wsSpecialLabelField.text.length ? wsSpecialCard.spec.italic : false
+                                                            horizontalAlignment: Text.AlignLeft
+                                                            background: Rectangle {
+                                                                radius: root.chipR
+                                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                                border.width: 1
+                                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                            }
+                                                            onEditingFinished: {
+                                                                if (text !== wsSpecialCard.spec.label)
+                                                                    root.setWsSpecialFace(text, wsSpecialCard.spec.font, undefined)
+                                                            }
+                                                        }
+                                                        Rectangle {
+                                                            id: wsSpecialSymClear
+                                                            visible: wsSpecialLabelField.text.length > 0
+                                                            anchors.right: parent.right
+                                                            anchors.rightMargin: 5
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            width: 16
+                                                            height: 16
+                                                            radius: 8
+                                                            color: wsSpecialSymClearMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.25) : "transparent"
+                                                            border.width: 1
+                                                            border.color: root.offRed
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "✕"
+                                                                color: root.offRed
+                                                                font.pixelSize: 9
+                                                                font.bold: true
+                                                            }
+                                                            MouseArea {
+                                                                id: wsSpecialSymClearMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.setWsSpecialFace("", wsSpecialCard.spec.font, undefined)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                RowLayout {
+                                                    Layout.fillWidth: true
+                                                    spacing: 6
+                                                    Item {
+                                                        Layout.fillWidth: true
+                                                        Layout.minimumWidth: 140
+                                                        Layout.preferredWidth: 180
+                                                        Layout.preferredHeight: 28
+                                                        clip: true
+                                                        TextField {
+                                                            id: wsSpecialTextField
+                                                            clip: true
+                                                            anchors.fill: parent
+                                                            selectByMouse: true
+                                                            placeholderText: "label (e.g. Coding)"
+                                                            leftPadding: 8
+                                                            rightPadding: wsSpecialTextClear.visible ? 24 : 8
+                                                            topPadding: 1
+                                                            bottomPadding: 1
+                                                            verticalAlignment: Text.AlignVCenter
+                                                            color: wsSpecialCard.spec.color.length ? wsSpecialCard.spec.color : bar.text
+                                                            placeholderTextColor: bar.subtext
+                                                            font.pixelSize: 14
+                                                            font.family: root.entryFont()
+                                                            font.bold: wsSpecialCard.spec.bold
+                                                            font.italic: wsSpecialCard.spec.italic
+                                                            background: Rectangle {
+                                                                radius: root.chipR
+                                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                                border.width: 1
+                                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                                            }
+                                                            onEditingFinished: {
+                                                                if (text !== wsSpecialCard.spec.text)
+                                                                    root.setWsSpecialText(text)
+                                                            }
+                                                        }
+                                                        Rectangle {
+                                                            id: wsSpecialTextClear
+                                                            visible: wsSpecialTextField.text.length > 0
+                                                            anchors.right: parent.right
+                                                            anchors.rightMargin: 5
+                                                            anchors.verticalCenter: parent.verticalCenter
+                                                            width: 16
+                                                            height: 16
+                                                            radius: 8
+                                                            color: wsSpecialTextClearMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.25) : "transparent"
+                                                            border.width: 1
+                                                            border.color: root.offRed
+                                                            Text {
+                                                                anchors.centerIn: parent
+                                                                text: "✕"
+                                                                color: root.offRed
+                                                                font.pixelSize: 9
+                                                                font.bold: true
+                                                            }
+                                                            MouseArea {
+                                                                id: wsSpecialTextClearMa
+                                                                anchors.fill: parent
+                                                                hoverEnabled: true
+                                                                cursorShape: Qt.PointingHandCursor
+                                                                onClicked: root.setWsSpecialText("")
+                                                            }
+                                                        }
+                                                    }
+                                                    Rectangle {
+                                                        id: wsSpecialColorSwatch
+                                                        Layout.preferredWidth: 40
+                                                        Layout.preferredHeight: 28
+                                                        radius: 4
+                                                        color: {
+                                                            if (root.wsColorPickIndex === -2 && root.wsColorPreview.length)
+                                                                return root.wsColorPreview
+                                                            return wsSpecialCard.spec.color.length ? wsSpecialCard.spec.color : "transparent"
+                                                        }
+                                                        border.width: 1
+                                                        border.color: (root.wsColorPickIndex === -2) ? bar.accent : bar.pillBorder
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "🎨"
+                                                            font.pixelSize: 16
+                                                            font.family: "Noto Color Emoji"
+                                                        }
+                                                        MouseArea {
+                                                            id: wsSpecialColorSwatchMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                                            onClicked: (mouse) => {
+                                                                if (mouse.button === Qt.RightButton) {
+                                                                    root.setWsSpecialColor("")
+                                                                    if (root.wsColorPickIndex === -2) {
+                                                                        root.wsColorPickIndex = -1
+                                                                        root.wsColorPreview = ""
+                                                                    }
+                                                                    return
+                                                                }
+                                                                if (root.wsColorPickIndex === -2) {
+                                                                    root.wsColorPickIndex = -1
+                                                                    root.wsColorPreview = ""
+                                                                } else {
+                                                                    root.wsColorPreview = ""
+                                                                    root.wsColorPickIndex = -2
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                    WsFontCombo {
+                                                        id: wsSpecialFontCombo
+                                                        Layout.fillWidth: true
+                                                        Layout.minimumWidth: 120
+                                                        Layout.preferredWidth: 180
+                                                        Layout.preferredHeight: 28
+                                                        bar: root.bar
+                                                        host: root
+                                                        fontName: wsSpecialCard.spec.font
+                                                        onFontPicked: function(name) {
+                                                            root.setWsSpecialFace(wsSpecialLabelField.text, name, undefined)
+                                                        }
+                                                    }
+                                                    Rectangle {
+                                                        Layout.preferredWidth: 26
+                                                        Layout.preferredHeight: 28
+                                                        radius: 4
+                                                        color: wsSpecialBoldMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                        border.width: 1
+                                                        border.color: wsSpecialCard.spec.bold ? bar.accent : bar.pillBorder
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "B"
+                                                            color: wsSpecialCard.spec.bold ? bar.accent : bar.subtext
+                                                            font.pixelSize: 13
+                                                            font.bold: true
+                                                            font.family: bar.fontFamily
+                                                        }
+                                                        MouseArea {
+                                                            id: wsSpecialBoldMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setWsSpecialStyle(!wsSpecialCard.spec.bold, undefined)
+                                                        }
+                                                    }
+                                                    Rectangle {
+                                                        Layout.preferredWidth: 26
+                                                        Layout.preferredHeight: 28
+                                                        radius: 4
+                                                        color: wsSpecialItalicMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                        border.width: 1
+                                                        border.color: wsSpecialCard.spec.italic ? bar.accent : bar.pillBorder
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "I"
+                                                            color: wsSpecialCard.spec.italic ? bar.accent : bar.subtext
+                                                            font.pixelSize: 13
+                                                            font.italic: true
+                                                            font.family: bar.fontFamily
+                                                        }
+                                                        MouseArea {
+                                                            id: wsSpecialItalicMa
+                                                            anchors.fill: parent
+                                                            hoverEnabled: true
+                                                            cursorShape: Qt.PointingHandCursor
+                                                            onClicked: root.setWsSpecialStyle(undefined, !wsSpecialCard.spec.italic)
+                                                        }
+                                                    }
+                                                    Rectangle {
+                                                        Layout.preferredWidth: 26
+                                                        Layout.preferredHeight: 28
+                                                        radius: 4
+                                                        opacity: root.wsEmojiPx(wsSpecialCard.spec.fontPx) <= 8 ? 0.35 : 1
+                                                        color: wsSpecialSizeDownMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                        border.width: 1
+                                                        border.color: bar.pillBorder
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "−"
+                                                            color: bar.subtext
+                                                            font.pixelSize: 16
+                                                        }
+                                                        MouseArea {
+                                                            id: wsSpecialSizeDownMa
+                                                            anchors.fill: parent
+                                                            enabled: root.wsEmojiPx(wsSpecialCard.spec.fontPx) > 8
+                                                            hoverEnabled: true
+                                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                            onClicked: root.stepWsSpecialFontPx(-1, wsSpecialLabelField.text)
+                                                        }
+                                                    }
+                                                    Text {
+                                                        text: String(root.wsEmojiPx(wsSpecialCard.spec.fontPx))
+                                                        color: bar.text
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                        horizontalAlignment: Text.AlignHCenter
+                                                        Layout.preferredWidth: 22
+                                                    }
+                                                    Rectangle {
+                                                        Layout.preferredWidth: 26
+                                                        Layout.preferredHeight: 28
+                                                        radius: 4
+                                                        opacity: root.wsEmojiPx(wsSpecialCard.spec.fontPx) >= 32 ? 0.35 : 1
+                                                        color: wsSpecialSizeUpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                                        border.width: 1
+                                                        border.color: bar.pillBorder
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "+"
+                                                            color: bar.subtext
+                                                            font.pixelSize: 16
+                                                        }
+                                                        MouseArea {
+                                                            id: wsSpecialSizeUpMa
+                                                            anchors.fill: parent
+                                                            enabled: root.wsEmojiPx(wsSpecialCard.spec.fontPx) < 32
+                                                            hoverEnabled: true
+                                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                                            onClicked: root.stepWsSpecialFontPx(1, wsSpecialLabelField.text)
+                                                        }
+                                                    }
+                                                }
                                             }
                                         }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.wsStartupCloseMagic) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.wsStartupCloseMagic) ? "✓" : "✕"
-                                                    color: (bar.wsStartupCloseMagic) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setWsStartupCloseMagic", !bar.wsStartupCloseMagic)
-                                                }
-                                            }
+                                        Repeater {
+                                            model: root.wsSlotRows().slice(0, root.wsNumberedLeftCount())
+                                            delegate: wsSlotCard
                                         }
                                     }
-                                }
+                                    ColumnLayout {
+                                        visible: root.wsSlotRows().length > root.wsNumberedLeftCount()
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 1
+                                        Layout.minimumWidth: 0
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 8
+                                        Repeater {
+                                            model: root.wsSlotRows().slice(root.wsNumberedLeftCount())
+                                            delegate: wsSlotCard
+                                        }
+                                    }
+                                    // Label-color picker — right column while a swatch is open.
+                                    // Live drags update the preview; Done commits to the draft —
+                                    // the bar itself still waits for Apply.
+                                    ColorPickerPanel {
+                                        id: wsColorPicker
+                                        Layout.preferredWidth: 280
+                                        Layout.alignment: Qt.AlignTop
+                                        visible: root.wsColorPickIndex === -2 || root.wsColorPickIndex >= 0
+                                        title: root.wsColorPickIndex === -2
+                                               ? "Label color — special"
+                                               : ("Label color — row " + (root.wsColorPickIndex + 1))
+                                        showOpacity: false
+                                        panelBg: bar.glassPopupBg
+                                        panelBorder: bar.glassPopupBorder
+                                        labelColor: bar.text
+                                        fieldBg: root.optFieldBg
+                                        accentColor: bar.accent
+                                        fontFamily: bar.fontFamily
+                                        onVisibleChanged: {
+                                            if (visible) {
+                                                root.wsColorPreview = ""
+                                                wsColorPicker.loadFromColor(root.wsPickColorCurrent())
+                                            }
+                                        }
+                                        Connections {
+                                            target: root
+                                            function onWsColorPickIndexChanged() {
+                                                if (root.wsColorPickIndex === -2 || root.wsColorPickIndex >= 0)
+                                                    wsColorPicker.loadFromColor(root.wsPickColorCurrent())
+                                            }
+                                        }
+                                        onColorEdited: (c) => root.wsColorPreview = String(c)
+                                        onAccepted: {
+                                            if (root.wsColorPreview.length) {
+                                                if (root.wsColorPickIndex === -2)
+                                                    root.setWsSpecialColor(root.wsColorPreview)
+                                                else
+                                                    root.setWsDraftColor(root.wsColorPickIndex, root.wsColorPreview)
+                                            }
+                                            root.wsColorPickIndex = -1
+                                            root.wsColorPreview = ""
+                                        }
+                                        onCancelled: {
+                                            root.wsColorPickIndex = -1
+                                            root.wsColorPreview = ""
+                                        }
+                                    }
+                                } // workspaces columns + color picker
                                 } // options tab: workspaces
                                 ColumnLayout {
                                     visible: root.optionsTab === "audio" && root.optionsSectionVisible("audio")
@@ -9529,7 +11177,7 @@ Item {
                                                 Layout.fillWidth: true
                                             }
                                             Text {
-                                                text: "Gauge + metrics popup on the pill"
+                                                text: "Section + gauge on the pill"
                                                 color: bar.subtext
                                                 font.pixelSize: 10
                                                 font.family: bar.fontFamily
@@ -9583,6 +11231,68 @@ Item {
                                             Layout.minimumWidth: 0
                                             spacing: 0
                                             Text {
+                                                text: "Show VRAM"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Gauge on the pill (GPU memory)"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.fillHeight: true
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar.showStatVram) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar.showStatVram) ? "✓" : "✕"
+                                                    color: (bar.showStatVram) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: root.setOptToggle("setShowStatVram", !bar.showStatVram)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 36
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
                                                 text: "Show Memory"
                                                 color: bar.text
                                                 font.pixelSize: 12
@@ -9591,7 +11301,7 @@ Item {
                                                 Layout.fillWidth: true
                                             }
                                             Text {
-                                                text: "Gauge + metrics popup on the pill"
+                                                text: "Section + gauge on the pill"
                                                 color: bar.subtext
                                                 font.pixelSize: 10
                                                 font.family: bar.fontFamily
@@ -9653,7 +11363,7 @@ Item {
                                                 Layout.fillWidth: true
                                             }
                                             Text {
-                                                text: "Gauge + metrics popup on the pill"
+                                                text: "Section + gauge on the pill"
                                                 color: bar.subtext
                                                 font.pixelSize: 10
                                                 font.family: bar.fontFamily
@@ -9752,129 +11462,110 @@ Item {
                                         }
                                     }
                                 }
-                                Rectangle {
+                                Text {
+                                    text: "Terminal"
+                                    color: bar.subtext
+                                    font.pixelSize: 11
+                                    font.family: bar.fontFamily
+                                }
+                                Flow {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
+                                    spacing: 6
+                                    Repeater {
+                                        model: root.statTerminals
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: String(bar.statTerminal || "kitty") === modelData
+                                            width: Math.max(64, statTermLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, statTermMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, statTermMa.containsMouse)
                                             Text {
-                                                text: "Menu util graphs"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Gauges + history in left-click metrics; processes stay"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
+                                                id: statTermLbl
                                                 anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.showStatMenuGraphs !== false) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.showStatMenuGraphs !== false) ? "✓" : "✕"
-                                                    color: (bar.showStatMenuGraphs !== false) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setShowStatMenuGraphs", !(bar.showStatMenuGraphs !== false))
+                                                text: modelData
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, statTermMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: statTermMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setStatTerminal === "function")
+                                                        bar.setStatTerminal(modelData)
+                                                    root.optionsTick++
                                                 }
                                             }
                                         }
                                     }
                                 }
-                                Rectangle {
+                                Text {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
+                                    wrapMode: Text.WordWrap
+                                    text: "CPU/Memory → btop · GPU/VRAM → nvtop in the chosen terminal (saved). The window gets the app name as its class and title (e.g. \"btop\") so Hyprland rules match it. List: scripts/list-terminals.sh."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    text: "Launch with"
+                                    color: bar.subtext
+                                    font.pixelSize: 11
+                                    font.family: bar.fontFamily
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { id: "left", label: "Left-click" },
+                                            { id: "right", label: "Right-click" }
+                                        ]
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: String(bar.statLaunchButton || "right") === modelData.id
+                                            width: Math.max(72, statLaunchLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, statLaunchMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, statLaunchMa.containsMouse)
                                             Text {
-                                                text: "Metrics live updates"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "CPU / Mem / GPU popups (session)"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
+                                                id: statLaunchLbl
                                                 anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (root.optMetricsLive()) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (root.optMetricsLive()) ? "✓" : "✕"
-                                                    color: (root.optMetricsLive()) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setMetricsLiveUpdates", !root.optMetricsLive())
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, statLaunchMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: statLaunchMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    if (typeof bar.setStatLaunchButton === "function")
+                                                        bar.setStatLaunchButton(modelData.id)
+                                                    root.optionsTick++
                                                 }
                                             }
                                         }
                                     }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Which mouse button on CPU/Memory/GPU/VRAM opens btop / nvtop (saved). The other button does nothing."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
                                 }
 
                                 } // options tab: stats
@@ -10177,6 +11868,221 @@ Item {
 
                                 } // options tab: dock
                                 ColumnLayout {
+                                    visible: root.optionsTab === "activewindow" && root.optionsSectionVisible("activewindow")
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Text {
+                                        text: "Active Window"
+                                        color: bar.text
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        text: "The pill hides while the focused window matches an entry. An entry matches the class, the app id, or the title. * is a wildcard, and the rest of the entry must match exactly. hypr-screensaver is the idle saver."
+                                        color: bar.subtext
+                                        font.pixelSize: 10
+                                        font.family: bar.fontFamily
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WordWrap
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                        text: {
+                                            const idn = root.focusedWindowFields()
+                                            if (!idn.cls && !idn.title)
+                                                return "Nothing is focused."
+                                            let line = "Focused now: " + (idn.cls || idn.title)
+                                            if (idn.title && idn.title !== idn.cls)
+                                                line += "  ·  " + idn.title
+                                            return line
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+                                        TextField {
+                                            id: awExcludeField
+                                            topPadding: 1
+                                            bottomPadding: 1
+                                            verticalAlignment: Text.AlignVCenter
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 30
+                                            placeholderText: "class, app id, or title"
+                                            color: bar.text
+                                            placeholderTextColor: bar.subtext
+                                            font.pixelSize: 13
+                                            font.family: root.entryFont()
+                                            text: root.activeWindowExcludeDraft
+                                            onTextEdited: root.activeWindowExcludeDraft = text
+                                            onAccepted: root.commitActiveWindowExclude()
+                                            background: Rectangle {
+                                                radius: root.chipR
+                                                color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                                border.width: 1
+                                                border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                            }
+                                            onPressed: root.armControlFocusGrab()
+                                            onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
+                                        }
+                                        Rectangle {
+                                            Layout.preferredHeight: 30
+                                            Layout.preferredWidth: awExcludeAddLbl.implicitWidth + 16
+                                            radius: root.chipR
+                                            color: awExcludeAddMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: awExcludeAddMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: awExcludeAddLbl
+                                                anchors.centerIn: parent
+                                                text: "Add"
+                                                color: awExcludeAddMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: awExcludeAddMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.commitActiveWindowExclude()
+                                            }
+                                        }
+                                    }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 8
+                                        visible: root.focusedWindowFields().cls.length > 0
+                                                 || root.focusedWindowFields().title.length > 0
+                                        Rectangle {
+                                            visible: root.focusedWindowFields().cls.length > 0
+                                            Layout.preferredHeight: 26
+                                            Layout.preferredWidth: awAddClassLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: awAddClassMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: awAddClassMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: awAddClassLbl
+                                                anchors.centerIn: parent
+                                                text: "Add class"
+                                                color: awAddClassMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: awAddClassMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.addFocusedWindowExclude("class")
+                                                ToolTip.visible: containsMouse
+                                                ToolTip.delay: bar.tooltipDelay
+                                                ToolTip.text: root.focusedWindowFields().cls
+                                            }
+                                        }
+                                        Rectangle {
+                                            visible: {
+                                                const idn = root.focusedWindowFields()
+                                                return idn.title.length > 0 && idn.title.toLowerCase() !== idn.cls.toLowerCase()
+                                            }
+                                            Layout.preferredHeight: 26
+                                            Layout.preferredWidth: awAddTitleLbl.implicitWidth + 14
+                                            radius: root.chipR
+                                            color: awAddTitleMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                            border.width: 1
+                                            border.color: awAddTitleMa.containsMouse ? bar.accent : bar.pillBorder
+                                            Text {
+                                                id: awAddTitleLbl
+                                                anchors.centerIn: parent
+                                                text: "Add title"
+                                                color: awAddTitleMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                            }
+                                            MouseArea {
+                                                id: awAddTitleMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.addFocusedWindowExclude("title")
+                                                ToolTip.visible: containsMouse
+                                                ToolTip.delay: bar.tooltipDelay
+                                                ToolTip.text: root.focusedWindowFields().title
+                                            }
+                                        }
+                                        Item { Layout.fillWidth: true }
+                                    }
+                                    Text {
+                                        visible: root.activeWindowExcludes().length === 0
+                                        Layout.fillWidth: true
+                                        text: "Nothing is excluded. Every focused window shows on the pill."
+                                        color: bar.subtext
+                                        font.pixelSize: 11
+                                        font.family: bar.fontFamily
+                                        wrapMode: Text.WordWrap
+                                    }
+                                    Repeater {
+                                        model: root.activeWindowExcludes()
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            Layout.fillWidth: true
+                                            Layout.preferredHeight: 32
+                                            radius: root.chipR
+                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                            border.width: 1
+                                            border.color: bar.dividerStrong
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 10
+                                                anchors.rightMargin: 6
+                                                spacing: 8
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: String(modelData || "")
+                                                    color: bar.text
+                                                    font.pixelSize: 12
+                                                    font.family: root.entryFont()
+                                                    elide: Text.ElideRight
+                                                    verticalAlignment: Text.AlignVCenter
+                                                }
+                                                Rectangle {
+                                                    Layout.preferredWidth: 24
+                                                    Layout.preferredHeight: 24
+                                                    radius: 4
+                                                    color: awExcludeRemoveMa.containsMouse
+                                                           ? Qt.rgba(0.97, 0.44, 0.44, 0.18)
+                                                           : "transparent"
+                                                    border.width: 1
+                                                    border.color: awExcludeRemoveMa.containsMouse ? root.offRed : bar.pillBorder
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "✕"
+                                                        color: awExcludeRemoveMa.containsMouse ? root.offRed : bar.subtext
+                                                        font.pixelSize: 12
+                                                        font.family: bar.fontFamily
+                                                    }
+                                                    MouseArea {
+                                                        id: awExcludeRemoveMa
+                                                        anchors.fill: parent
+                                                        hoverEnabled: true
+                                                        cursorShape: Qt.PointingHandCursor
+                                                        onClicked: root.removeActiveWindowExclude(modelData)
+                                                        ToolTip.visible: containsMouse
+                                                        ToolTip.delay: bar.tooltipDelay
+                                                        ToolTip.text: "Show this window on the pill again"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ColumnLayout {
                                     visible: root.optionsTab === "screensaver"
                                     Layout.fillWidth: true
                                     spacing: 8
@@ -10191,7 +12097,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Fullscreen video after idle (no DPMS — keeps the G9 link). Super+L starts it now. Click or move to dismiss. YouTube/X/Facebook/Rumble tabs do not block auto-start; a fullscreen video does, unless you turn on Always start."
+                                    text: "Fullscreen after idle (no DPMS — keeps the G9 link). Pick Video or a text style (Night watch, Rain, Orbital, Warp, Pyro, Scanner); text needs no video file. Start after is the idle delay in minutes. Apply writes it and starts the idle watcher. Super+L starts the saver now. Click or move to dismiss. YouTube/X/Facebook/Rumble tabs do not block auto-start; a fullscreen video does, unless you turn on Always start."
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
@@ -10253,7 +12159,10 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.ssEnabled = !root.ssEnabled
+                                                    onClicked: {
+                                                        root.ssMarkEdit()
+                                                        root.ssEnabled = !root.ssEnabled
+                                                    }
                                                 }
                                             }
                                         }
@@ -10316,7 +12225,10 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.ssIgnoreInhibit = !root.ssIgnoreInhibit
+                                                    onClicked: {
+                                                        root.ssMarkEdit()
+                                                        root.ssIgnoreInhibit = !root.ssIgnoreInhibit
+                                                    }
                                                 }
                                             }
                                         }
@@ -10351,8 +12263,14 @@ Item {
                                             stepSize: 1
                                             suffix: "min"
                                             value: root.ssTimeoutMin
-                                            onValueEdited: (v) => root.ssTimeoutMin = Math.round(v)
-                                            onValueCommitted: (v) => root.ssTimeoutMin = Math.round(v)
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssTimeoutMin = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssTimeoutMin = Math.round(v)
+                                            }
                                         }
                                     }
                                 }
@@ -10396,7 +12314,10 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.ssDimEnable = !root.ssDimEnable
+                                                    onClicked: {
+                                                        root.ssMarkEdit()
+                                                        root.ssDimEnable = !root.ssDimEnable
+                                                    }
                                                 }
                                             }
                                         }
@@ -10410,8 +12331,14 @@ Item {
                                             suffix: "%"
                                             enabled: root.ssDimEnable
                                             value: root.ssDimLevel
-                                            onValueEdited: (v) => root.ssDimLevel = Math.round(v)
-                                            onValueCommitted: (v) => root.ssDimLevel = Math.round(v)
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssDimLevel = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssDimLevel = Math.round(v)
+                                            }
                                         }
                                     }
                                 }
@@ -10455,7 +12382,10 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.ssRestoreEnable = !root.ssRestoreEnable
+                                                    onClicked: {
+                                                        root.ssMarkEdit()
+                                                        root.ssRestoreEnable = !root.ssRestoreEnable
+                                                    }
                                                 }
                                             }
                                         }
@@ -10469,12 +12399,249 @@ Item {
                                             suffix: "%"
                                             enabled: root.ssRestoreEnable
                                             value: root.ssRestoreLevel
-                                            onValueEdited: (v) => root.ssRestoreLevel = Math.round(v)
-                                            onValueCommitted: (v) => root.ssRestoreLevel = Math.round(v)
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssRestoreLevel = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssRestoreLevel = Math.round(v)
+                                            }
+                                        }
+                                    }
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: root.ssStyleModel()
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool active: modelData.id === "video"
+                                                ? root.ssMode !== "text"
+                                                : (root.ssMode === "text" && root.ssStyle === modelData.id)
+                                            width: Math.max(72, ssStyleLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(active, ssStyleMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(active, ssStyleMa.containsMouse)
+                                            Text {
+                                                id: ssStyleLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: active
+                                                color: root.chipText(active, ssStyleMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: ssStyleMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    root.ssMarkEdit()
+                                                    if (modelData.id === "video")
+                                                        root.ssMode = "video"
+                                                    else {
+                                                        root.ssMode = "text"
+                                                        root.ssStyle = modelData.id
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    visible: root.ssMode === "text"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Clock"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Time and date in the center"
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: root.ssClock ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: root.ssClock ? "✓" : "✕"
+                                                    color: root.ssClock ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        root.ssMarkEdit()
+                                                        root.ssClock = !root.ssClock
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    visible: root.ssMode === "text" && root.ssStyle === "warp"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Warp speed"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                        }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 1
+                                            to: 10
+                                            stepSize: 1
+                                            value: root.ssWarpSpeed
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpSpeed = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpSpeed = Math.round(v)
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    visible: root.ssMode === "text" && root.ssStyle === "warp"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Warp density"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                        }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 1
+                                            to: 10
+                                            stepSize: 1
+                                            value: root.ssWarpDensity
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpDensity = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpDensity = Math.round(v)
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    visible: root.ssMode === "text" && root.ssStyle === "warp"
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 56
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Warp streak"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                        }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 1
+                                            to: 10
+                                            stepSize: 1
+                                            value: root.ssWarpStreak
+                                            onValueEdited: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpStreak = Math.round(v)
+                                            }
+                                            onValueCommitted: (v) => {
+                                                root.ssMarkEdit()
+                                                root.ssWarpStreak = Math.round(v)
+                                            }
                                         }
                                     }
                                 }
                                 RowLayout {
+                                    visible: root.ssMode !== "text"
                                     Layout.fillWidth: true
                                     spacing: 10
                                     Text {
@@ -10485,14 +12652,18 @@ Item {
                                         Layout.preferredWidth: 48
                                     }
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "~/Videos/screensaver/g9-screen-saver.mp4"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 11
-                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryMonoFont()
                                         text: root.ssVideo
+                                        onTextEdited: root.ssMarkEdit()
                                         onTextChanged: root.ssVideo = text
                                         background: Rectangle {
                                             radius: root.chipR
@@ -10538,14 +12709,18 @@ Item {
                                         Layout.preferredWidth: 48
                                     }
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "~/.local/bin/screensaver.sh"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 11
-                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryMonoFont()
                                         text: root.ssScript
+                                        onTextEdited: root.ssMarkEdit()
                                         onTextChanged: root.ssScript = text
                                         background: Rectangle {
                                             radius: root.chipR
@@ -10589,7 +12764,7 @@ Item {
                                         text: root.ssLoading ? "…" : (root.ssStatus || "Apply writes idle delay (no DPMS)")
                                         color: {
                                             const s = root.ssStatus || ""
-                                            if (s.indexOf("Saved") === 0 || s.indexOf("video ok") >= 0 || s.indexOf("Running") === 0)
+                                            if (s.indexOf("Saved") === 0 || s.indexOf("video ok") >= 0 || s.indexOf("night watch") >= 0 || s.indexOf("· rain") >= 0 || s.indexOf("· orbital") >= 0 || s.indexOf("· warp") >= 0 || s.indexOf("· pyro") >= 0 || s.indexOf("· scanner") >= 0 || s.indexOf("Running") === 0)
                                                 return root.onGreen
                                             if (s.indexOf("fail") >= 0 || s.indexOf("missing") >= 0 || s.indexOf("error") >= 0)
                                                 return root.offRed
@@ -10651,6 +12826,474 @@ Item {
                                 }
 
                                 } // options tab: screensaver
+                                ColumnLayout {
+                                    visible: root.optionsTab === "screenshot"
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                // --- ScreenShots ---
+                                Text {
+                                    text: "ScreenShots"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Default folder for saved captures (Print · smart mode). The folder is created on the next screenshot if needed. Leave empty to use ~/Pictures."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 10
+                                    Text {
+                                        text: "Folder"
+                                        color: bar.subtext
+                                        font.pixelSize: 12
+                                        font.family: bar.fontFamily
+                                        Layout.preferredWidth: 48
+                                    }
+                                    TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: 30
+                                        placeholderText: "Default: " + root.screenshotDefaultDir()
+                                        color: bar.text
+                                        placeholderTextColor: bar.subtext
+                                        font.pixelSize: 14
+                                        font.family: root.entryMonoFont()
+                                        text: root.screenshotDirDraft
+                                        onTextChanged: root.screenshotDirDraft = text
+                                        onAccepted: root.applyScreenshotDir()
+                                        background: Rectangle {
+                                            radius: root.chipR
+                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
+                                            border.width: 1
+                                            border.color: parent.activeFocus ? bar.accent : bar.pillBorder
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssDirBrowseLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: ssDirBrowseMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssDirBrowseMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssDirBrowseLbl
+                                            anchors.centerIn: parent
+                                            text: "Browse"
+                                            color: ssDirBrowseMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssDirBrowseMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.pickScreenshotDir()
+                                        }
+                                    }
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        text: root.screenshotStatus || ("Effective: " + root.screenshotEffectiveDir())
+                                        color: {
+                                            const s = root.screenshotStatus || ""
+                                            if (s.indexOf("Saved") === 0 || s.indexOf("Using default") === 0 || s.indexOf("Selected") === 0)
+                                                return root.onGreen
+                                            if (s.indexOf("Enter") === 0 || s.indexOf("fail") >= 0)
+                                                return root.offRed
+                                            return bar.subtext
+                                        }
+                                        font.pixelSize: 10
+                                        font.family: bar.fontFamily
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssDirOpenLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: ssDirOpenMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssDirOpenMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssDirOpenLbl
+                                            anchors.centerIn: parent
+                                            text: "Open"
+                                            color: ssDirOpenMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssDirOpenMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.openScreenshotDir()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssDirDefaultLbl.implicitWidth + 14
+                                        radius: root.chipR
+                                        color: ssDirDefaultMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssDirDefaultMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssDirDefaultLbl
+                                            anchors.centerIn: parent
+                                            text: "Default"
+                                            color: ssDirDefaultMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssDirDefaultMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.resetScreenshotDir()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 28
+                                        Layout.preferredWidth: ssDirApplyLbl.implicitWidth + 16
+                                        radius: root.chipR
+                                        color: ssDirApplyMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: ssDirApplyMa.containsMouse ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: ssDirApplyLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: ssDirApplyMa.containsMouse ? root.activeLabelColor() : bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: ssDirApplyMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: root.applyScreenshotDir()
+                                        }
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Saved to state/bar-layout.json. capture-screenshot reads it on the next capture."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                    opacity: 0.8
+                                }
+
+                                } // options tab: screenshot
+                                ColumnLayout {
+                                    visible: root.optionsTab === "notifications"
+                                    Layout.fillWidth: true
+                                    spacing: 8
+                                Text {
+                                    text: "Notifications"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.bold: true
+                                    font.family: bar.fontFamily
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "History window on the notification pill. Toggle it from a keybind with qs ipc call notificationBell toggleHistory."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Keep messages expanded"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "The list opens fully expanded. New messages stay expanded."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar && bar.notificationAutoExpand) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar && bar.notificationAutoExpand) ? "✓" : "✕"
+                                                    color: (bar && bar.notificationAutoExpand) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setNotificationAutoExpand === "function")
+                                                            bar.setNotificationAutoExpand(!bar.notificationAutoExpand)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Stagger row colors"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Alternate a modest shade between notifications."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar && bar.notificationStaggerRows !== false) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar && bar.notificationStaggerRows !== false) ? "✓" : "✕"
+                                                    color: (bar && bar.notificationStaggerRows !== false) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setNotificationStaggerRows === "function")
+                                                            bar.setNotificationStaggerRows(!(bar.notificationStaggerRows !== false))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Clear history at boot"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "Empties the list the next time the computer starts."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar && bar.notificationClearOnBoot) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar && bar.notificationClearOnBoot) ? "✓" : "✕"
+                                                    color: (bar && bar.notificationClearOnBoot) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setNotificationClearOnBoot === "function")
+                                                            bar.setNotificationClearOnBoot(!bar.notificationClearOnBoot)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 10
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 0
+                                            Text {
+                                                text: "Show counter"
+                                                color: bar.text
+                                                font.pixelSize: 12
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                            Text {
+                                                text: "The number on the bell. The list still shows how many are kept."
+                                                color: bar.subtext
+                                                font.pixelSize: 10
+                                                font.family: bar.fontFamily
+                                                elide: Text.ElideRight
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Item {
+                                            Layout.preferredWidth: root.optControlColW
+                                            Layout.maximumWidth: root.optControlColW
+                                            Layout.minimumWidth: root.optControlColW
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.preferredHeight: root.optToggleH
+                                            Rectangle {
+                                                anchors.centerIn: parent
+                                                width: root.optToggleW
+                                                height: root.optToggleH
+                                                radius: 4
+                                                border.width: 1
+                                                border.color: (bar && bar.notificationShowCount !== false) ? root.onGreen : root.offRed
+                                                color: "transparent"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: (bar && bar.notificationShowCount !== false) ? "✓" : "✕"
+                                                    color: (bar && bar.notificationShowCount !== false) ? root.onGreen : root.offRed
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                }
+                                                MouseArea {
+                                                    anchors.fill: parent
+                                                    cursorShape: Qt.PointingHandCursor
+                                                    onClicked: {
+                                                        if (bar && typeof bar.setNotificationShowCount === "function")
+                                                            bar.setNotificationShowCount(!(bar.notificationShowCount !== false))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Collapse all still closes the rows until the next open. In the list: → expand, ← collapse, a expand all, c collapse all, d DND, Del remove, Ctrl+C copy, Ctrl+Del clear."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                    opacity: 0.8
+                                }
+
+                                } // options tab: notifications
                                 ColumnLayout {
                                     visible: root.optionsTab === "freshrss" && root.optionsSectionVisible("freshrss")
                                     Layout.fillWidth: true
@@ -10795,13 +13438,16 @@ Item {
                                         Layout.preferredWidth: 56
                                     }
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "freshrss.example or 10.74.10.8"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryFont()
                                         text: root.frHost
                                         onTextChanged: root.frHost = text
                                         background: Rectangle {
@@ -10828,13 +13474,16 @@ Item {
                                         Layout.preferredWidth: 56
                                     }
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         placeholderText: "admin"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryFont()
                                         text: root.frUser
                                         onTextChanged: root.frUser = text
                                         background: Rectangle {
@@ -10861,6 +13510,9 @@ Item {
                                         Layout.preferredWidth: 56
                                     }
                                     TextField {
+                                        topPadding: 1
+                                        bottomPadding: 1
+                                        verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
                                         echoMode: TextInput.Password
@@ -10869,8 +13521,8 @@ Item {
                                                          : "Profile → API password"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
+                                        font.pixelSize: 14
+                                        font.family: root.entryFont()
                                         text: root.frPassword
                                         onTextChanged: root.frPassword = text
                                         background: Rectangle {
@@ -10972,6 +13624,92 @@ Item {
                                     Layout.fillWidth: true
                                     spacing: 6
                                     Item { Layout.fillWidth: true }
+                                    // Workspace-row actions pinned to the footer (left of
+                                    // Refresh) so Apply is reachable without scrolling.
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: wsFootAddLbl.implicitWidth + 12
+                                        visible: root.optionsTab === "workspaces" && root.optionsSectionVisible("workspaces")
+                                        opacity: root.wsSlotRows().length < 10 ? 1 : 0.4
+                                        radius: root.chipR
+                                        color: wsFootAddMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: wsFootAddLbl
+                                            anchors.centerIn: parent
+                                            text: "Add workspace"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wsFootAddMa
+                                            anchors.fill: parent
+                                            enabled: root.wsSlotRows().length < 10
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.addWsDraft()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: wsFootApplyLbl.implicitWidth + 12
+                                        visible: root.optionsTab === "workspaces" && root.optionsSectionVisible("workspaces")
+                                        opacity: root.wsDraftDirty() ? 1 : 0.4
+                                        radius: root.chipR
+                                        color: wsFootApplyMa.containsMouse && root.wsDraftDirty()
+                                               ? bar.glassHover
+                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: root.wsDraftDirty() ? bar.accent : bar.pillBorder
+                                        Text {
+                                            id: wsFootApplyLbl
+                                            anchors.centerIn: parent
+                                            text: "Apply"
+                                            color: root.wsDraftDirty() ? bar.accent : bar.subtext
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wsFootApplyMa
+                                            anchors.fill: parent
+                                            enabled: root.wsDraftDirty()
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.applyWsDraft()
+                                        }
+                                    }
+                                    Rectangle {
+                                        Layout.preferredHeight: 24
+                                        Layout.preferredWidth: wsFootUndoLbl.implicitWidth + 12
+                                        visible: root.optionsTab === "workspaces" && root.optionsSectionVisible("workspaces")
+                                        opacity: root.wsUndoEnabled() ? 1 : 0.4
+                                        radius: root.chipR
+                                        color: wsFootUndoMa.containsMouse && root.wsUndoEnabled()
+                                               ? bar.glassHover
+                                               : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
+                                        border.width: 1
+                                        border.color: bar.pillBorder
+                                        Text {
+                                            id: wsFootUndoLbl
+                                            anchors.centerIn: parent
+                                            text: "Undo"
+                                            color: bar.subtext
+                                            font.pixelSize: 11
+                                            font.bold: true
+                                            font.family: bar.fontFamily
+                                        }
+                                        MouseArea {
+                                            id: wsFootUndoMa
+                                            anchors.fill: parent
+                                            enabled: root.wsUndoEnabled()
+                                            hoverEnabled: true
+                                            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onClicked: root.undoWsDraft()
+                                        }
+                                    }
                                     Rectangle {
                                         Layout.preferredHeight: 24
                                         Layout.preferredWidth: refreshOptLbl.implicitWidth + 12
@@ -11129,14 +13867,17 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 TextField {
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     id: servicesFilterField
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 30
                                     placeholderText: "Filter services…"
                                     color: bar.text
                                     placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
-                                    font.family: bar.fontFamily
+                                    font.pixelSize: 14
+                                    font.family: root.entryFont()
                                     text: root.servicesFilter
                                     background: Rectangle {
                                         radius: root.chipR
@@ -11214,26 +13955,6 @@ Item {
                                     font.pixelSize: bar.popupHintSize
                                     font.family: bar.fontFamily
                                 }
-                                TextField {
-                                    id: audioFilterField
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 30
-                                    placeholderText: "Filter devices / apps…"
-                                    color: bar.text
-                                    placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
-                                    font.family: bar.fontFamily
-                                    text: root.audioFilter
-                                    background: Rectangle {
-                                        radius: root.chipR
-                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                        border.width: 1
-                                        border.color: audioFilterField.activeFocus ? bar.accent : bar.pillBorder
-                                    }
-                                    onPressed: root.armControlFocusGrab()
-                                    onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                    onTextChanged: root.audioFilter = text
-                                }
                                 AudioMonitorView {
                                     id: controlAudio
                                     Layout.fillWidth: true
@@ -11245,9 +13966,15 @@ Item {
                                     showDefaults: bar.showAudioDefaults !== false
                                     showLevelMeters: bar.showAudioLevelMeters !== false
                                     showEchoCancel: bar.showEchoCancelInMenu !== false
+                                    showDeviceFilter: true
                                     summaryExpandedPref: bar.audioSummaryExpanded !== false
                                     defaultsExpandedPref: bar.audioDefaultsExpanded !== false
-                                    globalFilter: root.audioFilter
+                                    fieldBg: root.optFieldBg
+                                    fieldBgFocus: root.optFieldBgFocus
+                                    fieldBorder: bar.pillBorder
+                                    fieldRadius: root.chipR
+                                    fieldFontFamily: root.entryFont()
+                                    onFilterFocusRequested: root.armControlFocusGrab()
                                     textColor: bar.text
                                     subtextColor: bar.subtext
                                     accentColor: bar.accent
@@ -11283,14 +14010,17 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 TextField {
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     id: keybindsFilterField
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 30
                                     placeholderText: "Filter keybindings…"
                                     color: bar.text
                                     placeholderTextColor: bar.subtext
-                                    font.pixelSize: 12
-                                    font.family: bar.fontFamily
+                                    font.pixelSize: 14
+                                    font.family: root.entryFont()
                                     text: root.keybindsFilter
                                     background: Rectangle {
                                         radius: root.chipR
@@ -11983,12 +14713,30 @@ Item {
                                     ColumnLayout {
                                         id: thresholdsLeftCol
                                         width: thresholdsLeftFlick.width - 8
-                                        spacing: 10
+                                        spacing: 16
 
                                     ColumnLayout {
                                         visible: root.widgetShown("audio")
                                         Layout.fillWidth: true
-                                        spacing: 10
+                                        spacing: 14
+                                    Text {
+                                        text: "Audio"
+                                        color: bar.text
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    // Output and input sit side by side so the page stays short.
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 18
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 1
+                                            Layout.minimumWidth: 0
+                                            Layout.alignment: Qt.AlignTop
+                                            spacing: 12
                                     // ── Output volume (speaker) ──
                                     Text {
                                         text: "Output volume"
@@ -11996,6 +14744,7 @@ Item {
                                         font.pixelSize: 13
                                         font.bold: true
                                         font.family: bar.fontFamily
+                                        Layout.topMargin: 4
                                     }
                                     Text {
                                         Layout.fillWidth: true
@@ -12126,6 +14875,13 @@ Item {
                                         }
                                     }
 
+                                        } // output volume
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 1
+                                            Layout.minimumWidth: 0
+                                            Layout.alignment: Qt.AlignTop
+                                            spacing: 12
                                     // ── Input volume (microphone) ──
                                     Text {
                                         text: "Input volume"
@@ -12133,7 +14889,7 @@ Item {
                                         font.pixelSize: 13
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                        Layout.topMargin: 6
+                                        Layout.topMargin: 4
                                     }
                                     Text {
                                         Layout.fillWidth: true
@@ -12264,24 +15020,44 @@ Item {
                                         }
                                     }
 
+                                        } // input volume
+                                    } // output and input columns
                                     } // audio threshold groups
                                     ColumnLayout {
                                         visible: root.widgetShown("stats")
                                         Layout.fillWidth: true
-                                        spacing: 10
-                                    // ── Sys Stats (shared % cutoffs, per-metric colors) ──
+                                        spacing: 14
                                     Text {
-                                        text: "Sys Stats load"
+                                        text: "System Stats"
+                                        color: bar.text
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                        font.family: bar.fontFamily
+                                    }
+                                    // Load and temperature sit side by side so the page stays short.
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignTop
+                                        spacing: 18
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 1
+                                            Layout.minimumWidth: 0
+                                            Layout.alignment: Qt.AlignTop
+                                            spacing: 12
+                                    // ── Load thresholds (shared % cutoffs, per-metric colors) ──
+                                    Text {
+                                        text: "Load Thresholds"
                                         color: bar.text
                                         font.pixelSize: 13
                                         font.bold: true
                                         font.family: bar.fontFamily
-                                        Layout.topMargin: 6
+                                        Layout.topMargin: 4
                                     }
                                     Text {
                                         Layout.fillWidth: true
                                         wrapMode: Text.WordWrap
-                                        text: "Shared % cutoffs. Each metric has its own color ramp (CPU AMD-red, Memory cyan, GPU NVIDIA-green by default)."
+                                        text: "Shared % cutoffs. Each metric has its own color ramp (CPU AMD-red, Memory cyan, GPU NVIDIA-green, VRAM green by default)."
                                         color: bar.subtext
                                         font.pixelSize: (bar.popupHintSize !== undefined ? bar.popupHintSize : 11) + 1
                                         font.family: bar.fontFamily
@@ -12350,7 +15126,7 @@ Item {
                                                 font.pixelSize: 12
                                                 font.bold: true
                                                 font.family: bar.fontFamily
-                                                Layout.topMargin: 4
+                                                Layout.topMargin: 8
                                             }
                                             Text {
                                                 Layout.fillWidth: true
@@ -12430,12 +15206,19 @@ Item {
                                             }
                                         }
                                     }
+                                        } // load thresholds
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            Layout.preferredWidth: 1
+                                            Layout.minimumWidth: 0
+                                            Layout.alignment: Qt.AlignTop
+                                            spacing: 12
 
-                                    // ── Sys Stats temperature labels (CPU / GPU) ──
+                                    // ── Temperature thresholds (CPU / GPU labels and °C cutoffs) ──
                                     Text {
-                                        text: "Sys Stats temperature"
+                                        text: "Temperature Thresholds"
                                         color: bar.text
-                                        font.pixelSize: 12
+                                        font.pixelSize: 13
                                         font.bold: true
                                         font.family: bar.fontFamily
                                         Layout.topMargin: 4
@@ -12567,6 +15350,8 @@ Item {
                                             }
                                         }
                                         } // temp color swatches RowLayout
+                                        } // temperature thresholds
+                                    } // load and temperature columns
                                     } // stats threshold groups
                                     } // thresholdsLeftCol
                                     } // thresholdsLeftFlick
@@ -13795,13 +16580,16 @@ Item {
                                         Layout.fillWidth: true
                                         spacing: 6
                                         TextField {
+                                            topPadding: 1
+                                            bottomPadding: 1
+                                            verticalAlignment: Text.AlignVCenter
                                             id: exportNameField
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 28
                                             placeholderText: "Name for new preset…"
                                             text: root.colorsExportName
-                                            font.pixelSize: 12
-                                            font.family: bar.fontFamily
+                                            font.pixelSize: 14
+                                            font.family: root.entryFont()
                                             color: bar.text
                                             placeholderTextColor: bar.subtext
                                             selectedTextColor: "#000000"
@@ -14093,13 +16881,16 @@ Item {
                                             font.family: bar.fontFamily
                                         }
                                         TextField {
+                                            topPadding: 1
+                                            bottomPadding: 1
+                                            verticalAlignment: Text.AlignVCenter
                                             id: importPathField
                                             Layout.fillWidth: true
                                             Layout.preferredHeight: 26
                                             placeholderText: "/path/to/theme.json"
                                             text: root.colorsImportPath
-                                            font.pixelSize: 11
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                            font.pixelSize: 14
+                                            font.family: root.entryMonoFont()
                                             color: bar.text
                                             placeholderTextColor: bar.subtext
                                             selectedTextColor: "#000000"
@@ -14508,6 +17299,9 @@ Item {
                                                     Layout.fillWidth: true
                                                     spacing: 6
                                                     TextField {
+                                                        topPadding: 1
+                                                        bottomPadding: 1
+                                                        verticalAlignment: Text.AlignVCenter
                                                         id: clockFmtField
                                                         Layout.fillWidth: true
                                                         Layout.preferredHeight: 30
@@ -14515,8 +17309,8 @@ Item {
                                                         placeholderText: "e.g. ddd HH:mm"
                                                         color: bar.text
                                                         placeholderTextColor: bar.subtext
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
+                                                        font.pixelSize: 14
+                                                        font.family: root.entryMonoFont()
                                                         background: Rectangle {
                                                             radius: root.chipR
                                                             color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
@@ -14743,12 +17537,15 @@ Item {
                                     font.family: bar.fontFamily
                                 }
                                 TextField {
+                                    topPadding: 1
+                                    bottomPadding: 1
+                                    verticalAlignment: Text.AlignVCenter
                                     id: wpRenameField
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 30
                                     color: bar.text
-                                    font.pixelSize: 12
-                                    font.family: bar.fontFamily
+                                    font.pixelSize: 14
+                                    font.family: root.entryFont()
                                     selectByMouse: true
                                     background: Rectangle {
                                         radius: 4
@@ -15072,4 +17869,3 @@ Item {
         }
     }
 }
-

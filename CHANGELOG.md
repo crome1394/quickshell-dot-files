@@ -2,6 +2,62 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-11 — Transparency, edge bars, text saver, and the stats popups are gone
+
+- **Transparency** is a bar pill. Click opens **Apps** and **Satty**, each 5–100%. 100% is solid. Fullscreen windows and the Settings window stay solid. Until **Apps** is moved, the Hyprland window rules you already have stay. Satty does not follow Apps. State is `~/.config/hypr/opacity.state`. Generated rules are `~/.config/hypr/opacity.lua`. IPC: `setShowOpacityPill` / `toggleShowOpacityPill`.
+- **Active Window** is a corner overlay, not a widget in a bar zone. It shows the focused window’s icon, class, and title, and it hides when that label is empty. Widgets → **Other** picks the corner (top left by default). The layer sits above a fullscreen window. Steam games show the game title and the Steam icon.
+- Settings → Options → **Active Window** hides the pill for a class, app id, or title. `*` is a wildcard. The list starts with `hypr-screensaver`. **Add class** and **Add title** use the window that is focused now. IPC: `setShowActiveWindowPill`, `setActiveWindowCorner`, `addActiveWindowExclude`, `removeActiveWindowExclude`.
+- Dual mode can show a **left bar** and a **right bar**. Both start off. Options → **Bar** turns each one on, sets whether it spans the screen, and sets alignment. On a side bar, **Left** is the top of the screen. Widget faces rotate 90° clockwise. Popups stay upright and open beside that bar. Widgets lists **Left bar** and **Right bar** once the bar is on.
+- The screensaver can be **Video** or a text style: **Night watch**, **Rain**, **Orbital**, **Warp**, **Pyro**, **Scanner**. Text mode needs no video file. **Clock** hides the center time when it is off. See [docs/screensaver.md](docs/screensaver.md).
+- Display **Apply** writes `cm = "srgb"` into `monitors.lua`. Hyprland `auto` on 10-bit maps to wide/BT2020 and fringes Quickshell icons.
+- Removed the Sys Stats **metrics popups**: sparklines, process lists, pin-to-desktop, **Show graphs**, and the live-update pause. CPU and Memory open `btop`. GPU and VRAM open `nvtop`. Options → **Stats** picks the terminal and which mouse button launches it. The other button does nothing. **Bar util graphs** still toggles the mini bars on the pill. The `sysStatsPill` live-update IPC commands are gone, and `showStatMenuGraphs` no longer controls anything.
+
+## 2026-10 — Notification history window
+
+- `qs ipc call notificationBell toggleHistory` opens or closes the history window. `showHistory` and `hideHistory` do one direction.
+- Settings → Options → **Notifications** has **Keep messages expanded** (off until you turn it on) and **Stagger row colors** (on until you turn it off).
+- The history window takes the keyboard: **→** expands the selected row, **←** collapses it, **a** expand all, **c** collapse all, **d** Do Not Disturb, **Del** removes the selected row, **Ctrl+C** copies it, **Ctrl+Del** clears the list. **↑↓** move the selection.
+- With stagger on, rows alternate a modest shade. The selected row uses the accent either way.
+- The bell badge counts rows in the history list. An empty list shows no number. SwayNC's own count can stay above zero after those notifications leave the list.
+- The history window keeps its key hint and buttons on the bottom edge.
+- Settings → Options → **Notifications** can clear the history on the next boot, and can hide the number on the bell.
+
+## 2026-10 — Notification message text
+
+- Expanding a history row shows the message. Telegram bodies that contain a line break are kept whole. Rows saved before this change have no message text to show.
+
+## 2026-10 — Tailscale node switches
+
+- The Tailscale panel can turn on Accept Routes, Accept DNS, Shields Up, Allow LAN access, Advertise as Exit Node, and stateful filtering.
+- Advertise routes takes a subnet list, then Apply. Clear removes them. Offered exit nodes and routes still need approval in the Tailscale admin console.
+
+## 2026-10 — Notification images, audio columns, edge popups
+
+- The notification history panel is 15% wider. Click a row to expand it. An expanded screenshot shows a small thumbnail beside the full text. Copy puts the image on the clipboard when the row has one, and the text otherwise.
+- Themes → Thresholds → **Audio** places **Input volume** to the right of **Output volume**.
+- Popups for widgets on a side bar open beside that bar. A right-bar pill opens to its left; a left-bar pill opens to its right.
+- SwayNC toasts use the same cerulean card, silver frame, and accent as SwayOSD. They stay at the top-right.
+
+## 2026-10 — Tailscale pill, threshold columns, ScreenShots
+
+- Themes → Thresholds → **System Stats** places **Temperature Thresholds** to the right of **Load Thresholds**.
+- Options → **ScreenShots** is the capture-folder tab.
+- **Tailscale** is a bar pill. Left click opens machines (copy IP, name, or DNS, exit node, Taildrop send). Right click runs `tailscale up` or `down`. Move it from Settings → Widgets.
+
+## 2026-10 — Settings window and workspace columns
+
+- The control window is titled **Settings**. Hyprland floats it and keeps it opaque when `title = "^(Settings)$"` and the class is `org.quickshell`.
+- Options → **Workspaces** has two sections. **Workspace Options** is two columns: special pill, only-active, and show numbers on the left; default count, startup workspace, and close special on startup on the right.
+- **Workspaces** lists the special row and the numbered rows in two columns. The left column takes one more card when the count is odd, so the columns differ by at most one. The label-color picker still opens on the right.
+
+## 2026-10 — VRAM on the stats pill
+
+- The Sys Stats pill now shows **CPU | Memory | GPU | VRAM**. VRAM is GPU memory used (percent + GiB).
+- Themes → **Thresholds** has a separate **VRAM load** color ramp (GPU-green by default).
+- Options → **Stats** has a **Show VRAM** switch, saved with the other stats options.
+- The **Menu util graphs** toggle left Options → **Stats** with this change. The popups it controlled were removed later. See the 2026-11 entry above.
+- The bar pill polls every 2 seconds.
+
 ## 2026-10 — Control bar menu stays down, autostart commands are editable
 
 - The control-bar tabs stay on the bottom edge when a page is closed. They pack from the left, and the close button stays at the right.
@@ -9,7 +65,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Light presets stay readable
 
-- Light presets use solid paper fills. The Bar control window is no longer a 75% veil, and text fields follow the theme instead of a fixed dark well.
+- Light presets use solid paper fills. The Settings window is no longer a 75% veil, and text fields follow the theme instead of a fixed dark well.
 
 ## 2026-09 — Top bar and bottom bar
 
@@ -59,7 +115,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 - Widgets tab: **Application Menu**, **Application Launcher**, **Config Menu Icon**, **System Stat Bars**. The bottom tab **Launch** is **App Launcher**.
 - Options → **Workspaces**: default count, per-workspace icon or short text, add, remove, and reorder. Saved in `bar-layout.json`.
-- **Super+C** (and Hyprland’s window ✕) no longer leaves Bar control unable to open. The in-panel ✕ and the gear icon were already fine.
+- **Super+C** (and Hyprland’s window ✕) no longer leaves Settings unable to open. The in-panel ✕ and the gear icon were already fine.
 - The **Application Menu** pill toggles the app drawer: click opens it, click again closes it, and the icon stays lit while it is open.
 
 ## 2026-09 — Screensaver mouse dismiss in git
@@ -69,7 +125,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Docs: floating control bar
 
-- README and [docs/control-bar.md](docs/control-bar.md) cover the movable **Bar control** window, Position mockups + Apply, Display res×Hz chips, slider steppers, and bottom-right tab actions.
+- README and [docs/control-bar.md](docs/control-bar.md) cover the movable **Settings** window, Position mockups + Apply, Display res×Hz chips, slider steppers, and bottom-right tab actions.
 
 ## 2026-09 — Control bar after Hypr inspector
 
@@ -93,7 +149,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## 2026-09 — Floating control bar + full-width Thresholds
 
-- Control strip is a movable Hyprland **FloatingWindow** (title **Bar control**), like the inspector. Drag the top strip; Esc / ✕ close. Does not dismiss on outside click.
+- Control strip is a movable Hyprland **FloatingWindow** (title **Settings**), like the inspector. Drag the top strip; Esc / ✕ close. Does not dismiss on outside click.
 - Themes → **Thresholds** uses the full panel until you click a swatch; the color picker then opens on the right.
 
 ## 2026-09 — Slider steppers + even dock hover

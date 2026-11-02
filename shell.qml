@@ -7,6 +7,7 @@
 //   - components/*.qml   (reusable pieces like VolumeBar)
 //   - Config.qml      (colors, spacing, metrics, workspace behavior)
 //   - widgets/HyprConfigInsp.qml (Hyprland Config Inspector overlay)
+//   - widgets/ActiveWindowBar.qml (focused-window pill, top-left overlay)
 //
 // IPC:
 //   - qs ipc call hyprConfigInsp toggle
@@ -44,13 +45,11 @@
 //   - qs ipc call bluetoothPill renameDevice "AA:BB:…" "Name"
 //   - qs ipc call bluetoothPill setCardProfile "AA:BB:…" "a2dp-sink"
 //   - qs ipc call clockPill showCalendar
+//   - qs ipc call notificationBell toggleHistory / showHistory / hideHistory
 //   - qs ipc call notificationBell toggleDoNotDisturb
-//   - qs ipc call sysStatsPill setMetricsLiveUpdates false
-//   - qs ipc call sysStatsPill setCpuLiveUpdates false
-//   - qs ipc call sysStatsPill setMemLiveUpdates false
-//   - qs ipc call sysStatsPill toggleGpuLiveUpdates
 //   - qs ipc call shell setWsMinimumShown 7
 //   - qs ipc call shell setWsShowOnlyActive true
+//   - qs ipc call shell setWsShowNumbers false
 //   - qs ipc call shell setWsStartupWorkspace 1
 //   - qs ipc call shell setWsStartupCloseMagic false
 //   (Run `qs ipc show` for the full list of shell commands.)
@@ -127,21 +126,33 @@ ShellRoot {
     property bool showClockPill: true
     property bool showNotificationPill: true
     property bool showPowerPill: true
+    property bool showOpacityPill: true
+    property bool showTailscalePill: true
     property bool showFreshRssPill: true
     property bool showHyprInspPill: false
-    property bool showControlBarPill: true       // Bar control / config menu icon on the bar
+    property bool showControlBarPill: true       // Settings / config menu icon on the bar
+    // Screen-corner overlays (not part of the bar layout)
+    property bool showActiveWindowPill: true
+    property string activeWindowPillCorner: "topLeft"   // topLeft | topRight | bottomLeft | bottomRight
+    // Classes, app ids, and titles the focused-window pill skips. * is a wildcard.
+    // Options → Active Window. hypr-screensaver is the idle saver's window class.
+    property var activeWindowExcludes: ["hypr-screensaver"]
     // Bumped by every Widgets on/off so control-bar pages can follow the switch.
     property int widgetVisTick: 0
     property bool showColorPresets: true         // Colors panel: built-in / custom presets section
     property bool showMagicWorkspacePill: true   // Magic pill inside WorkspacesPill (wsShowSpecialPill)
     // Sys Stats gauges (Options panel; all on by default)
     property bool showStatCpu: true
+    property bool showStatVram: true
     property bool showStatMem: true
     property bool showStatGpu: true
     // Util bar graphs on the Sys Stats pill face (labels / % always stay)
     property bool showStatGauges: true
-    // Circular gauges + history in Sys Stats metrics popups (process lists always stay)
-    property bool showStatMenuGraphs: true
+    // Terminal for Sys Stats pill launches (Options → Stats).
+    // Default from Config statTerminal; the pick persists in state/bar-layout.json.
+    property string statTerminal: cfg.statTerminal
+    // Which mouse button on the Sys Stats pill launches btop/nvtop ("left"/"right").
+    property string statLaunchButton: cfg.statLaunchButton
     // Network details traffic sparkline (adapters / connections stay)
     property bool showNetTrafficGraph: true
     // Network pill face: last IPv4 octet (false) vs full address (true)
@@ -174,7 +185,8 @@ ShellRoot {
     // Clock format string (Qt.formatDateTime); Config default, persisted override.
     property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
 
-    // "classic" = one bar with left|center|right zones; "dual" = top+bottom centered bars
+    // "classic" = one bar with left|center|right zones
+    // "dual" = top and bottom bars, plus optional left and right edge bars
     property string barLayoutMode: "classic"
     // Extra full-width span. Classic already spans; Dual's top bar hugs until this is on.
     property bool barSpanFull: false
@@ -185,10 +197,20 @@ ShellRoot {
     // Audio pill view: 0 speaker, 1 microphone, 2 both.
     property int audioViewMode: 2
     // Widget cluster on each strip: "left" | "center" | "right".
+    // On a side bar, left is the top of the screen and right is the bottom.
     property string topBarAlign: "center"
     property string bottomBarAlign: "center"
+    // Side bars stay off until the user turns them on. Missing state keys stay off.
+    property bool showLeftBar: false
+    property bool showRightBar: false
+    property string leftBarAlign: "center"
+    property string rightBarAlign: "center"
+    property bool leftBarSpanFull: false
+    property bool rightBarSpanFull: false
 
-    // Runtime layout: [{ id, zone }, ...] — classic: left|center|right; dual: top|bottom
+    // Runtime layout: [{ id, zone }, ...]
+    // classic: left|center|right (groups on the one horizontal bar)
+    // dual: top|bottom|left|right (edge bars)
     property var widgetLayout: []
 
     // Runtime Quick Launch pins (Config default, editable from BarControlBar, persisted)
@@ -199,6 +221,8 @@ ShellRoot {
     property string wallpaperCurrent: ""
     // Preferred wallpaper thumbnail width (px); grid stretches tiles to fill the panel.
     property int wallpaperTileSize: 148
+    // Screenshot output folder (blank = XDG Pictures; editable from Options → ScreenShots, persisted)
+    property string screenshotDir: ""
 
     // Per-widget pill scale (1.0 = default). Keys match widgetCatalog / layout ids.
     property var widgetScales: ({})
@@ -231,16 +255,35 @@ ShellRoot {
         { id: "notifications", label: "Notifications", vis: "showNotificationPill" },
         { id: "hyprInsp",      label: "Hypr Inspector", vis: "showHyprInspPill" },
         { id: "controlBar",    label: "Config Menu Icon",   vis: "showControlBarPill" },
+        { id: "tailscale",     label: "Tailscale",     vis: "showTailscalePill" },
+        { id: "opacity",       label: "Transparency",  vis: "showOpacityPill" },
         { id: "power",         label: "Power",         vis: "showPowerPill" }
     ]
 
     // Workspace behavior (Config defaults; runtime + bar-layout.json via Options / IPC)
     property int  wsMinimumShown: 3
     property bool wsShowOnlyActive: false
+    property bool wsShowNumbers: true     // false = symbol and label only, no workspace number
     property int  wsStartupWorkspace: 0   // 0 = do not touch focus (safe for qs reload)
     property bool wsStartupCloseMagic: false
-    // Empty uses Config.wsIconSpecial. Options → Workspaces can override the magic pill glyph.
+    // Options → Notifications. When on, the history list opens fully expanded.
+    property bool notificationAutoExpand: false
+    // Options → Notifications. When on, history rows alternate a modest shade.
+    property bool notificationStaggerRows: true
+    // Options → Notifications. When on, the history file is emptied on a new boot.
+    property bool notificationClearOnBoot: false
+    // Options → Notifications. When off, the bell shows no number.
+    property bool notificationShowCount: true
+    // Empty uses Config.wsIconSpecial. Options → Workspaces can override the special pill glyph.
     property string wsIconSpecialCustom: ""
+    // Empty name uses Config.wsSpecialName. The rest match a numbered workspace row.
+    property string wsSpecialNameCustom: ""
+    property string wsSpecialFont: ""
+    property int wsSpecialFontPx: 0
+    property string wsSpecialText: ""
+    property bool wsSpecialBold: true
+    property bool wsSpecialItalic: false
+    property string wsSpecialColor: ""
     // Application Menu pill. Empty icon keeps the drawn 3×3 grid. Icon px 0 uses
     // Config.iconSizeLauncher. Empty command uses Config.launcherCommand.
     property string launcherIconCustom: ""
@@ -331,16 +374,20 @@ ShellRoot {
             root.showClockPill = cfg.showClockPill
             root.showNotificationPill = cfg.showNotificationPill
             root.showPowerPill = cfg.showPowerPill
+            root.showOpacityPill = cfg.showOpacityPill
+            root.showTailscalePill = cfg.showTailscalePill
             root.showFreshRssPill = cfg.showFreshRssPill
             root.showHyprInspPill = cfg.showHyprInspPill
             root.showControlBarPill = cfg.showControlBarPill
             root.showColorPresets = true
             root.showMagicWorkspacePill = cfg.wsShowSpecialPill
             root.showStatCpu = true
+            root.showStatVram = true
             root.showStatMem = true
             root.showStatGpu = true
             root.showStatGauges = true
-            root.showStatMenuGraphs = true
+            root.statTerminal = cfg.statTerminal
+            root.statLaunchButton = cfg.statLaunchButton
             root.showNetTrafficGraph = true
             root.showEchoCancelInMenu = true
             root.showAudioSummary = true
@@ -353,6 +400,7 @@ ShellRoot {
                 : true
             root.wsMinimumShown = cfg.wsMinimumShown
             root.wsShowOnlyActive = cfg.wsShowOnlyActive
+            root.wsShowNumbers = cfg.wsShowNumbers
             root.wsStartupWorkspace = cfg.wsStartupWorkspace
             root.wsStartupCloseMagic = cfg.wsStartupCloseMagic
             root.clockFormat = cfg.clockFormat || root.clockFormat
@@ -504,9 +552,105 @@ ShellRoot {
         property alias audioViewMode: root.audioViewMode
         property alias topBarAlign: root.topBarAlign
         property alias bottomBarAlign: root.bottomBarAlign
+        property alias showLeftBar: root.showLeftBar
+        property alias showRightBar: root.showRightBar
+        property alias leftBarAlign: root.leftBarAlign
+        property alias rightBarAlign: root.rightBarAlign
+        property alias leftBarSpanFull: root.leftBarSpanFull
+        property alias rightBarSpanFull: root.rightBarSpanFull
         function coerceAlign(v) {
             var s = String(v || "")
             return (s === "left" || s === "right") ? s : "center"
+        }
+        function coerceActiveWindowCorner(v) {
+            const s = String(v || "")
+            if (s === "topRight" || s === "bottomLeft" || s === "bottomRight")
+                return s
+            return "topLeft"
+        }
+        function isActiveWindowTop(corner) {
+            const c = coerceActiveWindowCorner(corner)
+            return c === "topLeft" || c === "topRight"
+        }
+        // Margin between the pill and the screen edge. Match the bar edge when a
+        // bar is on that side; otherwise use a small floating inset.
+        function activeWindowEdgeMargin(corner) {
+            const atTop = isActiveWindowTop(corner)
+            const barOnEdge = root.barLayoutMode === "dual"
+                             || (atTop ? barPosition === "top" : barPosition === "bottom")
+            return barOnEdge ? (barEdgeMargin || 0) : 6
+        }
+        // Height of the bar strip the pill should center on, if any.
+        function activeWindowStripHeight(corner) {
+            const atTop = isActiveWindowTop(corner)
+            let h = 0
+            if (root.barLayoutMode === "dual")
+                h = atTop ? barHeight : panelBarHeight()
+            else if ((atTop && barPosition === "top") || (!atTop && barPosition === "bottom"))
+                h = barHeight
+            else
+                return 0
+            return Math.max(0, h - barContentVMargin)
+        }
+        function setActiveWindowCorner(corner) {
+            const next = coerceActiveWindowCorner(corner)
+            if (root.activeWindowPillCorner === next)
+                return
+            root.activeWindowPillCorner = next
+            persistBarLayout()
+        }
+        // Trim, drop one-character and catch-all entries, and ignore duplicate
+        // spellings. A pattern must contain at least two characters besides *.
+        function normalizeActiveWindowExcludes(list) {
+            const src = list || []
+            const out = []
+            const seen = {}
+            for (let i = 0; i < src.length && out.length < 40; i++) {
+                const s = String(src[i] || "").replace(/[\r\n]/g, " ").trim()
+                if (s.length < 2 || s.length > 80)
+                    continue
+                if (s.replace(/\*/g, "").trim().length < 2)
+                    continue
+                const key = s.toLowerCase()
+                if (seen[key])
+                    continue
+                seen[key] = true
+                out.push(s)
+            }
+            return out
+        }
+        function setActiveWindowExcludes(list) {
+            root.activeWindowExcludes = bar.normalizeActiveWindowExcludes(list)
+            persistBarLayout()
+        }
+        function addActiveWindowExclude(pattern) {
+            const cleaned = bar.normalizeActiveWindowExcludes([pattern])
+            if (!cleaned.length)
+                return false
+            const cur = root.activeWindowExcludes || []
+            const key = cleaned[0].toLowerCase()
+            for (let i = 0; i < cur.length; i++) {
+                if (String(cur[i] || "").trim().toLowerCase() === key)
+                    return false
+            }
+            const next = cur.slice()
+            next.push(cleaned[0])
+            root.activeWindowExcludes = next
+            persistBarLayout()
+            return true
+        }
+        function removeActiveWindowExclude(pattern) {
+            const want = String(pattern || "").trim().toLowerCase()
+            if (!want.length)
+                return
+            const cur = root.activeWindowExcludes || []
+            const next = []
+            for (let i = 0; i < cur.length; i++) {
+                if (String(cur[i] || "").trim().toLowerCase() !== want)
+                    next.push(cur[i])
+            }
+            root.activeWindowExcludes = next
+            persistBarLayout()
         }
         function alignX(align, parentW, itemW, margin) {
             var a = bar.coerceAlign(align)
@@ -518,6 +662,11 @@ ShellRoot {
             if (a === "right")
                 return Math.max(m, pw - w - m)
             return Math.max(0, Math.round((pw - w) / 2))
+        }
+        // Same mapping as alignX. On a side bar the long axis is vertical:
+        // left = top of the screen (start of 90° clockwise text), right = bottom.
+        function alignY(align, parentH, itemH, margin) {
+            return bar.alignX(align, parentH, itemH, margin)
         }
         function setTopBarAlign(v) {
             var next = bar.coerceAlign(v)
@@ -532,6 +681,46 @@ ShellRoot {
                 return
             root.bottomBarAlign = next
             persistBarLayout()
+        }
+        function setLeftBarAlign(v) {
+            var next = bar.coerceAlign(v)
+            if (root.leftBarAlign === next)
+                return
+            root.leftBarAlign = next
+            persistBarLayout()
+        }
+        function setRightBarAlign(v) {
+            var next = bar.coerceAlign(v)
+            if (root.rightBarAlign === next)
+                return
+            root.rightBarAlign = next
+            persistBarLayout()
+        }
+        function setLeftBarSpanFull(enabled) {
+            root.leftBarSpanFull = !!enabled
+            persistBarLayout()
+        }
+        function setRightBarSpanFull(enabled) {
+            root.rightBarSpanFull = !!enabled
+            persistBarLayout()
+        }
+        function setShowLeftBar(enabled) {
+            var on = !!enabled
+            if (root.showLeftBar === on)
+                return
+            root.showLeftBar = on
+            persistBarLayout()
+            if (on)
+                Qt.callLater(function() { bar.applyWidgetLayout() })
+        }
+        function setShowRightBar(enabled) {
+            var on = !!enabled
+            if (root.showRightBar === on)
+                return
+            root.showRightBar = on
+            persistBarLayout()
+            if (on)
+                Qt.callLater(function() { bar.applyWidgetLayout() })
         }
 
         function setBarSizeScale(scale) {
@@ -630,6 +819,12 @@ ShellRoot {
                 property int audioViewMode: 2
                 property string topBarAlign: "center"
                 property string bottomBarAlign: "center"
+                property bool showLeftBar: false
+                property bool showRightBar: false
+                property string leftBarAlign: "center"
+                property string rightBarAlign: "center"
+                property bool leftBarSpanFull: false
+                property bool rightBarSpanFull: false
                 property real uiScaleManual: 0
                 property int barEdgeMargin: 0
                 property real barSizeScale: 1.0
@@ -646,6 +841,7 @@ ShellRoot {
                 property string wallpaperDir: ""
                 property string wallpaperCurrent: ""
                 property int wallpaperTileSize: 148
+                property string screenshotDir: ""
                 property string widgetScalesJson: ""
                 property bool showLauncherPill: true
                 property bool showQuickLaunchPill: true
@@ -658,18 +854,35 @@ ShellRoot {
                 property bool showClockPill: true
                 property bool showNotificationPill: true
                 property bool showPowerPill: true
+                property bool showOpacityPill: true
+                property bool showTailscalePill: true
                 property bool showFreshRssPill: true
                 property bool showHyprInspPill: false
                 property bool showControlBarPill: true
+                property bool showActiveWindowPill: true
+                property string activeWindowPillCorner: "topLeft"
+                property string activeWindowExcludesJson: "[\"hypr-screensaver\"]"
                 property bool hasColorPresetPrefs: false
                 property bool showColorPresets: true
                 property bool hasWorkspacePrefs: false
                 property bool showMagicWorkspacePill: true
                 property int  wsMinimumShown: 3
                 property bool wsShowOnlyActive: false
+                property bool wsShowNumbers: true
+                property bool notificationAutoExpand: false
+                property bool notificationStaggerRows: true
+                property bool notificationClearOnBoot: false
+                property bool notificationShowCount: true
                 property int  wsStartupWorkspace: 0
                 property bool wsStartupCloseMagic: false
                 property string wsIconSpecialCustom: ""
+                property string wsSpecialNameCustom: ""
+                property string wsSpecialFont: ""
+                property int wsSpecialFontPx: 0
+                property string wsSpecialText: ""
+                property bool wsSpecialBold: true
+                property bool wsSpecialItalic: false
+                property string wsSpecialColor: ""
                 property bool hasLauncherPrefs: false
                 property string launcherIconCustom: ""
                 property int launcherIconPx: 0
@@ -678,10 +891,12 @@ ShellRoot {
                 property string wsSlotsJson: ""
                 property bool hasStatPrefs: false
                 property bool showStatCpu: true
+                property bool showStatVram: true
                 property bool showStatMem: true
                 property bool showStatGpu: true
                 property bool showStatGauges: true
-                property bool showStatMenuGraphs: true
+                property string statTerminal: ""
+                property string statLaunchButton: ""
                 property bool showNetTrafficGraph: true
                 property bool showNetworkFullIp: false
                 property bool showNetworkLastOctet: true
@@ -718,6 +933,12 @@ ShellRoot {
                 root.audioViewMode = (audioView === 0 || audioView === 1 || audioView === 2) ? audioView : 2
                 root.topBarAlign = bar.coerceAlign(barLayoutAdapter.topBarAlign)
                 root.bottomBarAlign = bar.coerceAlign(barLayoutAdapter.bottomBarAlign)
+                root.showLeftBar = !!barLayoutAdapter.showLeftBar
+                root.showRightBar = !!barLayoutAdapter.showRightBar
+                root.leftBarAlign = bar.coerceAlign(barLayoutAdapter.leftBarAlign)
+                root.rightBarAlign = bar.coerceAlign(barLayoutAdapter.rightBarAlign)
+                root.leftBarSpanFull = !!barLayoutAdapter.leftBarSpanFull
+                root.rightBarSpanFull = !!barLayoutAdapter.rightBarSpanFull
                 // Manual scale from state overrides Config default when present.
                 if (barLayoutAdapter.uiScaleManual >= 0)
                     cfg.uiScaleManual = barLayoutAdapter.uiScaleManual
@@ -754,17 +975,32 @@ ShellRoot {
                 root.showClockPill = barLayoutAdapter.showClockPill
                 root.showNotificationPill = barLayoutAdapter.showNotificationPill
                 root.showPowerPill = barLayoutAdapter.showPowerPill
+                root.showOpacityPill = barLayoutAdapter.showOpacityPill
+                root.showTailscalePill = barLayoutAdapter.showTailscalePill
                 root.showFreshRssPill = barLayoutAdapter.showFreshRssPill
                 root.showHyprInspPill = barLayoutAdapter.showHyprInspPill
                 root.showControlBarPill = barLayoutAdapter.showControlBarPill
+                root.showActiveWindowPill = barLayoutAdapter.showActiveWindowPill
+                root.activeWindowPillCorner = bar.coerceActiveWindowCorner(barLayoutAdapter.activeWindowPillCorner)
+                if (barLayoutAdapter.activeWindowExcludesJson !== undefined) {
+                    try {
+                        const excluded = JSON.parse(barLayoutAdapter.activeWindowExcludesJson || "[]")
+                        if (excluded && excluded.length !== undefined)
+                            root.activeWindowExcludes = bar.normalizeActiveWindowExcludes(excluded)
+                    } catch (e) {}
+                }
                 if (barLayoutAdapter.hasColorPresetPrefs)
                     root.showColorPresets = barLayoutAdapter.showColorPresets
                 if (barLayoutAdapter.hasStatPrefs) {
                     root.showStatCpu = barLayoutAdapter.showStatCpu
+                    root.showStatVram = barLayoutAdapter.showStatVram
                     root.showStatMem = barLayoutAdapter.showStatMem
                     root.showStatGpu = barLayoutAdapter.showStatGpu
                     root.showStatGauges = barLayoutAdapter.showStatGauges
-                    root.showStatMenuGraphs = barLayoutAdapter.showStatMenuGraphs
+                    if (barLayoutAdapter.statTerminal.length)
+                        root.statTerminal = barLayoutAdapter.statTerminal
+                    if (barLayoutAdapter.statLaunchButton === "left" || barLayoutAdapter.statLaunchButton === "right")
+                        root.statLaunchButton = barLayoutAdapter.statLaunchButton
                     root.showNetTrafficGraph = barLayoutAdapter.showNetTrafficGraph
                     if (barLayoutAdapter.showNetworkFullIp !== undefined)
                         root.showNetworkFullIp = barLayoutAdapter.showNetworkFullIp
@@ -813,6 +1049,18 @@ ShellRoot {
                     root.wallpaperCurrent = barLayoutAdapter.wallpaperCurrent
                 if (barLayoutAdapter.wallpaperTileSize >= 100)
                     root.wallpaperTileSize = Math.max(100, Math.min(260, barLayoutAdapter.wallpaperTileSize))
+                if (barLayoutAdapter.screenshotDir !== undefined)
+                    root.screenshotDir = String(barLayoutAdapter.screenshotDir || "").trim()
+                root.notificationAutoExpand = !!barLayoutAdapter.notificationAutoExpand
+                root.notificationStaggerRows = barLayoutAdapter.notificationStaggerRows !== false
+                root.notificationClearOnBoot = !!barLayoutAdapter.notificationClearOnBoot
+                root.notificationShowCount = barLayoutAdapter.notificationShowCount !== false
+                if (root.notificationAutoExpand) {
+                    Qt.callLater(function() {
+                        if (notificationBell && notificationBell.expandAllHistory)
+                            notificationBell.expandAllHistory(true)
+                    })
+                }
                 if (barLayoutAdapter.widgetScalesJson && barLayoutAdapter.widgetScalesJson.length > 2) {
                     try {
                         const sc = JSON.parse(barLayoutAdapter.widgetScalesJson)
@@ -825,9 +1073,17 @@ ShellRoot {
                     root.showMagicWorkspacePill = barLayoutAdapter.showMagicWorkspacePill
                     root.wsMinimumShown = Math.max(1, Math.min(10, barLayoutAdapter.wsMinimumShown))
                     root.wsShowOnlyActive = barLayoutAdapter.wsShowOnlyActive
+                    root.wsShowNumbers = barLayoutAdapter.wsShowNumbers !== false
                     root.wsStartupWorkspace = Math.max(0, Math.min(10, barLayoutAdapter.wsStartupWorkspace))
                     root.wsStartupCloseMagic = barLayoutAdapter.wsStartupCloseMagic
                     root.wsIconSpecialCustom = String(barLayoutAdapter.wsIconSpecialCustom || "")
+                    root.wsSpecialNameCustom = bar.wsSpecialNameNorm(barLayoutAdapter.wsSpecialNameCustom)
+                    root.wsSpecialFont = String(barLayoutAdapter.wsSpecialFont || "").trim().substring(0, 120)
+                    root.wsSpecialFontPx = bar.wsFontPxClamp(barLayoutAdapter.wsSpecialFontPx)
+                    root.wsSpecialText = bar.wsTextClamp(barLayoutAdapter.wsSpecialText)
+                    root.wsSpecialBold = barLayoutAdapter.wsSpecialBold !== false
+                    root.wsSpecialItalic = !!barLayoutAdapter.wsSpecialItalic
+                    root.wsSpecialColor = bar.wsColorNorm(barLayoutAdapter.wsSpecialColor)
                 }
                 if (barLayoutAdapter.hasLauncherPrefs) {
                     root.launcherIconCustom = String(barLayoutAdapter.launcherIconCustom || "").trim().substring(0, 4)
@@ -1396,6 +1652,12 @@ ShellRoot {
                     ? root.audioViewMode : 2
             barLayoutAdapter.topBarAlign = bar.coerceAlign(root.topBarAlign)
             barLayoutAdapter.bottomBarAlign = bar.coerceAlign(root.bottomBarAlign)
+            barLayoutAdapter.showLeftBar = !!root.showLeftBar
+            barLayoutAdapter.showRightBar = !!root.showRightBar
+            barLayoutAdapter.leftBarAlign = bar.coerceAlign(root.leftBarAlign)
+            barLayoutAdapter.rightBarAlign = bar.coerceAlign(root.rightBarAlign)
+            barLayoutAdapter.leftBarSpanFull = !!root.leftBarSpanFull
+            barLayoutAdapter.rightBarSpanFull = !!root.rightBarSpanFull
             barLayoutAdapter.uiScaleManual = cfg.uiScaleManual
             barLayoutAdapter.barEdgeMargin = Math.max(0, Math.min(48, cfg.barEdgeMargin || 0))
             barLayoutAdapter.barSizeScale = Math.max(0.8, Math.min(1.4, Number(cfg.barSizeScale) || 1.0))
@@ -1427,6 +1689,7 @@ ShellRoot {
             barLayoutAdapter.wallpaperDir = root.wallpaperDir || ""
             barLayoutAdapter.wallpaperCurrent = root.wallpaperCurrent || ""
             barLayoutAdapter.wallpaperTileSize = Math.max(100, Math.min(260, root.wallpaperTileSize || 148))
+            barLayoutAdapter.screenshotDir = String(root.screenshotDir || "")
             try {
                 barLayoutAdapter.widgetScalesJson = JSON.stringify(root.widgetScales || {})
             } catch (e) {
@@ -1443,18 +1706,40 @@ ShellRoot {
             barLayoutAdapter.showClockPill = root.showClockPill
             barLayoutAdapter.showNotificationPill = root.showNotificationPill
             barLayoutAdapter.showPowerPill = root.showPowerPill
+            barLayoutAdapter.showOpacityPill = root.showOpacityPill
+            barLayoutAdapter.showTailscalePill = root.showTailscalePill
             barLayoutAdapter.showFreshRssPill = root.showFreshRssPill
             barLayoutAdapter.showHyprInspPill = root.showHyprInspPill
             barLayoutAdapter.showControlBarPill = root.showControlBarPill
+            barLayoutAdapter.showActiveWindowPill = root.showActiveWindowPill
+            barLayoutAdapter.activeWindowPillCorner = bar.coerceActiveWindowCorner(root.activeWindowPillCorner)
+            try {
+                barLayoutAdapter.activeWindowExcludesJson = JSON.stringify(
+                    bar.normalizeActiveWindowExcludes(root.activeWindowExcludes))
+            } catch (e) {
+                barLayoutAdapter.activeWindowExcludesJson = "[\"hypr-screensaver\"]"
+            }
             barLayoutAdapter.hasColorPresetPrefs = true
             barLayoutAdapter.showColorPresets = root.showColorPresets
             barLayoutAdapter.hasWorkspacePrefs = true
             barLayoutAdapter.showMagicWorkspacePill = root.showMagicWorkspacePill
             barLayoutAdapter.wsMinimumShown = root.wsMinimumShown
             barLayoutAdapter.wsShowOnlyActive = root.wsShowOnlyActive
+            barLayoutAdapter.wsShowNumbers = root.wsShowNumbers !== false
+            barLayoutAdapter.notificationAutoExpand = !!root.notificationAutoExpand
+            barLayoutAdapter.notificationStaggerRows = root.notificationStaggerRows !== false
+            barLayoutAdapter.notificationClearOnBoot = !!root.notificationClearOnBoot
+            barLayoutAdapter.notificationShowCount = root.notificationShowCount !== false
             barLayoutAdapter.wsStartupWorkspace = root.wsStartupWorkspace
             barLayoutAdapter.wsStartupCloseMagic = root.wsStartupCloseMagic
             barLayoutAdapter.wsIconSpecialCustom = String(root.wsIconSpecialCustom || "")
+            barLayoutAdapter.wsSpecialNameCustom = String(root.wsSpecialNameCustom || "")
+            barLayoutAdapter.wsSpecialFont = String(root.wsSpecialFont || "")
+            barLayoutAdapter.wsSpecialFontPx = bar.wsFontPxClamp(root.wsSpecialFontPx)
+            barLayoutAdapter.wsSpecialText = String(root.wsSpecialText || "")
+            barLayoutAdapter.wsSpecialBold = root.wsSpecialBold !== false
+            barLayoutAdapter.wsSpecialItalic = !!root.wsSpecialItalic
+            barLayoutAdapter.wsSpecialColor = String(root.wsSpecialColor || "")
             barLayoutAdapter.hasLauncherPrefs = true
             barLayoutAdapter.launcherIconCustom = String(root.launcherIconCustom || "")
             barLayoutAdapter.launcherIconPx = root.launcherIconPx || 0
@@ -1467,10 +1752,12 @@ ShellRoot {
             }
             barLayoutAdapter.hasStatPrefs = true
             barLayoutAdapter.showStatCpu = root.showStatCpu
+            barLayoutAdapter.showStatVram = root.showStatVram
             barLayoutAdapter.showStatMem = root.showStatMem
             barLayoutAdapter.showStatGpu = root.showStatGpu
             barLayoutAdapter.showStatGauges = root.showStatGauges
-            barLayoutAdapter.showStatMenuGraphs = root.showStatMenuGraphs
+            barLayoutAdapter.statTerminal = root.statTerminal
+            barLayoutAdapter.statLaunchButton = root.statLaunchButton
             barLayoutAdapter.showNetTrafficGraph = root.showNetTrafficGraph
             barLayoutAdapter.showNetworkFullIp = root.showNetworkFullIp
             barLayoutAdapter.showNetworkLastOctet = root.showNetworkLastOctet
@@ -1512,6 +1799,10 @@ ShellRoot {
             root.showStatCpu = !!enabled
             persistBarLayout()
         }
+        function setShowStatVram(enabled) {
+            root.showStatVram = !!enabled
+            persistBarLayout()
+        }
         function setShowStatMem(enabled) {
             root.showStatMem = !!enabled
             persistBarLayout()
@@ -1524,8 +1815,15 @@ ShellRoot {
             root.showStatGauges = !!enabled
             persistBarLayout()
         }
-        function setShowStatMenuGraphs(enabled) {
-            root.showStatMenuGraphs = !!enabled
+        function setStatTerminal(name) {
+            const t = String(name || "").trim()
+            if (!t.length)
+                return
+            root.statTerminal = t
+            persistBarLayout()
+        }
+        function setStatLaunchButton(button) {
+            root.statLaunchButton = String(button || "").toLowerCase() === "left" ? "left" : "right"
             persistBarLayout()
         }
         function setShowNetTrafficGraph(enabled) {
@@ -1626,6 +1924,76 @@ ShellRoot {
             root.showMagicWorkspacePill = !!enabled
             persistBarLayout()
         }
+        // Hyprland special name. Blank or the Config default stores as "" so the
+        // factory name stays the fallback. Strips a pasted "special:" prefix and
+        // drops quotes/spaces so the dispatch string cannot break.
+        function wsSpecialNameNorm(v) {
+            let s = String(v || "").trim()
+            if (s.length >= 8 && s.substring(0, 8).toLowerCase() === "special:")
+                s = s.substring(8).trim()
+            s = s.replace(/[^A-Za-z0-9_.-]/g, "")
+            if (s.length > 32)
+                s = s.substring(0, 32)
+            if (!s.length || s === cfg.wsSpecialName)
+                return ""
+            return s
+        }
+        function wsSymbolClamp(v) {
+            let label = String(v || "").trim()
+            const chars = Array.from(label)
+            if (chars.length > 3)
+                label = chars.slice(0, 3).join("")
+            return label
+        }
+        function wsTextClamp(v) {
+            let text = String(v || "").trim()
+            const chars = Array.from(text)
+            if (chars.length > 24)
+                text = chars.slice(0, 24).join("")
+            return text
+        }
+        function normalizeWsSpecial(raw) {
+            const src = raw || {}
+            let font = String(src.font || "").trim()
+            if (font.length > 120)
+                font = font.substring(0, 120)
+            return {
+                name: bar.wsSpecialNameNorm(src.name),
+                label: bar.wsSymbolClamp(src.label),
+                font: font,
+                fontPx: bar.wsFontPxClamp(src.fontPx),
+                text: bar.wsTextClamp(src.text),
+                bold: src.bold === undefined ? true : !!src.bold,
+                italic: !!src.italic,
+                color: bar.wsColorNorm(src.color)
+            }
+        }
+        // Writes the special-workspace fields. Caller persists (Apply goes through commitWsSlots).
+        function applyWsSpecialFields(spec) {
+            const s = bar.normalizeWsSpecial(spec)
+            root.wsSpecialNameCustom = s.name
+            root.wsIconSpecialCustom = s.label
+            root.wsSpecialFont = s.font
+            root.wsSpecialFontPx = s.fontPx
+            root.wsSpecialText = s.text
+            root.wsSpecialBold = s.bold
+            root.wsSpecialItalic = s.italic
+            root.wsSpecialColor = s.color
+        }
+        // Normalize a user color to "#rrggbb" ("" = use theme default). Accepts
+        // "#rgb"/"rgb"/"#rrggbb"/"rrggbb"; anything else clears to "".
+        function wsColorNorm(v) {
+            let c = String(v || "").trim()
+            if (!c.length)
+                return ""
+            if (c.charAt(0) !== "#")
+                c = "#" + c
+            if (/^#[0-9a-fA-F]{3}$/.test(c))
+                c = "#" + c.charAt(1) + c.charAt(1) + c.charAt(2) + c.charAt(2) + c.charAt(3) + c.charAt(3)
+            if (/^#[0-9a-fA-F]{6}$/.test(c))
+                return c.toLowerCase()
+            return ""
+        }
         function sanitizeWsSlots(slots) {
             const used = {}
             const out = []
@@ -1636,15 +2004,31 @@ ShellRoot {
                 if (!(id >= 1) || id > 10 || used[id])
                     continue
                 used[id] = true
+                // Symbol: max 3 characters (code points — Nerd Font glyphs and
+                // emoji can be surrogate pairs, so never slice raw UTF-16).
                 let label = String(raw.label || "").trim()
-                if (label.length > 6)
-                    label = label.substring(0, 6)
-                if (!label.length)
-                    label = bar.wsIconForId(id)
+                const labelChars = Array.from(label)
+                if (labelChars.length > 3)
+                    label = labelChars.slice(0, 3).join("")
+                // "" stays "" — no built-in icon fallback; an empty symbol
+                // leaves the pill with just the word label and number.
                 let font = String(raw.font || "").trim()
                 if (font.length > 120)
                     font = font.substring(0, 120)
-                out.push({ id: id, label: label, font: font, fontPx: bar.wsFontPxClamp(raw.fontPx) })
+                let text = String(raw.text || "").trim()
+                const textChars = Array.from(text)
+                if (textChars.length > 24)
+                    text = textChars.slice(0, 24).join("")
+                out.push({
+                    id: id,
+                    label: label,
+                    font: font,
+                    fontPx: bar.wsFontPxClamp(raw.fontPx),
+                    text: text,
+                    bold: raw.bold === undefined ? true : !!raw.bold,
+                    italic: !!raw.italic,
+                    color: bar.wsColorNorm(raw.color)
+                })
             }
             return out
         }
@@ -1656,7 +2040,7 @@ ShellRoot {
                 n = 10
             const out = []
             for (let i = 1; i <= n; i++)
-                out.push({ id: i, label: bar.wsIconForId(i), font: "", fontPx: 0 })
+                out.push({ id: i, label: bar.wsIconForId(i), font: "", fontPx: 0, text: "", bold: true, italic: false, color: "" })
             return out
         }
         function wsSlotsEffective() {
@@ -1668,10 +2052,10 @@ ShellRoot {
             const n = Math.round(Number(id))
             const slots = bar.wsSlotsEffective()
             for (let i = 0; i < slots.length; i++) {
-                if (slots[i].id === n && slots[i].label)
-                    return slots[i].label
+                if (slots[i].id === n)
+                    return String(slots[i].label || "")
             }
-            return bar.wsIconForId(n)
+            return ""
         }
         function wsFontForId(id) {
             const n = Math.round(Number(id))
@@ -1697,6 +2081,45 @@ ShellRoot {
                     return bar.wsFontPxClamp(slots[i].fontPx)
             }
             return 0
+        }
+        // Word label next to the symbol on the pill ("" = none).
+        function wsTextForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return String(slots[i].text || "")
+            }
+            return ""
+        }
+        // Custom label color ("#rrggbb"); "" = theme state colors.
+        function wsColorForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return bar.wsColorNorm(slots[i].color)
+            }
+            return ""
+        }
+        // Bold/italic apply to symbol + label. Bold defaults true (historic look).
+        function wsBoldForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return slots[i].bold === undefined ? true : !!slots[i].bold
+            }
+            return true
+        }
+        function wsItalicForId(id) {
+            const n = Math.round(Number(id))
+            const slots = bar.wsSlotsEffective()
+            for (let i = 0; i < slots.length; i++) {
+                if (slots[i].id === n)
+                    return !!slots[i].italic
+            }
+            return false
         }
         function nextFreeWsId(slots) {
             const used = {}
@@ -1777,7 +2200,11 @@ ShellRoot {
                 id: base[i].id,
                 label: String(label || ""),
                 font: String(base[i].font || ""),
-                fontPx: bar.wsFontPxClamp(base[i].fontPx)
+                fontPx: bar.wsFontPxClamp(base[i].fontPx),
+                text: String(base[i].text || ""),
+                bold: base[i].bold === undefined ? true : !!base[i].bold,
+                italic: !!base[i].italic,
+                color: bar.wsColorNorm(base[i].color)
             }
             bar.commitWsSlots(base)
         }
@@ -1790,12 +2217,38 @@ ShellRoot {
                 id: base[i].id,
                 label: base[i].label,
                 font: String(font || ""),
-                fontPx: bar.wsFontPxClamp(base[i].fontPx)
+                fontPx: bar.wsFontPxClamp(base[i].fontPx),
+                text: String(base[i].text || ""),
+                bold: base[i].bold === undefined ? true : !!base[i].bold,
+                italic: !!base[i].italic,
+                color: bar.wsColorNorm(base[i].color)
             }
             bar.commitWsSlots(base)
         }
         function setWsShowOnlyActive(enabled) {
             root.wsShowOnlyActive = !!enabled
+            persistBarLayout()
+        }
+        function setWsShowNumbers(enabled) {
+            root.wsShowNumbers = !!enabled
+            persistBarLayout()
+        }
+        function setNotificationAutoExpand(enabled) {
+            root.notificationAutoExpand = !!enabled
+            persistBarLayout()
+            if (root.notificationAutoExpand && notificationBell && notificationBell.expandAllHistory)
+                notificationBell.expandAllHistory(true)
+        }
+        function setNotificationStaggerRows(enabled) {
+            root.notificationStaggerRows = !!enabled
+            persistBarLayout()
+        }
+        function setNotificationClearOnBoot(enabled) {
+            root.notificationClearOnBoot = !!enabled
+            persistBarLayout()
+        }
+        function setNotificationShowCount(enabled) {
+            root.notificationShowCount = !!enabled
             persistBarLayout()
         }
         function setWsStartupWorkspace(workspace) {
@@ -1831,15 +2284,6 @@ ShellRoot {
         }
         function getBluetoothAppletAutostart() {
             return bluetoothPill ? !!bluetoothPill.bluemanAutostartEnabled : true
-        }
-        function setMetricsLiveUpdates(enabled) {
-            if (sysStatsPill && sysStatsPill.setMetricsLiveUpdates)
-                sysStatsPill.setMetricsLiveUpdates(!!enabled)
-        }
-        function getMetricsLiveUpdates() {
-            if (sysStatsPill)
-                return !!(sysStatsPill.cpuLiveUpdates || sysStatsPill.memLiveUpdates || sysStatsPill.gpuLiveUpdates)
-            return !!cfg.popupStatsLiveUpdates
         }
         function refreshOptionsState() {
             // Nudge applets / echo-cancel to refresh status for Options panel
@@ -1912,11 +2356,15 @@ ShellRoot {
             const m = mode || root.barLayoutMode || "classic"
             const z = String(zone || "")
             if (m === "dual") {
-                if (z === "bottom" || z === "right")
-                    return "bottom"
+                // left/right are the edge bars. Do not fold them into top/bottom.
+                if (z === "top" || z === "bottom" || z === "left" || z === "right")
+                    return z
+                if (z === "center")
+                    return "top"
                 return "top"
             }
-            if (z === "center" || z === "right")
+            // Classic left/center/right are groups on the one horizontal bar.
+            if (z === "center" || z === "right" || z === "left")
                 return z
             if (z === "top")
                 return "center"
@@ -2007,7 +2455,9 @@ ShellRoot {
             case "notifications": return notificationBell
             case "hyprInsp": return hyprInspPill
             case "controlBar": return controlBarPill
+            case "tailscale": return tailscalePill
             case "power": return powerMenu
+            case "opacity": return opacityPill
             default: return null
             }
         }
@@ -2052,8 +2502,23 @@ ShellRoot {
                     if (entry.zone === "bottom" && bottomCenterZone) {
                         zoneItem = bottomCenterZone
                         chrome = bottomBarBg
+                    } else if (entry.zone === "left") {
+                        if (!leftEdgeZone) {
+                            w.parent = widgetPool
+                            continue
+                        }
+                        zoneItem = leftEdgeZone
+                        chrome = leftEdgeBg
+                    } else if (entry.zone === "right") {
+                        if (!rightEdgeZone) {
+                            w.parent = widgetPool
+                            continue
+                        }
+                        zoneItem = rightEdgeZone
+                        chrome = rightEdgeBg
                     }
                 } else {
+                    // Classic left/right stay on the horizontal bar. They are not side bars.
                     zoneItem = entry.zone === "center" ? centerZone
                         : (entry.zone === "right" ? rightZone : leftZone)
                     chrome = barBg
@@ -2158,7 +2623,10 @@ ShellRoot {
             case "notifications": return root.showNotificationPill
             case "hyprInsp": return root.showHyprInspPill
             case "controlBar": return root.showControlBarPill
+            case "activeWindow": return root.showActiveWindowPill
+            case "tailscale": return root.showTailscalePill
             case "power": return root.showPowerPill
+            case "opacity": return root.showOpacityPill
             default:
                 if (bar.isDividerId(id)) {
                     const layout = root.widgetLayout || []
@@ -2193,7 +2661,10 @@ ShellRoot {
             case "notifications": root.showNotificationPill = on; break
             case "hyprInsp": root.showHyprInspPill = on; break
             case "controlBar": root.showControlBarPill = on; break
+            case "activeWindow": root.showActiveWindowPill = on; break
+            case "tailscale": root.showTailscalePill = on; break
             case "power": root.showPowerPill = on; break
+            case "opacity": root.showOpacityPill = on; break
             default:
                 if (bar.isDividerId(id)) {
                     if (on)
@@ -2214,6 +2685,11 @@ ShellRoot {
 
         function setWidgetZone(id, zone) {
             const z = bar.coerceZone(zone, root.barLayoutMode)
+            // Assigning a widget to a side bar turns that bar on so the widget is visible.
+            if (root.barLayoutMode === "dual" && z === "left")
+                root.showLeftBar = true
+            if (root.barLayoutMode === "dual" && z === "right")
+                root.showRightBar = true
             const layout = bar.normalizeLayout(root.widgetLayout, root.barLayoutMode)
             let found = false
             for (let i = 0; i < layout.length; i++) {
@@ -2405,6 +2881,11 @@ ShellRoot {
                 return
             root.wallpaperTileSize = v
             wallpaperTilePersistTimer.restart()
+        }
+
+        function setScreenshotDir(dir) {
+            root.screenshotDir = String(dir || "").trim()
+            persistBarLayout()
         }
 
         function widgetScale(id) {
@@ -2620,6 +3101,7 @@ ShellRoot {
         readonly property alias themeStatCpuTierUiRows: cfg.themeStatCpuTierUiRows
         readonly property alias themeStatMemTierUiRows: cfg.themeStatMemTierUiRows
         readonly property alias themeStatGpuTierUiRows: cfg.themeStatGpuTierUiRows
+        readonly property alias themeStatVramTierUiRows: cfg.themeStatVramTierUiRows
         readonly property alias themeStatTempUiRows: cfg.themeStatTempUiRows
         readonly property alias themeEditableNumbers: cfg.themeEditableNumbers
         readonly property string themeIoScript: "/home/crome/.config/quickshell/scripts/theme-io.sh"
@@ -2676,9 +3158,11 @@ ShellRoot {
         property alias flushWindowsToBar: cfg.flushWindowsToBar
         readonly property alias popupBarGap: cfg.popupBarGap
         readonly property alias barHeight: cfg.barHeight
-        // Hyprland general:gaps_out (top / bottom). Used to pull windows against the bar.
+        // Hyprland general:gaps_out. CSS order is top, right, bottom, left.
         property int hyprGapsOutTop: 14
+        property int hyprGapsOutRight: 14
         property int hyprGapsOutBottom: 14
+        property int hyprGapsOutLeft: 14
         // Exclusive zone for this window: Auto-equivalent, or flush (minus gaps_out + inner pad).
         readonly property int edgeExclusiveZone: {
             void flushWindowsToBar
@@ -2702,6 +3186,36 @@ ShellRoot {
                 return base
             return Math.max(0, base - inner - hypr)
         }
+        // Thickness of a side bar plus its screen-edge margin. Flush pulls tiled
+        // windows in by the inner pad and that edge's gaps_out.
+        function sideExclusiveZoneFor(isLeft) {
+            var thick = cfg.barHeight
+            var edge = cfg.barEdgeMargin || 0
+            var inner = cfg.barContentVMargin || 0
+            var hypr = isLeft ? hyprGapsOutLeft : hyprGapsOutRight
+            if (!(hypr >= 0))
+                hypr = 14
+            var base = thick + edge
+            if (!cfg.flushWindowsToBar)
+                return base
+            return Math.max(0, base - inner - hypr)
+        }
+        // Keep side bars in the gap between the horizontal bars so the glass does not overlap them.
+        function sideTopInset() {
+            var edge = bar.barEdgeMargin || 0
+            var topOn = root.barLayoutMode === "dual" || bar.barPosition === "top"
+            if (!topOn)
+                return edge
+            return bar.barHeight + edge
+        }
+        function sideBottomInset() {
+            var edge = bar.barEdgeMargin || 0
+            var bottomOn = root.barLayoutMode === "dual" || bar.barPosition === "bottom"
+            if (!bottomOn)
+                return edge
+            var h = (root.barLayoutMode === "dual") ? bar.panelBarHeight() : bar.barHeight
+            return h + edge
+        }
         function parseHyprGapsOut(text) {
             try {
                 var j = JSON.parse(text)
@@ -2715,15 +3229,21 @@ ShellRoot {
                 }
                 if (nums.length >= 4) {
                     hyprGapsOutTop = nums[0]
+                    hyprGapsOutRight = nums[1]
                     hyprGapsOutBottom = nums[2]
+                    hyprGapsOutLeft = nums[3]
                 } else if (nums.length === 1) {
                     hyprGapsOutTop = nums[0]
+                    hyprGapsOutRight = nums[0]
                     hyprGapsOutBottom = nums[0]
+                    hyprGapsOutLeft = nums[0]
                 } else if (j && j.int !== undefined) {
                     var v = Number(j.int)
                     if (v >= 0) {
                         hyprGapsOutTop = v
+                        hyprGapsOutRight = v
                         hyprGapsOutBottom = v
+                        hyprGapsOutLeft = v
                     }
                 }
             } catch (e) {}
@@ -2774,6 +3294,10 @@ ShellRoot {
             var p = item
             var hops = 0
             while (p && hops < 32) {
+                if (p === leftEdgeBar || p === leftEdgeBg || p === leftEdgeStack || p === leftEdgeZone)
+                    return "left"
+                if (p === rightEdgeBar || p === rightEdgeBg || p === rightEdgeStack || p === rightEdgeZone)
+                    return "right"
                 if (p === bottomBar || p === bottomBarBg || p === bottomCenterZone)
                     return "bottom"
                 if (p === barBg || p === centerZone || p === leftZone || p === rightZone)
@@ -2785,8 +3309,15 @@ ShellRoot {
         }
 
         function chromeForItem(item) {
-            if (bar.isDualLayout() && bar.edgeForItem(item) === "bottom")
+            if (!bar.isDualLayout())
+                return barBg
+            var edge = bar.edgeForItem(item)
+            if (edge === "bottom")
                 return bottomBarBg
+            if (edge === "left")
+                return leftEdgeBg
+            if (edge === "right")
+                return rightEdgeBg
             return barBg
         }
 
@@ -2811,6 +3342,33 @@ ShellRoot {
 
         function popupX(item, localX, popupWidth, extraOffset) {
             var extra = extraOffset || 0
+            var edge = barPosition
+            if (bar.isDualLayout() && item)
+                edge = bar.edgeForItem(item)
+            // Side-bar popups open inward, next to the edge bar. Layer-shell side
+            // windows report a local origin, so mapToGlobal X is not a screen X
+            // and a right-bar click was opening on the left of the monitor.
+            // Place from the anchor window's edges instead.
+            if (edge === "left" || edge === "right") {
+                var screenWSide = 1920
+                try {
+                    if (bar.width > 100)
+                        screenWSide = bar.width
+                    else if (bar.screen && bar.screen.width)
+                        screenWSide = bar.screen.width
+                } catch (eSideX) {}
+                var gapX = bar.popupBarGap || 8
+                var thick = (bar.barHeight || 0) + (bar.barEdgeMargin || 0)
+                var sideX = (edge === "right")
+                    ? (screenWSide - thick - popupWidth - gapX)
+                    : (thick + gapX)
+                sideX += extra
+                var minSideX = 12
+                var maxSideX = screenWSide - popupWidth - 12
+                if (maxSideX < minSideX)
+                    maxSideX = minSideX
+                return Math.max(minSideX, Math.min(sideX, maxSideX))
+            }
             var chrome = bar.chromeForItem(item)
             var pos
             try {
@@ -2862,6 +3420,26 @@ ShellRoot {
             var edge = barPosition
             if (bar.isDualLayout())
                 edge = (item !== undefined && item !== null) ? bar.edgeForItem(item) : "top"
+            if (edge === "left" || edge === "right") {
+                var screenHSide = 1080
+                try {
+                    if (bar.screen && bar.screen.height)
+                        screenHSide = bar.screen.height
+                } catch (eSideY) {}
+                var mid = screenHSide / 2
+                try {
+                    if (item && item.mapToGlobal) {
+                        var c = item.mapToGlobal(item.width / 2, item.height / 2)
+                        if (c && c.y !== undefined)
+                            mid = c.y
+                    }
+                } catch (eSideY2) {}
+                var sideY = Math.round(mid - (Number(popupHeight) || 0) / 2)
+                var maxSideY = screenHSide - (Number(popupHeight) || 0) - 12
+                if (maxSideY < 12)
+                    maxSideY = 12
+                return Math.max(12, Math.min(sideY, maxSideY))
+            }
             if (edge === "bottom") {
                 if (bar.isDualLayout()) {
                     var screenH = 1080
@@ -2899,6 +3477,7 @@ ShellRoot {
         property alias wallpaperDir: root.wallpaperDir
         property alias wallpaperCurrent: root.wallpaperCurrent
         property alias wallpaperTileSize: root.wallpaperTileSize
+        property alias screenshotDir: root.screenshotDir
         property alias widgetScales: root.widgetScales
         // Desktop app picker script for the Launch panel
         readonly property string desktopAppsJsonScript: "/home/crome/.config/quickshell/scripts/desktop-apps-json.sh"
@@ -2928,33 +3507,12 @@ ShellRoot {
         readonly property alias popupCalendarHeight: cfg.popupCalendarHeight
         readonly property alias popupBluetoothWidth: cfg.popupBluetoothWidth
         readonly property alias popupBluetoothHeight: cfg.popupBluetoothHeight
+        readonly property alias popupTailscaleWidth: cfg.popupTailscaleWidth
+        readonly property alias popupTailscaleHeight: cfg.popupTailscaleHeight
         readonly property alias bluetoothScanSeconds: cfg.bluetoothScanSeconds
         readonly property alias popupNetworkWidth: cfg.popupNetworkWidth
         readonly property alias popupNetworkWifiWidth: cfg.popupNetworkWifiWidth
         readonly property alias popupNetworkHeight: cfg.popupNetworkHeight
-        readonly property alias popupStatsCpuWidth: cfg.popupStatsCpuWidth
-        readonly property alias popupStatsCpuHeight: cfg.popupStatsCpuHeight
-        readonly property alias popupStatsGpuWidth: cfg.popupStatsGpuWidth
-        readonly property alias popupStatsGpuHeight: cfg.popupStatsGpuHeight
-        readonly property alias popupStatsMemWidth: cfg.popupStatsMemWidth
-        readonly property alias popupStatsMemHeight: cfg.popupStatsMemHeight
-        readonly property alias popupStatsCpuAnchorX: cfg.popupStatsCpuAnchorX
-        readonly property alias popupStatsCpuAnchorWholePill: cfg.popupStatsCpuAnchorWholePill
-        readonly property alias popupStatsCpuOffsetX: cfg.popupStatsCpuOffsetX
-        readonly property alias popupStatsCpuOffsetY: cfg.popupStatsCpuOffsetY
-        readonly property alias popupStatsCpuBarGap: cfg.popupStatsCpuBarGap
-        readonly property alias popupStatsGpuAnchorX: cfg.popupStatsGpuAnchorX
-        readonly property alias popupStatsGpuAnchorWholePill: cfg.popupStatsGpuAnchorWholePill
-        readonly property alias popupStatsGpuOffsetX: cfg.popupStatsGpuOffsetX
-        readonly property alias popupStatsGpuOffsetY: cfg.popupStatsGpuOffsetY
-        readonly property alias popupStatsGpuBarGap: cfg.popupStatsGpuBarGap
-        readonly property alias popupStatsMemAnchorX: cfg.popupStatsMemAnchorX
-        readonly property alias popupStatsMemAnchorWholePill: cfg.popupStatsMemAnchorWholePill
-        readonly property alias popupStatsMemOffsetX: cfg.popupStatsMemOffsetX
-        readonly property alias popupStatsMemOffsetY: cfg.popupStatsMemOffsetY
-        readonly property alias popupStatsMemBarGap: cfg.popupStatsMemBarGap
-        readonly property alias popupStatsLiveUpdates: cfg.popupStatsLiveUpdates
-        readonly property alias popupStatsPersistPause: cfg.popupStatsPersistPause
         readonly property alias popupHelpWidth: cfg.popupHelpWidth
         readonly property alias popupHelpHeight: cfg.popupHelpHeight
 
@@ -3040,6 +3598,8 @@ ShellRoot {
         readonly property alias iconNetworkOff: cfg.iconNetworkOff
         readonly property alias iconNetworkPortal: cfg.iconNetworkPortal
         readonly property alias iconPower: cfg.iconPower
+        readonly property alias iconOpacity: cfg.iconOpacity
+        readonly property alias opacityApplyScript: cfg.opacityApplyScript
         readonly property alias iconLock: cfg.iconLock
         readonly property alias iconLogout: cfg.iconLogout
         readonly property alias iconReboot: cfg.iconReboot
@@ -3106,15 +3666,32 @@ ShellRoot {
         readonly property alias wsIcon9: cfg.wsIcon9
         readonly property alias wsIcon10: cfg.wsIcon10
         readonly property alias wsIconDefault: cfg.wsIconDefault
-        readonly property alias wsSpecialName: cfg.wsSpecialName
+        // Factory name when Options leaves the special name blank.
+        readonly property alias wsSpecialNameDefault: cfg.wsSpecialName
+        readonly property string wsSpecialName: {
+            const custom = String(root.wsSpecialNameCustom || "").trim()
+            return custom.length ? custom : cfg.wsSpecialName
+        }
         readonly property alias wsIconSpecial: cfg.wsIconSpecial
         property alias wsIconSpecialCustom: root.wsIconSpecialCustom
+        property alias wsSpecialNameCustom: root.wsSpecialNameCustom
+        property alias wsSpecialFont: root.wsSpecialFont
+        property alias wsSpecialFontPx: root.wsSpecialFontPx
+        property alias wsSpecialText: root.wsSpecialText
+        property alias wsSpecialBold: root.wsSpecialBold
+        property alias wsSpecialItalic: root.wsSpecialItalic
+        property alias wsSpecialColor: root.wsSpecialColor
         function wsSpecialIcon() {
             const custom = String(root.wsIconSpecialCustom || "").trim()
-            return custom.length ? custom : cfg.wsIconSpecial
+            if (custom.length)
+                return custom
+            // A label with no symbol stays text-only. Both empty keeps the built-in glyph.
+            if (String(root.wsSpecialText || "").trim().length)
+                return ""
+            return cfg.wsIconSpecial
         }
         function setWsIconSpecial(glyph) {
-            root.wsIconSpecialCustom = String(glyph || "").trim().substring(0, 6)
+            root.wsIconSpecialCustom = bar.wsSymbolClamp(glyph)
             persistBarLayout()
         }
         property alias launcherIconCustom: root.launcherIconCustom
@@ -3169,19 +3746,29 @@ ShellRoot {
         // Bound to root so Options / IPC / WorkspacesPill stay in sync
         property alias wsMinimumShown: root.wsMinimumShown
         property alias wsShowOnlyActive: root.wsShowOnlyActive
+        property alias wsShowNumbers: root.wsShowNumbers
+        property alias notificationAutoExpand: root.notificationAutoExpand
+        property alias notificationStaggerRows: root.notificationStaggerRows
+        property alias notificationClearOnBoot: root.notificationClearOnBoot
+        property alias notificationShowCount: root.notificationShowCount
         property alias wsStartupWorkspace: root.wsStartupWorkspace
         property alias wsStartupCloseMagic: root.wsStartupCloseMagic
         property alias hasWsSlots: root.hasWsSlots
         property alias wsSlots: root.wsSlots
         property alias showMagicWorkspacePill: root.showMagicWorkspacePill
         property alias showControlBarPill: root.showControlBarPill
+        property alias showActiveWindowPill: root.showActiveWindowPill
+        property alias activeWindowPillCorner: root.activeWindowPillCorner
+        property alias activeWindowExcludes: root.activeWindowExcludes
         property alias widgetVisTick: root.widgetVisTick
         property alias showColorPresets: root.showColorPresets
         property alias showStatCpu: root.showStatCpu
+        property alias showStatVram: root.showStatVram
         property alias showStatMem: root.showStatMem
         property alias showStatGpu: root.showStatGpu
         property alias showStatGauges: root.showStatGauges
-        property alias showStatMenuGraphs: root.showStatMenuGraphs
+        property alias statTerminal: root.statTerminal
+        property alias statLaunchButton: root.statLaunchButton
         property alias showNetTrafficGraph: root.showNetTrafficGraph
         property alias showNetworkFullIp: root.showNetworkFullIp
         property alias showNetworkLastOctet: root.showNetworkLastOctet
@@ -3202,7 +3789,12 @@ ShellRoot {
         readonly property alias freshRssSecretsWriteScript: cfg.freshRssSecretsWriteScript
         readonly property alias freshRssConnectionTestScript: cfg.freshRssConnectionTestScript
         function wsIconForId(id) { return cfg.wsIconForId(id) }
-        function wsIsSpecialName(name) { return cfg.wsIsSpecialName(name) }
+        function wsIsSpecialName(name) {
+            if (!name || name.length === 0)
+                return false
+            const n = wsSpecialName
+            return name === n || name === ("special:" + n)
+        }
 
         // --- System stats gauges
         readonly property alias statGaugeWidth: cfg.statGaugeWidth
@@ -3232,6 +3824,10 @@ ShellRoot {
         property alias statGpuTier2: cfg.statGpuTier2
         property alias statGpuTier3: cfg.statGpuTier3
         property alias statGpuTier4: cfg.statGpuTier4
+        property alias statVramTier1: cfg.statVramTier1
+        property alias statVramTier2: cfg.statVramTier2
+        property alias statVramTier3: cfg.statVramTier3
+        property alias statVramTier4: cfg.statVramTier4
         property alias qlRunningDot: cfg.qlRunningDot
         property alias statUtilThreshold1: cfg.statUtilThreshold1
         property alias statUtilThreshold2: cfg.statUtilThreshold2
@@ -3562,7 +4158,6 @@ ShellRoot {
                 parent: widgetPool
                 visible: root.effStats
                 bar: bar
-                barBg: barBg
             }
 
             // ─ System Tray ─
@@ -3713,7 +4308,7 @@ ShellRoot {
                 }
             }
 
-            // ─ Bar control / config menu ─
+            // ─ Settings / config menu ─
             Rectangle {
                 id: controlBarPill
                 parent: widgetPool
@@ -3773,11 +4368,28 @@ ShellRoot {
                 }
             }
 
+            // ─ Tailscale ─
+            TailscalePill {
+                id: tailscalePill
+                parent: widgetPool
+                visible: root.showTailscalePill
+                bar: bar
+                barBg: barBg
+            }
+
             // ─ Power Menu ─
             PowerMenu {
                 id: powerMenu
                 parent: widgetPool
                 visible: root.showPowerPill
+                bar: bar
+                barBg: barBg
+            }
+
+            OpacityPill {
+                id: opacityPill
+                parent: widgetPool
+                visible: root.showOpacityPill
                 bar: bar
                 barBg: barBg
             }
@@ -4032,36 +4644,17 @@ ShellRoot {
 
         Io.IpcHandler {
             target: "notificationBell"
+            function toggleHistory() {
+                if (notificationBell && notificationBell.toggleHistory) notificationBell.toggleHistory()
+            }
+            function showHistory() {
+                if (notificationBell && notificationBell.showHistory) notificationBell.showHistory()
+            }
+            function hideHistory() {
+                if (notificationBell && notificationBell.hideHistory) notificationBell.hideHistory()
+            }
             function toggleDoNotDisturb() {
                 if (notificationBell && notificationBell.toggleDoNotDisturb) notificationBell.toggleDoNotDisturb()
-            }
-        }
-
-        Io.IpcHandler {
-            target: "sysStatsPill"
-            function setCpuLiveUpdates(enabled: bool) {
-                if (sysStatsPill && sysStatsPill.setCpuLiveUpdates) sysStatsPill.setCpuLiveUpdates(enabled)
-            }
-            function setGpuLiveUpdates(enabled: bool) {
-                if (sysStatsPill && sysStatsPill.setGpuLiveUpdates) sysStatsPill.setGpuLiveUpdates(enabled)
-            }
-            function setMemLiveUpdates(enabled: bool) {
-                if (sysStatsPill && sysStatsPill.setMemLiveUpdates) sysStatsPill.setMemLiveUpdates(enabled)
-            }
-            function setMetricsLiveUpdates(enabled: bool) {
-                if (sysStatsPill && sysStatsPill.setMetricsLiveUpdates) sysStatsPill.setMetricsLiveUpdates(enabled)
-            }
-            function toggleCpuLiveUpdates() {
-                if (sysStatsPill && sysStatsPill.toggleCpuLiveUpdates) sysStatsPill.toggleCpuLiveUpdates()
-            }
-            function toggleGpuLiveUpdates() {
-                if (sysStatsPill && sysStatsPill.toggleGpuLiveUpdates) sysStatsPill.toggleGpuLiveUpdates()
-            }
-            function toggleMemLiveUpdates() {
-                if (sysStatsPill && sysStatsPill.toggleMemLiveUpdates) sysStatsPill.toggleMemLiveUpdates()
-            }
-            function toggleMetricsLiveUpdates() {
-                if (sysStatsPill && sysStatsPill.toggleMetricsLiveUpdates) sysStatsPill.toggleMetricsLiveUpdates()
             }
         }
 
@@ -4156,6 +4749,239 @@ ShellRoot {
         }
     }
 
+    // Left edge bar. Dual only, and off until Show left bar. Widget text rotates
+    // 90° clockwise inside the row. Popups stay on their own windows.
+    PanelWindow {
+        id: leftEdgeBar
+        visible: root.barLayoutMode === "dual" && root.showLeftBar
+        color: "transparent"
+        implicitWidth: bar.barHeight
+        screen: bar.screen
+        exclusionMode: (root.barLayoutMode === "dual" && root.showLeftBar)
+                       ? ExclusionMode.Normal : ExclusionMode.Ignore
+        exclusiveZone: {
+            void (root.showLeftBar)
+            void (root.barLayoutMode)
+            void (bar.flushWindowsToBar)
+            void (bar.barEdgeMargin)
+            void (bar.barHeight)
+            void (bar.barContentVMargin)
+            void (bar.hyprGapsOutLeft)
+            if (!(root.barLayoutMode === "dual" && root.showLeftBar))
+                return 0
+            return bar.sideExclusiveZoneFor(true)
+        }
+        mask: Region { item: leftEdgeBg }
+        anchors.top: true
+        anchors.bottom: true
+        anchors.left: true
+        margins.left: bar.barEdgeMargin
+        margins.top: bar.sideTopInset()
+        margins.bottom: bar.sideBottomInset()
+
+        Rectangle {
+            id: leftEdgeBg
+            readonly property bool spanHeight: !!root.leftBarSpanFull
+            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
+                              leftEdgeStack.height + 2 * bar.barContentHMargin))
+            property int hugH: 80
+            onHugMeasuredChanged: {
+                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
+                    hugH = hugMeasured
+            }
+            onSpanHeightChanged: hugH = hugMeasured
+            Component.onCompleted: hugH = hugMeasured
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: 0
+            anchors.rightMargin: bar.barContentVMargin
+            y: spanHeight ? 0 : bar.alignY(root.leftBarAlign, parent.height, hugH, bar.barContentHMargin)
+            height: spanHeight ? parent.height : hugH
+            radius: bar.barRadius
+            topLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            bottomLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            topRightRadius: bar.barRadius
+            bottomRightRadius: bar.barRadius
+            color: bar.glassBg
+            border.width: Math.max(1, bar.controlBorderWidth)
+            border.color: bar.glassBorder
+            clip: true
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: bar.popupHeaderHighlightHeight
+                color: bar.glassHighlight
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                z: 0
+                acceptedButtons: Qt.RightButton
+                hoverEnabled: false
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton)
+                        barControlBar.toggle()
+                }
+            }
+
+            // Unrotated box is swapped so a 90° clockwise row lands inside it.
+            // Left alignment is the top of the screen, where that text starts.
+            Item {
+                id: leftEdgeStack
+                z: 1
+                width: Math.max(1, leftEdgeZone.implicitHeight)
+                height: Math.max(1, leftEdgeZone.implicitWidth)
+                x: Math.max(0, (parent.width - width) / 2)
+                y: leftEdgeBg.spanHeight
+                   ? bar.alignY(root.leftBarAlign, parent.height, height, bar.barContentHMargin)
+                   : Math.max(0, (parent.height - height) / 2)
+
+                RowLayout {
+                    id: leftEdgeZone
+                    rotation: 90
+                    transformOrigin: Item.Center
+                    spacing: bar.widgetSpacing
+                    x: (leftEdgeStack.width - implicitWidth) / 2
+                    y: (leftEdgeStack.height - implicitHeight) / 2
+                    onImplicitWidthChanged: width = implicitWidth
+                    onImplicitHeightChanged: height = implicitHeight
+                    Component.onCompleted: {
+                        width = implicitWidth
+                        height = implicitHeight
+                    }
+                }
+            }
+        }
+
+        Component.onCompleted: {
+            Qt.callLater(function() { bar.applyWidgetLayout() })
+        }
+    }
+
+    // Right edge bar. Same thickness as the top bar. Text reads downward.
+    PanelWindow {
+        id: rightEdgeBar
+        visible: root.barLayoutMode === "dual" && root.showRightBar
+        color: "transparent"
+        implicitWidth: bar.barHeight
+        screen: bar.screen
+        exclusionMode: (root.barLayoutMode === "dual" && root.showRightBar)
+                       ? ExclusionMode.Normal : ExclusionMode.Ignore
+        exclusiveZone: {
+            void (root.showRightBar)
+            void (root.barLayoutMode)
+            void (bar.flushWindowsToBar)
+            void (bar.barEdgeMargin)
+            void (bar.barHeight)
+            void (bar.barContentVMargin)
+            void (bar.hyprGapsOutRight)
+            if (!(root.barLayoutMode === "dual" && root.showRightBar))
+                return 0
+            return bar.sideExclusiveZoneFor(false)
+        }
+        mask: Region { item: rightEdgeBg }
+        anchors.top: true
+        anchors.bottom: true
+        anchors.right: true
+        margins.right: bar.barEdgeMargin
+        margins.top: bar.sideTopInset()
+        margins.bottom: bar.sideBottomInset()
+
+        Rectangle {
+            id: rightEdgeBg
+            readonly property bool spanHeight: !!root.rightBarSpanFull
+            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
+                              rightEdgeStack.height + 2 * bar.barContentHMargin))
+            property int hugH: 80
+            onHugMeasuredChanged: {
+                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
+                    hugH = hugMeasured
+            }
+            onSpanHeightChanged: hugH = hugMeasured
+            Component.onCompleted: hugH = hugMeasured
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.leftMargin: bar.barContentVMargin
+            anchors.rightMargin: 0
+            y: spanHeight ? 0 : bar.alignY(root.rightBarAlign, parent.height, hugH, bar.barContentHMargin)
+            height: spanHeight ? parent.height : hugH
+            radius: bar.barRadius
+            topLeftRadius: bar.barRadius
+            bottomLeftRadius: bar.barRadius
+            topRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            bottomRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
+            color: bar.glassBg
+            border.width: Math.max(1, bar.controlBorderWidth)
+            border.color: bar.glassBorder
+            clip: true
+
+            Rectangle {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: bar.popupHeaderHighlightHeight
+                color: bar.glassHighlight
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                z: 0
+                acceptedButtons: Qt.RightButton
+                hoverEnabled: false
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.RightButton)
+                        barControlBar.toggle()
+                }
+            }
+
+            Item {
+                id: rightEdgeStack
+                z: 1
+                width: Math.max(1, rightEdgeZone.implicitHeight)
+                height: Math.max(1, rightEdgeZone.implicitWidth)
+                x: Math.max(0, (parent.width - width) / 2)
+                y: rightEdgeBg.spanHeight
+                   ? bar.alignY(root.rightBarAlign, parent.height, height, bar.barContentHMargin)
+                   : Math.max(0, (parent.height - height) / 2)
+
+                RowLayout {
+                    id: rightEdgeZone
+                    rotation: 90
+                    transformOrigin: Item.Center
+                    spacing: bar.widgetSpacing
+                    x: (rightEdgeStack.width - implicitWidth) / 2
+                    y: (rightEdgeStack.height - implicitHeight) / 2
+                    onImplicitWidthChanged: width = implicitWidth
+                    onImplicitHeightChanged: height = implicitHeight
+                    Component.onCompleted: {
+                        width = implicitWidth
+                        height = implicitHeight
+                    }
+                }
+            }
+        }
+
+        Component.onCompleted: {
+            Qt.callLater(function() { bar.applyWidgetLayout() })
+        }
+    }
+
+    // Focused-window pill. Screen-corner overlay, vertically centered on the
+    // matching bar strip when there is one. Overlay keeps it above windows.
+    ActiveWindowBar {
+        hostBar: bar
+        shown: root.showActiveWindowPill
+        corner: root.activeWindowPillCorner
+        excludes: root.activeWindowExcludes
+        leftMargin: bar.sideMargin
+        rightMargin: bar.sideMargin
+        topMargin: bar.activeWindowEdgeMargin(root.activeWindowPillCorner)
+        bottomMargin: bar.activeWindowEdgeMargin(root.activeWindowPillCorner)
+        stripHeight: bar.activeWindowStripHeight(root.activeWindowPillCorner)
+    }
+
     // IPC handlers must use explicit types (bool, string, etc.) — `var` is not supported
     Io.IpcHandler {
         target: "shell"
@@ -4224,6 +5050,18 @@ ShellRoot {
         }
         function toggleShowPowerPill(): void {
             bar.toggleWidgetVisible("power")
+        }
+        function setShowOpacityPill(enabled: bool): void {
+            bar.setWidgetVisible("opacity", enabled)
+        }
+        function toggleShowOpacityPill(): void {
+            bar.toggleWidgetVisible("opacity")
+        }
+        function setShowTailscalePill(enabled: bool): void {
+            bar.setWidgetVisible("tailscale", enabled)
+        }
+        function toggleShowTailscalePill(): void {
+            bar.toggleWidgetVisible("tailscale")
         }
         function setClockFormat(format: string): void {
             bar.setClockFormat(format)
@@ -4303,6 +5141,23 @@ ShellRoot {
         function toggleShowControlBarPill(): void {
             bar.toggleWidgetVisible("controlBar")
         }
+        function setShowActiveWindowPill(enabled: bool): void {
+            bar.setWidgetVisible("activeWindow", enabled)
+        }
+        function toggleShowActiveWindowPill(): void {
+            bar.toggleWidgetVisible("activeWindow")
+        }
+        function setActiveWindowCorner(corner: string): void {
+            bar.setActiveWindowCorner(corner)
+        }
+        function addActiveWindowExclude(pattern: string): void {
+            if (bar && bar.addActiveWindowExclude)
+                bar.addActiveWindowExclude(pattern)
+        }
+        function removeActiveWindowExclude(pattern: string): void {
+            if (bar && bar.removeActiveWindowExclude)
+                bar.removeActiveWindowExclude(pattern)
+        }
         function setShowMagicWorkspacePill(enabled: bool): void {
             if (bar && bar.setShowMagicWorkspacePill)
                 bar.setShowMagicWorkspacePill(enabled)
@@ -4323,6 +5178,12 @@ ShellRoot {
                 bar.setWsShowOnlyActive(enabled)
             else
                 root.wsShowOnlyActive = enabled
+        }
+        function setWsShowNumbers(enabled: bool): void {
+            if (bar && bar.setWsShowNumbers)
+                bar.setWsShowNumbers(enabled)
+            else
+                root.wsShowNumbers = !!enabled
         }
         function setWsStartupWorkspace(workspace: int): void {
             if (bar && bar.setWsStartupWorkspace)

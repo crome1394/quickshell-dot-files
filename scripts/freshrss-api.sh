@@ -456,7 +456,7 @@ PY
         # Password is set but Fever returned auth=0 (wrong API password, or
         # the web login password was saved instead of Profile → API password).
         parse_rss_items 1 | jq -c --arg err \
-            "Fever rejected the API password (auth=0). Use FreshRSS Profile → API password, not the web login password. Then Options → FreshRSS → Save server." \
+            "Fever rejected the username/API password pair (auth=0). In Options → FreshRSS, User must match the FreshRSS account where Profile → API password was created (not the web login password). Then Save server." \
             '. + {fever_auth_failed:true, has_password:true, error:$err}'
         return 0
     fi
@@ -829,7 +829,7 @@ cmd_items() {
         auth="$(printf '%s' "$resp" | jq -r '.auth // 0')"
         if [[ "$auth" != "1" ]]; then
             parse_rss_items "$limit" "$max_days" | jq -c --arg err \
-                "Fever rejected the API password (auth=0). Use FreshRSS Profile → API password, not the web login password. Then Options → FreshRSS → Save server." \
+                "Fever rejected the username/API password pair (auth=0). In Options → FreshRSS, User must match the FreshRSS account where Profile → API password was created (not the web login password). Then Save server." \
                 '. + {fever_auth_failed:true, has_password:true, error:$err}'
             return 0
         fi

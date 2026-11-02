@@ -1,8 +1,10 @@
 # Screensaver
 
-Idle fullscreen **mpv** loop. It does **not** use compositor DPMS (that blanks the CRTC and can drop DisplayPort / DSC on an Odyssey G9). Super+L starts it immediately. Click, move, or Esc dismisses it.
+Idle fullscreen saver. It does **not** use compositor DPMS (that blanks the CRTC and can drop DisplayPort / DSC on an Odyssey G9). Super+L starts it immediately. Click, move, or Esc dismisses it.
 
-Prefs: `~/.config/hypr/screensaver.conf` (written by Options → Screensaver). Hypridle listener is patched by `scripts/screensaver-config.sh` (also installed as `~/.local/bin/screensaver-config.sh`). Player: `scripts/screensaver.sh` → `~/.local/bin/screensaver.sh`.
+Options → Screensaver chooses the picture: **Video** (the mpv loop) or a text style (**Night watch**, **Rain**, **Orbital**, **Warp**, **Pyro**, **Scanner**). Text styles need no video file. The choice is `mode` and `style` in `screensaver.conf`. Missing `mode` means video, so an old config keeps playing the file. **Clock** hides the center time, date, and night line when it is off (`clock=0`). Warp has speed, density, and streak, each 1–10.
+
+Prefs: `~/.config/hypr/screensaver.conf` (written by Options → Screensaver). Apply writes that file, creates `~/.config/hypr/hypridle.conf` when it is missing, and starts hypridle. The listener is the block marked `SCREENSAVER_IDLE`. hypridle reads the file only at start, so Apply restarts it. There is no DPMS listener. Player: `scripts/screensaver.sh` → `~/.local/bin/screensaver.sh`.
 
 Mouse / click / Esc dismiss lives in **git**, not `~/.config/mpv` (that tree is empty after a reinstall). Source files:
 
@@ -10,6 +12,7 @@ Mouse / click / Esc dismiss lives in **git**, not `~/.config/mpv` (that tree is 
 |-----|----------------|
 | `scripts/screensaver.sh` | `~/.local/bin/screensaver.sh` |
 | `scripts/screensaver-config.sh` | `~/.local/bin/screensaver-config.sh` |
+| `scripts/screensaver-text.py` | `~/.local/share/screensaver/screensaver-text.py` |
 | `scripts/screensaver-mpv/input.conf` | `~/.local/share/screensaver/input.conf` |
 | `scripts/screensaver-mpv/quit-on-input.lua` | `~/.local/share/screensaver/quit-on-input.lua` |
 
@@ -20,6 +23,8 @@ After clone or pull:
 ```
 
 The player looks in the git tree first, then `~/.local/share/screensaver`. Super+L / hypridle call `~/.local/bin`, so copy the helpers or they stay on the last install.
+
+Text mode opens fullscreen kitty (class `hypr-screensaver`) on the Python script. The active-window pill skips that class by default. Settings → Options → **Active Window** edits the skip list. Kitty does not idle-inhibit a fullscreen window. The script quits on a key, a click, or a pointer move after one second, and the shell restores monitor brightness when that process exits. Video mode is unchanged: fullscreen mpv, same title, same dismiss files.
 
 ## Idle vs video
 
@@ -46,7 +51,7 @@ Needs `ddcutil` on PATH and **DDC/CI** enabled in the monitor OSD. If DDC fails,
 
 ## Apply
 
-Options → Screensaver → **Apply** writes `screensaver.conf` and reloads hypridle. Run `scripts/install-screensaver-helpers.sh` after pulling so hypridle and Super+L keep using the helpers (player + mouse-dismiss lua).
+Options → Screensaver → **Apply** writes `screensaver.conf`, creates `hypridle.conf` if it is missing, and restarts hypridle so the new delay is loaded. Run `scripts/install-screensaver-helpers.sh` after pulling so hypridle and Super+L keep using the helpers (player + mouse-dismiss lua).
 
 ## Dismiss
 

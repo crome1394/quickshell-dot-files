@@ -296,8 +296,10 @@ apply_mode() {
   mon_name="$(monitor_json | jq -r '.name // empty')"
   [[ -n "$mon_name" ]] || mon_name="$MONITOR"
 
+  # cm=srgb: Hyprland "auto" maps 10-bit to wide/BT2020, which fringes
+  # Quickshell anti-aliased icons. Known-good 10-bit is sRGB primaries.
   lua=$(printf \
-    'hl.monitor({ output = "%s", mode = "%s", position = "%s", scale = %s, bitdepth = %s })' \
+    'hl.monitor({ output = "%s", mode = "%s", position = "%s", scale = %s, bitdepth = %s, cm = "srgb" })' \
     "$mon_name" "$mode" "$POSITION" "$SCALE" "$bitdepth")
 
   if ! out="$(hyprctl eval "$lua" 2>&1)"; then
@@ -337,7 +339,7 @@ apply_mode() {
 }
 
 # Rewrite ~/.config/hypr/config/monitors.lua (or create it) with the applied mode.
-# Keeps cm = "auto" and scale 1.0; backs up the previous file once per apply.
+# Keeps cm = "srgb" (not auto: 10-bit auto → wide/BT2020, fringes Qt UI) and scale 1.0.
 persist_monitors_lua() {
   local mon_name="$1" mode="$2" bitdepth="$3"
   local conf_dir conf bak
@@ -367,7 +369,7 @@ hl.monitor({
     position = "0x0",
     scale    = 1.0,
     bitdepth = ${bitdepth},
-    cm = "auto",
+    cm = "srgb",
 })
 EOF
 }

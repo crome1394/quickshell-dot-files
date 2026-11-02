@@ -25,6 +25,14 @@ Item {
     property bool showDefaults: true
     property bool showLevelMeters: true
     property bool showEchoCancel: true
+    // Settings shows the device filter in Output & Input. The inspector keeps its own search.
+    property bool showDeviceFilter: false
+    property color fieldBg: Qt.rgba(1, 1, 1, 0.06)
+    property color fieldBgFocus: Qt.rgba(1, 1, 1, 0.10)
+    property color fieldBorder: Qt.rgba(1, 1, 1, 0.14)
+    property int fieldRadius: 6
+    property string fieldFontFamily: "monospace"
+    signal filterFocusRequested()
     // Expanded prefs (Options “keep expanded”); applied each time panel opens
     property bool summaryExpandedPref: true
     property bool defaultsExpandedPref: true
@@ -958,7 +966,7 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: root.cardMargin
-                spacing: 8
+                spacing: 12
 
                 // --- Audio Summary ---
                 ColumnLayout {
@@ -1331,8 +1339,48 @@ Item {
             }
         }
 
-        // Devices — size to content; outer view Flickable scrolls
-        RowLayout {
+        // Output & Input sits below Levels. The filter spans the full width;
+        // Output Devices and Input Devices stay two columns under it.
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignTop
+            Layout.topMargin: 8
+            spacing: 10
+
+            Text {
+                text: "Output & Input"
+                color: root.textColor
+                font.pixelSize: 12
+                font.bold: true
+                font.family: "monospace"
+            }
+
+            TextField {
+                id: deviceFilterField
+                visible: root.showDeviceFilter
+                Layout.fillWidth: true
+                Layout.preferredHeight: 30
+                topPadding: 1
+                bottomPadding: 1
+                verticalAlignment: Text.AlignVCenter
+                placeholderText: "Filter devices / apps…"
+                color: root.textColor
+                placeholderTextColor: root.subtextColor
+                font.pixelSize: 14
+                font.family: root.fieldFontFamily
+                text: root.globalFilter
+                background: Rectangle {
+                    radius: root.fieldRadius
+                    color: parent.activeFocus ? root.fieldBgFocus : root.fieldBg
+                    border.width: 1
+                    border.color: parent.activeFocus ? root.accentColor : root.fieldBorder
+                }
+                onPressed: root.filterFocusRequested()
+                onActiveFocusChanged: if (activeFocus) root.filterFocusRequested()
+                onTextEdited: if (root.showDeviceFilter) root.globalFilter = text
+            }
+
+            RowLayout {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignTop
             spacing: root.sectionSpacing
@@ -2197,6 +2245,7 @@ Item {
 
                 }
             }
+        }
         }
 
 

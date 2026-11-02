@@ -20,8 +20,16 @@ Every bar pill can be hidden or shown. Defaults live in `Config.qml` (search for
 | `showHyprInspPill` | `false` | `setShowHyprInspPill` / `toggleShowHyprInspPill` | Hypr Inspector |
 | `showControlBarPill` | `true` | `setShowControlBarPill` / `toggleShowControlBarPill` | Config menu gear |
 | `showPowerPill` | `true` | `setShowPowerPill` / `toggleShowPowerPill` | Power |
+| `showTailscalePill` | `true` | `setShowTailscalePill` / `toggleShowTailscalePill` | Tailscale |
+| `showOpacityPill` | `true` | `setShowOpacityPill` / `toggleShowOpacityPill` | Transparency |
 
 The **magic workspace pill** (inside the workspaces strip) is separate: `wsShowSpecialPill` in config, plus `setShowMagicWorkspacePill` / `toggleShowMagicWorkspacePill` via IPC (also under **Options → Workspaces**).
+
+The **active-window pill** is a corner overlay, saved in `bar-layout.json` (`showActiveWindowPill`, default on). It is not a `Config.qml` visibility flag. IPC: `setShowActiveWindowPill` / `toggleShowActiveWindowPill`, `setActiveWindowCorner` (`topLeft`, `topRight`, `bottomLeft`, `bottomRight`), `addActiveWindowExclude`, `removeActiveWindowExclude`.
+
+Left and right edge bars are Options → **Bar** only. There is no IPC switch for them.
+
+Sys Stats has no popup IPC. The old `sysStatsPill` live-update commands left with the metrics popups.
 
 **Examples**
 
@@ -76,11 +84,9 @@ Some bar widgets expose actions beyond show/hide. These work from scripts, Hyprl
 | `bluetoothPill` | `setTrusted` / `setBlocked` | Trust or block a MAC (`address` + `bool`) |
 | `bluetoothPill` | `renameDevice` | Set BlueZ alias (`address` + `name`) |
 | `bluetoothPill` | `setCardProfile` | Set PipeWire profile for a MAC (`address` + profile name) |
+| `notificationBell` | `toggleHistory` | Open or close the notification history window |
+| `notificationBell` | `showHistory` / `hideHistory` | Open the history window, or close it |
 | `notificationBell` | `toggleDoNotDisturb` | Toggle Do Not Disturb for the configured notification daemon |
-| `sysStatsPill` | `setMetricsLiveUpdates` | Pause (`false`) or resume (`true`) metrics-popup polling for all CPU/Memory/GPU sections |
-| `sysStatsPill` | `setCpuLiveUpdates` / `setMemLiveUpdates` / `setGpuLiveUpdates` | Pause or resume metrics-popup polling for one section |
-| `sysStatsPill` | `toggleMetricsLiveUpdates` | Toggle metrics-popup polling for all sections |
-| `sysStatsPill` | `toggleCpuLiveUpdates` / `toggleMemLiveUpdates` / `toggleGpuLiveUpdates` | Toggle metrics-popup polling for one section |
 
 **Examples**
 
@@ -102,22 +108,24 @@ qs ipc call bluetoothPill connectDevice "A0:0C:E2:66:FB:7D"
 qs ipc call bluetoothPill renameDevice "A0:0C:E2:66:FB:7D" "Shokz Dark"
 qs ipc call bluetoothPill setCardProfile "A0:0C:E2:66:FB:7D" "a2dp-sink"
 qs ipc call bluetoothPill toggleApplet
+qs ipc call notificationBell toggleHistory
+qs ipc call notificationBell showHistory
+qs ipc call notificationBell hideHistory
 qs ipc call notificationBell toggleDoNotDisturb
-qs ipc call sysStatsPill setMetricsLiveUpdates false
-qs ipc call sysStatsPill toggleMetricsLiveUpdates
-qs ipc call sysStatsPill setCpuLiveUpdates false
+qs ipc call shell toggleShowOpacityPill
+qs ipc call shell setActiveWindowCorner topRight
+qs ipc call shell addActiveWindowExclude hypr-screensaver
 ```
 
-Metrics-popup IPC pauses sparklines, gauges, and process lists in the right-click dropdowns — not the compact CPU/Memory/GPU stats on the bar pill. Takes effect immediately while a popup is open; otherwise the paused state applies the next time you open that section. When `popupStatsPersistPause` is `true` in `Config.qml`, the choice is saved to `state/popup-stats.json`.
-
-**Dock** (magnify/jump/scope) and **screensaver** (idle mpv, DDC dim) are Options UI + files (`bar-layout.json`, `~/.config/hypr/screensaver.conf`), not IPC. See [control-bar.md](control-bar.md) and [screensaver.md](screensaver.md).
+**Dock** (magnify/jump/scope), **edge bars**, and **screensaver** (video or text, DDC dim) are Options UI + files (`bar-layout.json`, `~/.config/hypr/screensaver.conf`), not IPC. See [control-bar.md](control-bar.md) and [screensaver.md](screensaver.md).
 
 **Hyprland keybind examples** (in `~/.config/hypr/config/keybindings.lua`):
 
 ```
 SUPER + C   →   qs ipc call clockPill showCalendar
 SUPER + N   →   qs ipc call notificationBell toggleDoNotDisturb
-SUPER + M   →   qs ipc call sysStatsPill toggleMetricsLiveUpdates
+# History window (bind the key yourself):
+# qs ipc call notificationBell toggleHistory
 # Optional: bind echo cancel / Bluetooth / Network
 # SUPER + ALT + E   →   qs ipc call audioPill toggleEchoCancel
 # SUPER + ALT + B   →   qs ipc call bluetoothPill togglePopup
