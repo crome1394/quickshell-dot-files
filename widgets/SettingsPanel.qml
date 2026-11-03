@@ -10,7 +10,7 @@
 // along the bottom: Position · Display · Wallpaper · Widgets · Options ·
 // Themes · App Launcher · Autostart · MIME · Services · Audio · Keybinds · Clock
 // Widgets = layout; Options = behavior prefs; Themes = bar/widget theme;
-// MIME = preferred applications / file-type defaults (MimeAppsView);
+// MIME = preferred applications / file-type defaults (MimeAppsTab);
 // Services = systemd; Audio = devices/ports/AEC (AudioMonitorView);
 // Keybinds = chord/category/desc.
 // Display = monitor resolution / refresh / bit depth (Apply to switch).
@@ -200,7 +200,7 @@ Item {
     // Services panel (reuse components/ServicesView.qml)
     property string servicesFilter: ""
 
-    // Keybinds panel (components/KeybindsView.qml)
+    // Keybinds panel (components/KeybindsTab.qml)
     property string keybindsFilter: ""
 
     readonly property int pad: (bar.popupSpacingTight !== undefined) ? bar.popupSpacingTight : 6
@@ -12905,7 +12905,7 @@ Item {
                                 }
 
                                 } // options tab: screenshot
-                                OverviewOptions {
+                                OverviewOptionsTab {
                                     visible: root.optionsTab === "overview"
                                     Layout.fillWidth: true
                                     bar: root.bar
@@ -13768,7 +13768,7 @@ Item {
                                     font.pixelSize: bar.popupHintSize
                                     font.family: root.menuBodyFont()
                                 }
-                                MimeAppsView {
+                                MimeAppsTab {
                                     id: controlMime
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
@@ -14041,7 +14041,7 @@ Item {
                                     onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
                                     onTextChanged: root.keybindsFilter = text
                                 }
-                                KeybindsView {
+                                KeybindsTab {
                                     id: controlKeybinds
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true

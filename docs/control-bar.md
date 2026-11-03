@@ -22,7 +22,7 @@ Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Clos
 
 ## MIME panel (Preferred applications)
 
-Set which program opens a given file type or link scheme. Opens from the control-strip **MIME** tab (after Autostart). UI: `components/MimeAppsView.qml`. Scripts: `scripts/mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh` (app picker reuses `desktop-apps-json.sh`).
+Set which program opens a given file type or link scheme. Opens from the control-strip **MIME** tab (after Autostart). UI: `components/MimeAppsTab.qml`. Scripts: `scripts/mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh` (app picker reuses `desktop-apps-json.sh`).
 
 Dual-pane layout fills the panel height; lists scroll inside each pane.
 

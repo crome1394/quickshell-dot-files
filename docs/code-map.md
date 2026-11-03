@@ -33,7 +33,7 @@ Windows and hosts:
 
 Header: "Settings window". Right-click on blank main-bar chrome or the gear pill opens it. One `FloatingWindow` titled "Settings", an expandable panel on top, toolbar along the bottom. Window height follows the content.
 
-The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, Themes, App Launcher, Autostart, MIME, Services, Audio, Keybinds, and Clock. It also says what those words mean: Widgets is layout, Options is behavior, Themes is the bar and widget theme, MIME is `MimeAppsView`, Services is systemd, Audio is `AudioMonitorView`, Keybinds is chord / category / description, Display is monitor resolution / refresh / bit depth, and Clock is Region & Clock.
+The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, Themes, App Launcher, Autostart, MIME, Services, Audio, Keybinds, and Clock. It also says what those words mean: Widgets is layout, Options is behavior, Themes is the bar and widget theme, MIME is `MimeAppsTab`, Services is systemd, Audio is `AudioMonitorView`, Keybinds is chord / category / description, Display is monitor resolution / refresh / bit depth, and Clock is Region & Clock.
 
 `controlTabModel` is the button row that is built:
 
