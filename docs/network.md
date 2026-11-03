@@ -28,7 +28,7 @@ Config tokens: `showNetworkPanel`, `popupNetworkPanelWidth`, `popupNetworkPanelM
 
 ## Implementation
 
-- **Files:** `NetworkButton.qml` (bar pill), `NetworkPopup.qml` (panel), `NetworkService.qml` (singleton).
+- **Files:** `NetworkPill.qml` (bar pill), `NetworkPopup.qml` (panel), `NetworkService.qml` (singleton).
 - **Backend:** `Quickshell.Networking` for devices, the Wi-Fi scan, connect, and forget. `scripts/network-control.sh` for addresses, gateways, DNS, link facts, VPN, hidden networks, refresh IP, and flush DNS.
 - **Visibility:** Settings → Widgets → **Network**, or `setShowNetworkPanel` / `toggleShowNetworkPanel`.
 

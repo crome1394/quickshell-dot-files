@@ -4,12 +4,12 @@ import Quickshell
 import "../../components"
 
 // =============================================================================
-// NetworkButton.qml — bar pill for the new network panel
+// NetworkPill.qml — bar pill for the new network panel
 // =============================================================================
 //
 // Where it is imported:
 //   shell.qml already does `import "widgets/network"` and places
-//   NetworkButton { id: networkPanel } in the widget pool.
+//   NetworkPill { id: networkPanel } in the widget pool.
 //   Settings → Widgets → Network shows, hides, scales, and moves it.
 //
 //   Left click opens the panel. Right click toggles Wi-Fi.

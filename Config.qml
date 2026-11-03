@@ -2058,7 +2058,7 @@ QtObject {
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
     readonly property bool showStatsPill:           true   // SysStatsPill.qml
     readonly property bool showTrayPill:             true   // SystemTrayPill.qml
-    readonly property bool showNetworkPanel:         true   // widgets/network/NetworkButton.qml
+    readonly property bool showNetworkPanel:         true   // widgets/network/NetworkPill.qml
     readonly property bool showBluetoothPill:        true   // BluetoothPill.qml
     readonly property bool showAudioPill:           true   // AudioPill.qml
     readonly property bool showClockPill:           true   // ClockPill.qml

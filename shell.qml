@@ -98,7 +98,7 @@ import Quickshell.Hyprland
 import Quickshell.Io as Io
 import "components"
 import "widgets"
-import "widgets/network"   // NetworkButton, NetworkPopup, NetworkService
+import "widgets/network"   // NetworkPill, NetworkPopup, NetworkService
 
 ShellRoot {
     id: root
@@ -4654,7 +4654,7 @@ ShellRoot {
             }
 
             // Network panel. Import is `import "widgets/network"` at the top of this file.
-            NetworkButton {
+            NetworkPill {
                 id: networkPanel
                 parent: widgetPool
                 visible: root.showNetworkPanel
