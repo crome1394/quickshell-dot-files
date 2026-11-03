@@ -379,6 +379,6 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
 
 ## Earlier
 
-- NWS Radar pill removed from the default bar (code remains under `widgets/RadarPill.qml` / `scripts/radar-fetch.sh` if you re-enable it).
+- NWS Radar pill removed from the bar (`widgets/RadarPill.qml` and `scripts/radar-fetch.sh` deleted).
 - Combined Network · Bluetooth · Audio connectivity pill option.
 - Sticky nm-applet / Blueman autostart controls.
