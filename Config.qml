@@ -2359,7 +2359,6 @@ QtObject {
     readonly property string iconAudioUsb:       "󰕓"   // USB audio (DAC, webcam mic, etc.)
     readonly property string iconAudioHdmi:      "󰡁"   // HDMI / DisplayPort audio
     readonly property string iconAudioInternal:  "󰓃"   // Built-in / PCI analog
-    readonly property string iconAudioHeadset:   "󰋋"   // Headset form factor
     readonly property string iconAudioBattery:   "󰁹"   // BT battery (generic full)
     // Bluetooth pill (adapter / connection state glyphs)
     readonly property string iconBluetooth:          "󰂯"   // Powered on, idle
@@ -2396,12 +2395,6 @@ QtObject {
         { icon: iconShutdown, label: "Shutdown",   action: "shutdown" },
         { icon: iconBios,     label: "Enter BIOS", action: "bios" },
     ]
-
-    // Misc common
-    readonly property string iconLauncher:      "󰀻"   // Unused on the bar (launcher is a drawn 3×3 in shell.qml)
-    readonly property string iconBell:          "󱅫"
-    readonly property string iconBellDnd:       "󰂠"
-    readonly property string iconBellEmpty:     "󰂜"
 
     // =========================================================================
     // SLIDERS & VOLUME BARS (the key user request)

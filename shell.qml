@@ -3909,7 +3909,6 @@ ShellRoot {
         readonly property alias iconAudioUsb: cfg.iconAudioUsb
         readonly property alias iconAudioHdmi: cfg.iconAudioHdmi
         readonly property alias iconAudioInternal: cfg.iconAudioInternal
-        readonly property alias iconAudioHeadset: cfg.iconAudioHeadset
         readonly property alias iconAudioBattery: cfg.iconAudioBattery
         readonly property alias iconBluetooth: cfg.iconBluetooth
         readonly property alias iconBluetoothOff: cfg.iconBluetoothOff
@@ -3934,7 +3933,6 @@ ShellRoot {
         readonly property alias iconReboot: cfg.iconReboot
         readonly property alias iconShutdown: cfg.iconShutdown
         readonly property alias iconBios: cfg.iconBios
-        readonly property alias iconLauncher: cfg.iconLauncher
         readonly property alias iconHyprInsp: cfg.iconHyprInsp
         readonly property alias iconControlBar: cfg.iconControlBar
         readonly property string launcherCommand: {
