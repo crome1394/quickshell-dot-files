@@ -22,6 +22,54 @@ sanitize_name() {
   echo "$n"
 }
 
+# Delete only a direct child of the real directory. A symlink there is
+# removed as a link. ".." and any path outside the directory are refused.
+delete_direct_child() {
+  local dir="$1" target="$2" what="$3"
+  local real base parent parent_real victim
+  real="$(readlink -f -- "$dir" 2>/dev/null || true)"
+  if [[ -z "$real" || ! -d "$real" ]]; then
+    echo "refusing to delete: cannot resolve $what dir" >&2
+    exit 1
+  fi
+  case "$target" in
+    ..|../*|*/..|*/../*)
+      echo "refusing to delete outside $what dir: $target" >&2
+      exit 1
+      ;;
+  esac
+  if [[ "$target" != */* && ! -e "$target" && ! -L "$target" ]]; then
+    base="$(sanitize_name "$target")"
+    victim="$real/${base}.json"
+  else
+    parent="$(dirname -- "$target")"
+    base="$(basename -- "$target")"
+    case "$base" in
+      ""|.|..)
+        echo "refusing to delete outside $what dir: $target" >&2
+        exit 1
+        ;;
+    esac
+    parent_real="$(readlink -f -- "$parent" 2>/dev/null || true)"
+    if [[ -z "$parent_real" || "$parent_real" != "$real" ]]; then
+      echo "refusing to delete outside $what dir: $target" >&2
+      exit 1
+    fi
+    victim="$real/$base"
+  fi
+  if [[ "$(dirname -- "$victim")" != "$real" ]]; then
+    echo "refusing to delete outside $what dir: $target" >&2
+    exit 1
+  fi
+  if [[ ! -e "$victim" && ! -L "$victim" ]]; then
+    echo "$what not found: $victim" >&2
+    exit 1
+  fi
+  # rm of a symlink removes the link, not the file it names.
+  rm -f -- "$victim"
+  echo "deleted $victim"
+}
+
 cmd="${1:-}"
 case "$cmd" in
   list)
@@ -110,25 +158,7 @@ PY
       echo "usage: profile-io.sh delete <name-or-path>" >&2
       exit 1
     fi
-    if [[ -f "$target" ]]; then
-      path="$target"
-    else
-      name="$(sanitize_name "$target")"
-      path="$PROFILES_DIR/${name}.json"
-    fi
-    case "$path" in
-      "$PROFILES_DIR"/*) ;;
-      *)
-        echo "refusing to delete outside profiles dir: $path" >&2
-        exit 1
-        ;;
-    esac
-    if [[ ! -f "$path" ]]; then
-      echo "setup not found: $path" >&2
-      exit 1
-    fi
-    rm -f -- "$path"
-    echo "deleted $path"
+    delete_direct_child "$PROFILES_DIR" "$target" "setup"
     ;;
   *)
     echo "usage: profile-io.sh list|export <name>|import <name-or-path>|delete <name-or-path>" >&2
