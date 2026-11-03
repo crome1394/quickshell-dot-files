@@ -3,11 +3,23 @@
 # Efficient single-invocation data collector for the sysmon dashboard.
 # Outputs one line of JSON. Designed to be fast and safe when called frequently.
 #
-# State for rate calculations lives in /tmp/sysmon-state.json.
+# State for rate calculations lives under $XDG_RUNTIME_DIR, not /tmp.
+# SYSMON_STATE_FILE overrides the path. Never fall back to /tmp.
 
 set -u pipefail   # removed -e so we can always produce some JSON even if individual sensors fail
 
-STATE_FILE="/tmp/sysmon-state.json"
+if [[ -n "${SYSMON_STATE_FILE:-}" ]]; then
+  STATE_FILE="$SYSMON_STATE_FILE"
+elif [[ -n "${XDG_RUNTIME_DIR:-}" && -d "$XDG_RUNTIME_DIR" ]]; then
+  STATE_FILE="$XDG_RUNTIME_DIR/quickshell/sysmon-state.json"
+else
+  STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/sysmon-state.json"
+fi
+# Follow a symlink so the write replaces the real file and leaves the link.
+if [[ -L "$STATE_FILE" ]]; then
+  STATE_FILE="$(readlink -f -- "$STATE_FILE")"
+fi
+mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || true
 NOW=$(date +%s%3N)
 
 # ---------- Helpers ----------
@@ -734,7 +746,7 @@ top_gpu=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=
 ' 2>/dev/null || echo '[]')
 
 # ---------- Assemble final JSON ----------
-TMP_JSON=$(mktemp /tmp/sysmon-out.XXXXXX.json)
+TMP_JSON=$(mktemp "${STATE_FILE}.out.XXXXXX")
 
 jq -cn \
   --argjson ts "$NOW" \
@@ -845,16 +857,19 @@ else
 fi
 rm -f "$TMP_JSON" 2>/dev/null || true
 
-# Update delta state
-jq -n \
-  --argjson ts "$NOW" \
-  --argjson net_rx "${net_rx:-0}" \
-  --argjson net_tx "${net_tx:-0}" \
-  --argjson disk_read "${disk_read:-0}" \
-  --argjson disk_write "${disk_write:-0}" \
-  --argjson net_proc "${net_proc_state:-{}}" \
-  '{ts: $ts, net_rx: $net_rx, net_tx: $net_tx, disk_read: $disk_read, disk_write: $disk_write, net_proc: $net_proc}' \
-  > "$STATE_FILE" 2>/dev/null || cat > "$STATE_FILE" <<EOF
+# Update delta state. Temp file is in the same directory as the real state file.
+state_tmp="$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null || true)"
+if [[ -n "$state_tmp" ]]; then
+  if ! jq -n \
+    --argjson ts "$NOW" \
+    --argjson net_rx "${net_rx:-0}" \
+    --argjson net_tx "${net_tx:-0}" \
+    --argjson disk_read "${disk_read:-0}" \
+    --argjson disk_write "${disk_write:-0}" \
+    --argjson net_proc "${net_proc_state:-{}}" \
+    '{ts: $ts, net_rx: $net_rx, net_tx: $net_tx, disk_read: $disk_read, disk_write: $disk_write, net_proc: $net_proc}' \
+    > "$state_tmp" 2>/dev/null; then
+    cat > "$state_tmp" <<EOF
 {
   "ts": $NOW,
   "net_rx": ${net_rx:-0},
@@ -863,3 +878,6 @@ jq -n \
   "disk_write": ${disk_write:-0}
 }
 EOF
+  fi
+  mv -f "$state_tmp" "$STATE_FILE" 2>/dev/null || rm -f "$state_tmp"
+fi
