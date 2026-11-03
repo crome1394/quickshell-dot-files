@@ -2217,7 +2217,6 @@ QtObject {
     // that panel. Right-click toggles DND. SwayNC's control center is not used in the UI.
     //
     //   notificationSubscribe    — live DND updates (SwayNC: swaync-client -s)
-    //   notificationTogglePanel  — unused in UI (SwayNC control center); kept for IPC/scripts
     //   notificationToggleDnd    — DND on the history panel + right-click the bell
     //   notificationClearAll     — also run from the history panel "Clear list"
     //   notificationSync         — backup poll for DND. The bell badge is the history
@@ -2225,7 +2224,6 @@ QtObject {
     //   notificationDndAccent    — border/bell color when Do Not Disturb is on
 
     readonly property var notificationSubscribe:    ["swaync-client", "-s", "-sw"]  // Live JSON stream (optional)
-    readonly property var notificationTogglePanel: ["swaync-client", "-t", "-sw"]   // Unused in UI
     readonly property var notificationToggleDnd:   ["swaync-client", "-d", "-sw"]   // History panel + right-click
     readonly property var notificationClearAll:    ["swaync-client", "-C", "-sw"]   // History "Clear list"
     // Timer poller — DND backup. Script still prints {"count":N,"dnd":true|false};
@@ -2905,7 +2903,6 @@ QtObject {
     // --- NotificationBell command resolver (used by shell.qml + NotificationBell.qml)
     function notificationCommand(action) {
         if (action === "subscribe") return notificationSubscribe
-        if (action === "togglePanel") return notificationTogglePanel
         if (action === "toggleDnd") return notificationToggleDnd
         if (action === "clearAll") return notificationClearAll
         if (action === "sync") return notificationSync
@@ -2922,11 +2919,6 @@ QtObject {
 
     function notificationSyncEnabled() {
         return notificationCmdLength(notificationSync)
-    }
-
-    function notificationSupportsPanel() {
-        var cmd = notificationCommand("togglePanel")
-        return cmd && cmd.length !== undefined && cmd.length > 0
     }
 
     function notificationSupportsDnd() {

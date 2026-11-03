@@ -3290,10 +3290,6 @@ ShellRoot {
             return cfg.notificationUsesLiveSubscribe()
         }
 
-        function notificationSupportsPanel() {
-            return cfg.notificationSupportsPanel()
-        }
-
         function notificationSupportsDnd() {
             return cfg.notificationSupportsDnd()
         }
