@@ -7,3 +7,7 @@ echo-cancel.pref
 state/
 themes/
 profiles/
+
+# Python bytecode
+__pycache__/
+*.pyc
