@@ -52,6 +52,12 @@ hardcoded in widgets.
   deleting features. If it still fails, revert the change, confirm the
   bar loads, and report it.
 - If the bar can't be recovered, stop and restore from the backup.
+- Never move, hide, or delete live `state/`, `themes/`, `profiles/`, or
+  `secrets/` to test something. Copy them and test against the copy.
+- After a change that affects the bar's windows, compare
+  `hyprctl monitors -j | jq '.[].reserved'` with the value from before
+  the change. Then restore the saved layout and confirm the state file
+  is byte-identical.
 
 ## Intentional behavior (not bugs)
 - Sysstats polls on a timer by design. Flag it only for very short
