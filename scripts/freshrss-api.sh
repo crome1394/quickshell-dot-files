@@ -10,9 +10,10 @@
 #   freshrss-api.sh play-mpv <url>
 #
 # Secrets: ~/.config/freshrss-quickshell/freshrss.env (outside git)
-#   FRESHRSS_BASE_URL=http://10.74.10.8
+#   FRESHRSS_BASE_URL=http://freshrss.example
 #   FRESHRSS_USER=admin
 #   FRESHRSS_API_PASSWORD=...   # optional; Profile → API password
+# With no secrets file the client exits "not configured" and does not use a default host.
 #
 set -euo pipefail
 
@@ -60,11 +61,7 @@ need_cmd() {
 
 load_secrets() {
     if [[ ! -f "$SECRETS" ]]; then
-        # Defaults for LAN FreshRSS without a secrets file
-        FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL:-http://10.74.10.8}"
-        FRESHRSS_USER="${FRESHRSS_USER:-admin}"
-        FRESHRSS_API_PASSWORD="${FRESHRSS_API_PASSWORD:-}"
-        return 0
+        return 1
     fi
     # shellcheck disable=SC1090
     set -a
@@ -488,7 +485,9 @@ scope = sys.argv[1]
 limit = int(sys.argv[2])
 per_feed = max(1, min(int(sys.argv[3]), 40))
 max_days = max(0, int(sys.argv[4]) if len(sys.argv) > 4 else 0)
-base = os.environ.get("FRESHRSS_BASE_URL", "http://10.74.10.8").rstrip("/")
+base = os.environ.get("FRESHRSS_BASE_URL", "").rstrip("/")
+if not base:
+    raise SystemExit("not configured")
 user = os.environ.get("FRESHRSS_USER", "admin")
 pw = os.environ.get("FRESHRSS_API_PASSWORD", "")
 auth_cache = os.environ.get("FRESHRSS_AUTH_CACHE", "")
@@ -1330,9 +1329,19 @@ EOF
 }
 
 main() {
-    load_secrets
     local cmd="${1:-}"
     shift || true
+    case "$cmd" in
+        -h|--help|help|"") usage; exit 0 ;;
+    esac
+    local have_secrets=0
+    if load_secrets; then
+        have_secrets=1
+    fi
+    case "$cmd" in
+        open-browser|play-mpv) ;;
+        *) [[ "$have_secrets" == 1 ]] || json_err "not configured" ;;
+    esac
     case "$cmd" in
         status)        cmd_status "$@" ;;
         items|unread)  cmd_items "$@" ;;

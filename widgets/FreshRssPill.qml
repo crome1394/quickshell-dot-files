@@ -36,6 +36,8 @@ Rectangle {
     readonly property string apiScript: Qt.resolvedUrl("../scripts/freshrss-api.sh").toString().replace("file://", "")
 
     property string mode: "rss"       // rss | fever
+    // False after status reports no secrets file. The poll timer stops.
+    property bool configured: true
     property bool writable: false
     property bool loading: false
     property string statusMsg: ""
@@ -1038,7 +1040,9 @@ Rectangle {
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            text: root.unreadCount > 0 ? (root.unreadCount > 99 ? "99+" : String(root.unreadCount)) : "RSS"
+            text: !root.configured
+                  ? "not configured"
+                  : (root.unreadCount > 0 ? (root.unreadCount > 99 ? "99+" : String(root.unreadCount)) : "RSS")
             // Bar widget text (Themes → Fonts → Bar widget text)
             color: (bar.barText !== undefined) ? bar.barText : bar.text
             font.pixelSize: {
@@ -1066,7 +1070,7 @@ Rectangle {
     // Background status poll (badge)
     Timer {
         interval: th.freshRssPollIntervalMs
-        running: true
+        running: root.configured
         repeat: true
         triggeredOnStart: true
         onTriggered: root.pollStatus()
@@ -1082,9 +1086,16 @@ Rectangle {
                 try {
                     const j = JSON.parse(line)
                     if (j.ok === false) {
+                        if (j.error === "not configured") {
+                            root.configured = false
+                            root.errorMsg = "not configured"
+                            root.unreadCount = 0
+                            return
+                        }
                         root.errorMsg = j.error || "status failed"
                         return
                     }
+                    root.configured = true
                     // Prefer explicit unread field; never treat "items loaded" as unread
                     if (j.unread !== undefined)
                         root.unreadCount = Math.max(0, Number(j.unread) || 0)
