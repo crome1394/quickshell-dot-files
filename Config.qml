@@ -2903,12 +2903,6 @@ QtObject {
     // Writable: Options → Tooltips delay + bar-layout.json (200–3000 ms).
     property int tooltipDelay: 1550
 
-    // =========================================================================
-    // Z-LAYERS (only the global ones that matter across components)
-    // =========================================================================
-    readonly property int zSysStats:   5
-    // Most other z usage is local (z: -1 for click-eaters)
-
     // --- NotificationBell command resolver (used by shell.qml + NotificationBell.qml)
     function notificationCommand(action) {
         if (action === "subscribe") return notificationSubscribe

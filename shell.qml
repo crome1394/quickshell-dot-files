@@ -4181,9 +4181,6 @@ ShellRoot {
         readonly property alias menuBtnCheck: cfg.menuBtnCheck
         readonly property alias menuBtnRadio: cfg.menuBtnRadio
 
-        // --- Z layers
-        readonly property alias zSysStats: cfg.zSysStats
-
         Rectangle {
             id: barBg
             readonly property bool compact: root.barLayoutMode === "dual"
