@@ -95,10 +95,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Hyprland
-import Quickshell.Widgets
-import Quickshell.Services.Pipewire
-import Quickshell.Services.SystemTray
-import Quickshell.Services.Mpris
 import Quickshell.Io as Io
 import "components"
 import "widgets"
