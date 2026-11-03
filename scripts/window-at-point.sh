@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Manual helper. The bar does not call this.
 # Resolve the topmost Hyprland client at global layout coordinates.
 # Usage: window-at-point.sh <global_x> <global_y> [exclude_pid]
 # Emits one JSON line: {pid,class,title,address} or {error:...}

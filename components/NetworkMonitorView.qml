@@ -21,8 +21,8 @@ Item {
     property color warnColor: "#f0d060"
     property color errorColor: "#FF3D8A"
 
-    readonly property string detailPollerScript: "/home/crome/.config/quickshell/scripts/run-network-detail-poller.sh"
-    readonly property string privilegedPollerScript: "/home/crome/.config/quickshell/scripts/run-network-privileged-poller.sh"
+    readonly property string detailPollerScript: Quickshell.shellPath("scripts/run-network-detail-poller.sh")
+    readonly property string privilegedPollerScript: Quickshell.shellPath("scripts/run-network-privileged-poller.sh")
     readonly property bool narrowLayout: width < 520
 
     readonly property int cardRadius: 6

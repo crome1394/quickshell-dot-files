@@ -21,7 +21,7 @@ Item {
     property color infoColor: "#00F0E0"
     property color debugColor: "#6e7a90"
 
-    readonly property string fetchScript: "/home/crome/.config/quickshell/scripts/log-fetch.sh"
+    readonly property string fetchScript: Quickshell.shellPath("scripts/log-fetch.sh")
     readonly property var lineCounts: [50, 100, 200, 500]
     readonly property int liveIntervalMs: 3000
 

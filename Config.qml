@@ -13,6 +13,7 @@
 // =============================================================================
 
 import QtQuick
+import Quickshell
 
 QtObject {
     id: theme
@@ -824,15 +825,6 @@ QtObject {
             return false
         fontMono = name + ", monospace"
         return true
-    }
-
-    // Keep role scales sane when loading older themes without them
-    function ensureFontRoleDefaults() {
-        fontScale = _clampFontRoleScale(fontScale)
-        fontMonoScale = _clampFontRoleScale(fontMonoScale)
-        fontMainScale = _clampFontRoleScale(fontMainScale)
-        fontSecondaryScale = _clampFontRoleScale(fontSecondaryScale)
-        fontBarScale = _clampFontRoleScale(fontBarScale)
     }
 
     function themeFactoryDefaults() {
@@ -1824,7 +1816,7 @@ QtObject {
     //   1) Quick Launch
     //   2) Sys stats (CPU / Memory / GPU)
     //   3) Secondary: FreshRSS
-    //   4) Connectivity: Network + Bluetooth capsule
+    //   4) Bluetooth, inside the Bluetooth + Audio pill. Network is its own widget.
     //
     // Thresholds are logical screen width (px). Tune if a machine feels too aggressive.
 
@@ -1938,10 +1930,6 @@ QtObject {
     // dockRadius: px influence for neighbor magnification (QL / tray / workspaces)
     // dockJumpPx: bounce height on click
     // Stats gauges and the volume meter stay still.
-    readonly property string dockEffectDefault: "both"
-    readonly property real   dockMaxScaleDefault: 1.28
-    readonly property int    dockRadiusDefault: 72
-    readonly property int    dockJumpPxDefault: 8
 
     // =========================================================================
     // QUICK LAUNCH (widgets/QuickLaunchPill.qml — pinned app icon row)
@@ -1964,55 +1952,55 @@ QtObject {
 
     readonly property var quickLaunchApps: [
         {
-            icon: "/home/crome/icons/vscodium.svg",
+            icon: (Quickshell.env("HOME") + "/icons/vscodium.svg"),
             glyph: "",
             command: ["gtk-launch", "vscodium"],
             tooltip: "VSCodium"
         },
         {
-            icon: "/home/crome/icons/firefox.svg",
+            icon: (Quickshell.env("HOME") + "/icons/firefox.svg"),
             glyph: "",
             command: ["env", "MOZ_ENABLE_WAYLAND=0", "firefox"],
             tooltip: "Firefox"
         },
         {
-            icon: "/home/crome/icons/brave.svg",
+            icon: (Quickshell.env("HOME") + "/icons/brave.svg"),
             glyph: "",
             command: ["/usr/bin/brave-origin"],
             tooltip: "Brave Origin"
         },
         {
-            icon: "/home/crome/icons/google-chrome.svg",
+            icon: (Quickshell.env("HOME") + "/icons/google-chrome.svg"),
             glyph: "",
             command: ["/usr/bin/google-chrome-stable"],
             tooltip: "Google Chrome"
         },
         {
-            icon: "/home/crome/icons/logseq-a.svg",
+            icon: (Quickshell.env("HOME") + "/icons/logseq-a.svg"),
             glyph: "",
             command: ["gtk-launch", "logseq"],
             tooltip: "Logseq"
         },
         {
-            icon: "/home/crome/icons/lmstudio-dark.png",
+            icon: (Quickshell.env("HOME") + "/icons/lmstudio-dark.png"),
             glyph: "",
-            command: ["/home/crome/applications/LM-Studio-0.4.13-1-x64.AppImage"],
+            command: [(Quickshell.env("HOME") + "/applications/LM-Studio-0.4.13-1-x64.AppImage")],
             tooltip: "LM Studio"
         },
         {
-            icon: "/home/crome/icons/steam.svg",
+            icon: (Quickshell.env("HOME") + "/icons/steam.svg"),
             glyph: "",
             command: ["/usr/bin/steam"],
             tooltip: "Steam"
         },   
         {
-            icon: "/home/crome/icons/com.system76.CosmicFiles.svg",
+            icon: (Quickshell.env("HOME") + "/icons/com.system76.CosmicFiles.svg"),
             glyph: "",
             command: ["/usr/bin/cosmic-files"],
             tooltip: "Cosmic Files"
         },    
         {
-            icon: "/home/crome/icons/kitty.svg",
+            icon: (Quickshell.env("HOME") + "/icons/kitty.svg"),
             glyph: "",
             command: ["/usr/bin/kitty"],
             tooltip: "Kitty"
@@ -2042,7 +2030,6 @@ QtObject {
     readonly property int popupNetworkPanelMaxHeight: popupH(680)
     readonly property int popupHelpWidth:     popupW(1060)  // Hypr Config Inspector default width
     readonly property int popupHelpHeight:    popupH(720)   // Hypr Config Inspector default height
-    readonly property int popupTrayMaxHeight:  popupH(520)   // SystemTrayPill menu max height before scroll
 
     // Popup internal layout tokens (standardizes the repeated glass card patterns)
     readonly property real popupHeaderHighlightHeight: 1.5   // Top light edge on popup glass cards
@@ -2062,9 +2049,10 @@ QtObject {
     // Magic pill visibility is separate (wsShowSpecialPill + setShowMagicWorkspacePill).
 
     readonly property bool showLauncherPill:        true   // Inline app launcher (shell.qml)
-    // Shell command for the Application Menu pill. The helper toggles: it closes
-    // rofi when the drawer is already open, and launches it otherwise.
-    readonly property string launcherCommand: "~/.local/bin/rofi-app-drawer"
+    // Shell command for the Application Menu pill. Empty
+    // launcherCommandCustom uses this. The script tries rofi, then wofi,
+    // then fuzzel, and shows an error if none of them is installed.
+    readonly property string launcherCommand: Quickshell.shellPath("scripts/app-drawer.sh")
     readonly property string launcherTooltip: "Application Menu"
     readonly property bool showQuickLaunchPill:     true   // QuickLaunchPill.qml
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
@@ -2079,7 +2067,6 @@ QtObject {
     readonly property bool showOpacityPill:        true   // OpacityPill.qml
     readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
-    readonly property bool showRadarPill:          false  // RadarPill.qml (removed from bar; set true + re-add in shell.qml to restore)
     readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
     readonly property bool showControlBarPill:     true   // Opens BarControlBar (config strip) from the bar
 
@@ -2092,27 +2079,26 @@ QtObject {
     // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)
     // CLI/rofi: hypr-resolution (on PATH). Script: list/status/apply for the control strip.
     readonly property string hyprResolutionBin: "hypr-resolution"
-    readonly property string monitorModeScript: "/home/crome/.config/quickshell/scripts/monitor-mode.sh"
-    readonly property string monitorName: "DP-1"
+    readonly property string monitorModeScript: Quickshell.shellPath("scripts/monitor-mode.sh")
+    readonly property string monitorName: ""  // empty: focused Hyprland output
 
     // Wallpaper (BarControlBar → Wallpaper panel; hyprpaper apply)
-    readonly property string wallpaperDir: "/home/crome/Pictures/wallpapers"
-    readonly property string wallpaperMonitor: "DP-1"
-    readonly property string wallpaperFitMode: "cover"
+    readonly property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
+    readonly property string wallpaperMonitor: ""  // empty: focused Hyprland output
     readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
-    readonly property string wallpaperListScript:  "/home/crome/.config/quickshell/scripts/wallpaper-list-json.sh"
-    readonly property string wallpaperApplyScript: "/home/crome/.config/quickshell/scripts/wallpaper-apply.sh"
-    readonly property string wallpaperAddScript:   "/home/crome/.config/quickshell/scripts/wallpaper-add.sh"
-    readonly property string wallpaperRenameScript: "/home/crome/.config/quickshell/scripts/wallpaper-rename.sh"
-    readonly property string wallpaperDeleteScript: "/home/crome/.config/quickshell/scripts/wallpaper-delete.sh"
-    readonly property string wallpaperPickDirScript: "/home/crome/.config/quickshell/scripts/wallpaper-pick-dir.sh"
+    readonly property string wallpaperListScript:  Quickshell.shellPath("scripts/wallpaper-list-json.sh")
+    readonly property string wallpaperApplyScript: Quickshell.shellPath("scripts/wallpaper-apply.sh")
+    readonly property string wallpaperAddScript:   Quickshell.shellPath("scripts/wallpaper-add.sh")
+    readonly property string wallpaperRenameScript: Quickshell.shellPath("scripts/wallpaper-rename.sh")
+    readonly property string wallpaperDeleteScript: Quickshell.shellPath("scripts/wallpaper-delete.sh")
+    readonly property string wallpaperPickDirScript: Quickshell.shellPath("scripts/wallpaper-pick-dir.sh")
 
     // XDG Autostart (BarControlBar → Autostart panel; ~/.config/autostart)
-    readonly property string autostartListScript: "/home/crome/.config/quickshell/scripts/autostart-list-json.sh"
-    readonly property string autostartSetScript:  "/home/crome/.config/quickshell/scripts/autostart-set.sh"
-    readonly property string autostartAddScript:  "/home/crome/.config/quickshell/scripts/autostart-add.sh"
-    readonly property string autostartRunScript:  "/home/crome/.config/quickshell/scripts/autostart-run.sh"
-    readonly property string opacityApplyScript: "/home/crome/.config/quickshell/scripts/opacity-apply.sh"
+    readonly property string autostartListScript: Quickshell.shellPath("scripts/autostart-list-json.sh")
+    readonly property string autostartSetScript:  Quickshell.shellPath("scripts/autostart-set.sh")
+    readonly property string autostartAddScript:  Quickshell.shellPath("scripts/autostart-add.sh")
+    readonly property string autostartRunScript:  Quickshell.shellPath("scripts/autostart-run.sh")
+    readonly property string opacityApplyScript: Quickshell.shellPath("scripts/opacity-apply.sh")
 
     // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
@@ -2125,7 +2111,7 @@ QtObject {
         return s.length ? s : fontBarResolved
     }
     readonly property int clockFontFace: fspRole(13, clockFontScale)
-    readonly property string timezoneControlScript: "/home/crome/.config/quickshell/scripts/timezone-control.sh"
+    readonly property string timezoneControlScript: Quickshell.shellPath("scripts/timezone-control.sh")
     // Presets shown in the control-bar Clock menu: { label, format, tip }
     readonly property var clockFormatPresets: [
         { label: "Full",   format: "dddd, MM·dd·yyyy | HH:mm:ss", tip: "Weekday, date, 24h with seconds" },
@@ -2180,37 +2166,6 @@ QtObject {
     ]
 
     // =========================================================================
-    // NWS RADAR (widgets/RadarPill.qml + scripts/radar-fetch.sh)
-    // =========================================================================
-    // Native map window (not a browser). Radar from NOAA OpenGeo WMS; basemap
-    // from Esri World Street Map. No background polling of new frames.
-    //
-    // Defaults match a radar.weather.gov bookmark centered on Ohio:
-    //   center [-83.201, 40.326], zoom ~7.086, local mosaic view
-    //
-    // radarOverscan: each fetch loads this many viewport-widths of area so you
-    // can pan a long distance before a reload. Scale is isotropic (same X/Y) so
-    // the buffer matches the window aspect and does not stretch the map.
-    // Auto-refresh runs after pan/zoom settles only when the view leaves that
-    // buffer (or zoom changes a lot).
-    //
-    // IPC:
-    //   qs ipc call radar toggle | refresh | show | hide
-    //
-    // product: "cref" (composite reflectivity) or "bref" (base reflectivity)
-
-    readonly property real   radarDefaultLon:     -83.201
-    readonly property real   radarDefaultLat:      40.326
-    readonly property real   radarDefaultZoom:     7.086
-    readonly property string radarDefaultProduct:  "cref"
-    readonly property real   radarOverscan:        3.0    // 3× viewport coverage per fetch
-    readonly property int    radarSettleMs:        420    // debounce before edge auto-reload
-    readonly property int    radarWidth:           popupW(980)
-    readonly property int    radarHeight:          popupH(680)
-    readonly property int    radarMinWidth:        sp(560)
-    readonly property int    radarMinHeight:       sp(400)
-
-    // =========================================================================
     // FRESHRSS READER (widgets/FreshRssPill.qml + scripts/freshrss-api.sh)
     // =========================================================================
     // Server + credentials (outside git):
@@ -2248,9 +2203,9 @@ QtObject {
     readonly property int freshRssListMaxWidth:    sp(720)
     readonly property int freshRssDetailMinWidth:  sp(260)   // drag limit — article pane
     // Scripts for Options panel credentials UI
-    readonly property string freshRssSecretsReadScript:  "/home/crome/.config/quickshell/scripts/freshrss-secrets-read.sh"
-    readonly property string freshRssSecretsWriteScript: "/home/crome/.config/quickshell/scripts/freshrss-secrets-write.sh"
-    readonly property string freshRssConnectionTestScript: "/home/crome/.config/quickshell/scripts/freshrss-connection-test.sh"
+    readonly property string freshRssSecretsReadScript:  Quickshell.shellPath("scripts/freshrss-secrets-read.sh")
+    readonly property string freshRssSecretsWriteScript: Quickshell.shellPath("scripts/freshrss-secrets-write.sh")
+    readonly property string freshRssConnectionTestScript: Quickshell.shellPath("scripts/freshrss-connection-test.sh")
 
     // =========================================================================
     // NOTIFICATION BELL (widgets/NotificationBell.qml)
@@ -2264,7 +2219,6 @@ QtObject {
     // that panel. Right-click toggles DND. SwayNC's control center is not used in the UI.
     //
     //   notificationSubscribe    — live DND updates (SwayNC: swaync-client -s)
-    //   notificationTogglePanel  — unused in UI (SwayNC control center); kept for IPC/scripts
     //   notificationToggleDnd    — DND on the history panel + right-click the bell
     //   notificationClearAll     — also run from the history panel "Clear list"
     //   notificationSync         — backup poll for DND. The bell badge is the history
@@ -2272,13 +2226,12 @@ QtObject {
     //   notificationDndAccent    — border/bell color when Do Not Disturb is on
 
     readonly property var notificationSubscribe:    ["swaync-client", "-s", "-sw"]  // Live JSON stream (optional)
-    readonly property var notificationTogglePanel: ["swaync-client", "-t", "-sw"]   // Unused in UI
     readonly property var notificationToggleDnd:   ["swaync-client", "-d", "-sw"]   // History panel + right-click
     readonly property var notificationClearAll:    ["swaync-client", "-C", "-sw"]   // History "Clear list"
     // Timer poller — DND backup. Script still prints {"count":N,"dnd":true|false};
     // the bell ignores count and uses the history list length.
     readonly property var notificationSync: [
-        "/home/crome/.config/quickshell/scripts/notification-sync.sh"
+        Quickshell.shellPath("scripts/notification-sync.sh")
     ]
     readonly property int notificationSyncIntervalMs: 2500  // Ms between sync script runs
     readonly property color notificationDndAccent: muted  // Warning red pill border + bell when DND is on
@@ -2380,13 +2333,11 @@ QtObject {
     // Main text → menu titles / section headers
     readonly property int fontClock:      fspRole(15, fontBarScale)   // Clock face (bar widget text)
     readonly property int fontPillLabel:  fsp(12)   // Volume % etc. (tier colors; global scale only)
-    readonly property int fontPillLabelBold: fsp(12)
     readonly property int fontPopupTitle: fspRole(16, fontMainScale)   // Menu main titles
     readonly property int fontSection:    fspRole(13, fontMainScale)   // Menu section headers
     readonly property int fontBody:       fspRole(12, fontSecondaryScale)   // Menu body / secondary
     readonly property int fontSmall:      fspRole(11, fontSecondaryScale)
     readonly property int fontTiny:       fspRole(10, fontSecondaryScale)
-    readonly property int fontPowerLabel: fspRole(12, fontSecondaryScale)
     // Explicit bar-face size (~sysstats / clock / IP) — Themes → Bar widget text size
     readonly property int fontBarFace:    fspRole(13, fontBarScale)
     // Mono sample / mono-labeled UI (Themes → Monospace size)
@@ -2406,7 +2357,6 @@ QtObject {
     readonly property string iconAudioUsb:       "󰕓"   // USB audio (DAC, webcam mic, etc.)
     readonly property string iconAudioHdmi:      "󰡁"   // HDMI / DisplayPort audio
     readonly property string iconAudioInternal:  "󰓃"   // Built-in / PCI analog
-    readonly property string iconAudioHeadset:   "󰋋"   // Headset form factor
     readonly property string iconAudioBattery:   "󰁹"   // BT battery (generic full)
     // Bluetooth pill (adapter / connection state glyphs)
     readonly property string iconBluetooth:          "󰂯"   // Powered on, idle
@@ -2443,12 +2393,6 @@ QtObject {
         { icon: iconShutdown, label: "Shutdown",   action: "shutdown" },
         { icon: iconBios,     label: "Enter BIOS", action: "bios" },
     ]
-
-    // Misc common
-    readonly property string iconLauncher:      "󰀻"   // Unused on the bar (launcher is a drawn 3×3 in shell.qml)
-    readonly property string iconBell:          "󱅫"
-    readonly property string iconBellDnd:       "󰂠"
-    readonly property string iconBellEmpty:     "󰂜"
 
     // =========================================================================
     // SLIDERS & VOLUME BARS (the key user request)
@@ -2538,17 +2482,11 @@ QtObject {
     readonly property int  wsStartupWorkspace: 0       // 0 = preserve focus on start/reload. IPC: setWsStartupWorkspace
     readonly property bool wsStartupCloseMagic: false  // Close magic on qs start (only if wsStartupWorkspace > 0). IPC: setWsStartupCloseMagic
 
-    // Legacy workspace hover (unused by WorkspacesPill — uses iconHoverBg now).
-    readonly property color wsHoverYellow: "#b8fff8"           // Soft teal hover reference
     // Writable so Colors panel can edit live (also in themeEditableKeys).
     property color wsActiveBg:    Qt.rgba(0.0, 0.85, 0.80, 0.28)  // Active workspace — teal glass
     readonly property color wsActiveBorder: accent     // Vivid teal-cyan (tracks accent)
     property color wsActiveText:  "#e6fffc"
     property color wsInactiveText: "#ffffff"           // Inactive workspace number / icon
-
-    // Legacy names some older code paths may still reference
-    readonly property color wsText:        "#8a92b0"
-    readonly property color wsActiveTextLegacy: wsActiveText   // (the alias in shell.qml maps wsActiveText → this)
 
     readonly property int  wsButtonWidth:   sp(42)   // Width of each workspace pill button
     readonly property int  wsButtonHeight:  sp(32)   // Height of each workspace pill button
@@ -2830,7 +2768,6 @@ QtObject {
     readonly property int inspStatusFontSize:     Math.max(9, sp(12))
     readonly property int inspFooterButtonHeight:       sp(22)
     readonly property int inspFooterButtonRadius:       sp(5)
-    readonly property int inspFooterButtonSpacing:       sp(6)
 
     // --- Scrollbars (tab bar + content Flickables)
     readonly property int inspScrollBarWidth:       sp(6)
@@ -2842,7 +2779,6 @@ QtObject {
     readonly property color inspRowHoverBgStrong: Qt.rgba(1, 1, 1, 0.06)  // system info values
     readonly property int inspRowRadius:       sp(4)
     readonly property int inspBindRowHeight:       sp(26)
-    readonly property int inspEnvRowHeight:       sp(28)
     readonly property int inspEnvHeaderHeight:       sp(28)
 
     // --- Environment variable table layout
@@ -2963,32 +2899,12 @@ QtObject {
     // =========================================================================
     // ANIMATION & INTERACTION TOKENS
     // =========================================================================
-    // Centralized durations and delays for consistent feel across the bar.
-    // Recommended easing for most UI motion: Easing.OutQuad (used in existing Behaviors).
-
-    readonly property int animFast:   90    // Quick feedback (Cava bars, small state changes)
-    readonly property int animMedium: 140   // Standard hover / color transitions (WorkspacesPill)
-    readonly property int animSlow:   220   // Slower, more noticeable motion
-
-    // Interaction delays
     // Writable: Options → Tooltips delay + bar-layout.json (200–3000 ms).
     property int tooltipDelay: 1550
-
-    // =========================================================================
-    // Z-LAYERS (only the global ones that matter across components)
-    // =========================================================================
-    readonly property int zSysStats:   5
-    // Most other z usage is local (z: -1 for click-eaters)
-
-    // =========================================================================
-    // CONVENIENCE / DERIVED (rarely need editing)
-    // =========================================================================
-    readonly property int popupY: barHeight + 2   // Legacy Y offset under the bar (prefer popupBarGap + popupAnchorY)
 
     // --- NotificationBell command resolver (used by shell.qml + NotificationBell.qml)
     function notificationCommand(action) {
         if (action === "subscribe") return notificationSubscribe
-        if (action === "togglePanel") return notificationTogglePanel
         if (action === "toggleDnd") return notificationToggleDnd
         if (action === "clearAll") return notificationClearAll
         if (action === "sync") return notificationSync
@@ -3005,11 +2921,6 @@ QtObject {
 
     function notificationSyncEnabled() {
         return notificationCmdLength(notificationSync)
-    }
-
-    function notificationSupportsPanel() {
-        var cmd = notificationCommand("togglePanel")
-        return cmd && cmd.length !== undefined && cmd.length > 0
     }
 
     function notificationSupportsDnd() {

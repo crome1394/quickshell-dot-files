@@ -24,8 +24,8 @@ Item {
     property color warnColor: "#f0d060"
     property color errorColor: "#FF3D8A"
 
-    readonly property string pollerScript: "/home/crome/.config/quickshell/scripts/run-process-poller.sh"
-    readonly property string controlScript: "/home/crome/.config/quickshell/scripts/process-control.sh"
+    readonly property string pollerScript: Quickshell.shellPath("scripts/run-process-poller.sh")
+    readonly property string controlScript: Quickshell.shellPath("scripts/process-control.sh")
 
     readonly property int cardRadius: 6
     readonly property int cardMargin: 10

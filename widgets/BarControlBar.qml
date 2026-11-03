@@ -1051,7 +1051,7 @@ Item {
     }
 
     // ScreenShots options (output folder — saved in bar-layout.json)
-    readonly property string screenshotPickDirScript: "/home/crome/.config/quickshell/scripts/capture-screenshot-pick-dir.sh"
+    readonly property string screenshotPickDirScript: Quickshell.shellPath("scripts/capture-screenshot-pick-dir.sh")
     property string screenshotDirDraft: ""
     property string screenshotStatus: ""
 
@@ -1065,7 +1065,7 @@ Item {
     property bool frLoading: false
 
     // Screensaver (video or text — no DPMS). Source of truth: ~/.config/hypr/screensaver.conf
-    readonly property string screensaverConfigScript: "/home/crome/.local/bin/screensaver-config.sh"
+    readonly property string screensaverConfigScript: (Quickshell.env("HOME") + "/.local/bin/screensaver-config.sh")
     property bool ssEnabled: true
     property int ssTimeoutMin: 10
     property string ssVideo: ""
@@ -1090,7 +1090,7 @@ Item {
 
     // --- ScreenShots options ---
     function screenshotDefaultDir() {
-        let home = String(Quickshell.env("HOME") || "/home/crome")
+        let home = String(Quickshell.env("HOME") || "")
         while (home.length > 1 && home.charAt(home.length - 1) === "/")
             home = home.substring(0, home.length - 1)
         return home + "/Pictures"
@@ -1122,7 +1122,7 @@ Item {
             return
         }
         if (d.charAt(0) === "~")
-            d = String(Quickshell.env("HOME") || "/home/crome") + d.substring(1)
+            d = String(Quickshell.env("HOME") || "") + d.substring(1)
         if (d.charAt(0) !== "/") {
             root.screenshotStatus = "Use an absolute path or ~/folder"
             return
@@ -1248,7 +1248,7 @@ Item {
         root.ssTimeoutMin = mins
         let scriptPath = (root.ssScript || "").trim()
         if (!scriptPath.length)
-            scriptPath = "/home/crome/.local/bin/screensaver.sh"
+            scriptPath = (Quickshell.env("HOME") + "/.local/bin/screensaver.sh")
         const args = [
             script, "set",
             "--enabled", root.ssEnabled ? "1" : "0",
@@ -2740,7 +2740,7 @@ Item {
         void root.menuTick
         if (bar.wallpaperDir && String(bar.wallpaperDir).length)
             return String(bar.wallpaperDir)
-        return "/home/crome/Pictures/wallpapers"
+        return (Quickshell.env("HOME") + "/Pictures/wallpapers")
     }
 
     function wallpaperCurrent() {
@@ -2773,7 +2773,7 @@ Item {
             bar.applyWallpaper(path)
         else {
             const script = bar.wallpaperApplyScript || ""
-            const mon = bar.wallpaperMonitor || "DP-1"
+            const mon = bar.wallpaperMonitor || ""
             if (script.length)
                 Quickshell.execDetached([script, path, mon])
         }
@@ -2937,7 +2937,7 @@ Item {
         } catch (e) {}
         if (bar.monitorModeScript && String(bar.monitorModeScript).length)
             return String(bar.monitorModeScript)
-        return "/home/crome/.config/quickshell/scripts/monitor-mode.sh"
+        return Quickshell.shellPath("scripts/monitor-mode.sh")
     }
 
     // Exact match (for applied-vs-pending and EDID labels)
@@ -3636,7 +3636,7 @@ Item {
     }
 
     function openAutostartDir() {
-        Quickshell.execDetached(["xdg-open", "/home/crome/.config/autostart"])
+        Quickshell.execDetached(["xdg-open", (Quickshell.env("HOME") + "/.config/autostart")])
     }
 
     function setScalePercent(id, percent) {
@@ -3754,7 +3754,7 @@ Item {
     Io.Process {
         id: listTerminalsProcess
         running: false
-        command: ["/home/crome/.config/quickshell/scripts/list-terminals.sh"]
+        command: [Quickshell.shellPath("scripts/list-terminals.sh")]
         stdout: Io.SplitParser {
             splitMarker: "\n"
             onRead: (line) => {
@@ -13452,7 +13452,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
-                                        placeholderText: "freshrss.example or 10.74.10.8"
+                                        placeholderText: "freshrss.example"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
                                         font.pixelSize: 14

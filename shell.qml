@@ -95,10 +95,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell.Hyprland
-import Quickshell.Widgets
-import Quickshell.Services.Pipewire
-import Quickshell.Services.SystemTray
-import Quickshell.Services.Mpris
 import Quickshell.Io as Io
 import "components"
 import "widgets"
@@ -208,7 +204,7 @@ ShellRoot {
     property var quickLaunchApps: []
 
     // Wallpaper directory (Config default; editable from BarControlBar, persisted)
-    property string wallpaperDir: "/home/crome/Pictures/wallpapers"
+    property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
     property string wallpaperCurrent: ""
     // Preferred wallpaper thumbnail width (px); grid stretches tiles to fill the panel.
     property int wallpaperTileSize: 148
@@ -403,7 +399,119 @@ ShellRoot {
         // --- Config (single source of truth — see Config.qml) ---
         Config { id: cfg }
 
+        // state/, themes/, and profiles/ are gitignored, so a fresh clone has
+        // none of them. mkdir -p before the first writeAdapter. Writes wait
+        // until that mkdir exits. An existing directory is left unchanged.
+        property bool _saveDirsReady: false
+        property bool _saveDirsStarted: false
+        property bool _saveDirsPendingLayout: false
+        property bool _saveDirsPendingTheme: false
+
+        function parentDirOf(path) {
+            const p = String(path || "")
+            const i = p.lastIndexOf("/")
+            return i > 0 ? p.substring(0, i) : ""
+        }
+
+        function saveDirPaths() {
+            const stateDir = bar.parentDirOf(barLayoutFile.path)
+            const themeFileDir = bar.parentDirOf(themeColorsFile.path)
+            const out = []
+            if (stateDir.length)
+                out.push(stateDir)
+            if (themeFileDir.length && themeFileDir !== stateDir)
+                out.push(themeFileDir)
+            const slash = stateDir.lastIndexOf("/")
+            if (slash > 0 && stateDir.substring(slash + 1) === "state") {
+                const configRoot = stateDir.substring(0, slash)
+                out.push(configRoot + "/themes")
+                out.push(configRoot + "/profiles")
+            }
+            return out
+        }
+
+        function ensureSaveDirs() {
+            if (bar._saveDirsReady || bar._saveDirsStarted)
+                return
+            const dirs = bar.saveDirPaths()
+            if (!dirs.length) {
+                bar.finishSaveDirs()
+                return
+            }
+            bar._saveDirsStarted = true
+            saveDirProc.exec(["/usr/bin/mkdir", "-p"].concat(dirs))
+            saveDirFallbackTimer.restart()
+        }
+
+        function finishSaveDirs() {
+            if (bar._saveDirsReady)
+                return
+            bar._saveDirsReady = true
+            saveDirFallbackTimer.stop()
+            if (bar._saveDirsPendingLayout) {
+                bar._saveDirsPendingLayout = false
+                barLayoutFile.writeAdapter()
+                bar.scheduleBarLayoutGuardClear()
+            }
+            if (bar._saveDirsPendingTheme) {
+                bar._saveDirsPendingTheme = false
+                themeColorsFile.writeAdapter()
+                bar.scheduleThemeGuardClear()
+            }
+        }
+
+        function writeBarLayoutWhenReady() {
+            if (!bar._saveDirsReady) {
+                bar._saveDirsPendingLayout = true
+                bar.ensureSaveDirs()
+                return false
+            }
+            bar._saveDirsPendingLayout = false
+            barLayoutFile.writeAdapter()
+            return true
+        }
+
+        function writeThemeColorsWhenReady() {
+            if (!bar._saveDirsReady) {
+                bar._saveDirsPendingTheme = true
+                bar.ensureSaveDirs()
+                return false
+            }
+            bar._saveDirsPendingTheme = false
+            themeColorsFile.writeAdapter()
+            return true
+        }
+
+        function scheduleBarLayoutGuardClear() {
+            Qt.callLater(function() {
+                Qt.callLater(function() {
+                    bar._barLayoutWriteGuard = false
+                })
+            })
+        }
+
+        function scheduleThemeGuardClear() {
+            Qt.callLater(function() {
+                Qt.callLater(function() {
+                    bar._themeWriteGuard = false
+                })
+            })
+        }
+
+        Io.Process {
+            id: saveDirProc
+            onExited: bar.finishSaveDirs()
+        }
+
+        Timer {
+            id: saveDirFallbackTimer
+            interval: 2000
+            repeat: false
+            onTriggered: bar.finishSaveDirs()
+        }
+
         Component.onCompleted: {
+            bar.ensureSaveDirs()
             root.showLauncherPill = cfg.showLauncherPill
             root.showQuickLaunchPill = cfg.showQuickLaunchPill
             root.showWorkspacesPill = cfg.showWorkspacesPill
@@ -531,7 +639,7 @@ ShellRoot {
             }
             cfg.uiScaleManual = s
             barLayoutAdapter.uiScaleManual = s
-            barLayoutFile.writeAdapter()
+            bar.writeBarLayoutWhenReady()
             bar.applyUiScale()
         }
 
@@ -834,7 +942,7 @@ ShellRoot {
 
         Io.FileView {
             id: barLayoutFile
-            path: "/home/crome/.config/quickshell/state/bar-layout.json"
+            path: Quickshell.shellPath("state/bar-layout.json")
             watchChanges: true
             onFileChanged: {
                 if (bar._barLayoutWriteGuard)
@@ -1201,7 +1309,7 @@ ShellRoot {
         // =====================================================================
         Io.FileView {
             id: themeColorsFile
-            path: "/home/crome/.config/quickshell/state/theme-colors.json"
+            path: Quickshell.shellPath("state/theme-colors.json")
             watchChanges: true
             onFileChanged: {
                 if (bar._themeWriteGuard)
@@ -1236,12 +1344,8 @@ ShellRoot {
             } catch (e) {
                 themeColorsAdapter.themeJson = "{}"
             }
-            themeColorsFile.writeAdapter()
-            Qt.callLater(function() {
-                Qt.callLater(function() {
-                    bar._themeWriteGuard = false
-                })
-            })
+            if (bar.writeThemeColorsWhenReady())
+                bar.scheduleThemeGuardClear()
         }
 
         function schedulePersistThemeColors() {
@@ -1909,13 +2013,10 @@ ShellRoot {
             barLayoutAdapter.dockRadius = Math.max(32, Math.min(160, Math.round(root.dockRadius || 72)))
             barLayoutAdapter.dockJumpPx = Math.max(4, Math.min(20, Math.round(root.dockJumpPx || 8)))
             barLayoutAdapter.dockScope = root.dockScope === "quicklaunch" ? "quicklaunch" : "icons"
-            barLayoutFile.writeAdapter()
             // Clear guard after filesystem watcher has had a chance to fire.
-            Qt.callLater(function() {
-                Qt.callLater(function() {
-                    bar._barLayoutWriteGuard = false
-                })
-            })
+            // A deferred write clears it from finishSaveDirs instead.
+            if (bar.writeBarLayoutWhenReady())
+                bar.scheduleBarLayoutGuardClear()
         }
 
         // --- Options panel setters (shared with shell IPC) ---
@@ -2534,7 +2635,7 @@ ShellRoot {
             bar._appliedNotificationCorner = corner
             bar._appliedNotificationTimeout = timeout
             Quickshell.execDetached([
-                "/home/crome/.config/quickshell/scripts/swaync-corner.py",
+                Quickshell.shellPath("scripts/swaync-corner.py"),
                 corner,
                 String(timeout)
             ])
@@ -3151,7 +3252,7 @@ ShellRoot {
             if (!p.length)
                 return
             const script = cfg.wallpaperApplyScript || ""
-            const mon = cfg.wallpaperMonitor || "DP-1"
+            const mon = cfg.wallpaperMonitor || ""
             if (!script.length)
                 return
             Quickshell.execDetached([script, p, mon])
@@ -3294,10 +3395,6 @@ ShellRoot {
             return cfg.notificationUsesLiveSubscribe()
         }
 
-        function notificationSupportsPanel() {
-            return cfg.notificationSupportsPanel()
-        }
-
         function notificationSupportsDnd() {
             return cfg.notificationSupportsDnd()
         }
@@ -3394,8 +3491,8 @@ ShellRoot {
         readonly property alias themeStatVramTierUiRows: cfg.themeStatVramTierUiRows
         readonly property alias themeStatTempUiRows: cfg.themeStatTempUiRows
         readonly property alias themeEditableNumbers: cfg.themeEditableNumbers
-        readonly property string themeIoScript: "/home/crome/.config/quickshell/scripts/theme-io.sh"
-        readonly property string profileIoScript: "/home/crome/.config/quickshell/scripts/profile-io.sh"
+        readonly property string themeIoScript: Quickshell.shellPath("scripts/theme-io.sh")
+        readonly property string profileIoScript: Quickshell.shellPath("scripts/profile-io.sh")
         property string themeStatus: ""
         property var themeSavedList: []
         property var setupSavedList: []
@@ -3463,6 +3560,16 @@ ShellRoot {
             void hyprGapsOutBottom
             void barIsTopEdge
             return exclusiveZoneFor(barIsTopEdge)
+        }
+        // Bottom strip. Separate from edgeExclusiveZone so the zone binding
+        // does not also write exclusionMode (that pair loops).
+        readonly property int bottomEdgeExclusiveZone: {
+            void flushWindowsToBar
+            void barEdgeMargin
+            void barHeight
+            void barContentVMargin
+            void hyprGapsOutBottom
+            return exclusiveZoneFor(false)
         }
         function exclusiveZoneFor(isTop) {
             var h = cfg.barHeight
@@ -3570,6 +3677,12 @@ ShellRoot {
         readonly property alias barLayoutMode: root.barLayoutMode
         property int layoutEpoch: 0
         readonly property var bottomBarWindow: bottomBar
+        readonly property var leftEdgeZone: leftEdgeFace.zone
+        readonly property var leftEdgeBg: leftEdgeFace
+        readonly property var leftEdgeStack: leftEdgeFace.stack
+        readonly property var rightEdgeZone: rightEdgeFace.zone
+        readonly property var rightEdgeBg: rightEdgeFace
+        readonly property var rightEdgeStack: rightEdgeFace.stack
         readonly property var controlBarItem: controlBarPill
         readonly property var topBarChrome: barBg
         readonly property var bottomBarChrome: bottomBarBg
@@ -3812,7 +3925,7 @@ ShellRoot {
         property alias ovExitOnSwitch: root.ovExitOnSwitch
         property alias widgetScales: root.widgetScales
         // Desktop app picker script for the Launch panel
-        readonly property string desktopAppsJsonScript: "/home/crome/.config/quickshell/scripts/desktop-apps-json.sh"
+        readonly property string desktopAppsJsonScript: Quickshell.shellPath("scripts/desktop-apps-json.sh")
         readonly property alias wallpaperListScript: cfg.wallpaperListScript
         readonly property alias wallpaperApplyScript: cfg.wallpaperApplyScript
         readonly property alias wallpaperAddScript: cfg.wallpaperAddScript
@@ -3913,7 +4026,6 @@ ShellRoot {
         readonly property alias iconAudioUsb: cfg.iconAudioUsb
         readonly property alias iconAudioHdmi: cfg.iconAudioHdmi
         readonly property alias iconAudioInternal: cfg.iconAudioInternal
-        readonly property alias iconAudioHeadset: cfg.iconAudioHeadset
         readonly property alias iconAudioBattery: cfg.iconAudioBattery
         readonly property alias iconBluetooth: cfg.iconBluetooth
         readonly property alias iconBluetoothOff: cfg.iconBluetoothOff
@@ -3938,7 +4050,6 @@ ShellRoot {
         readonly property alias iconReboot: cfg.iconReboot
         readonly property alias iconShutdown: cfg.iconShutdown
         readonly property alias iconBios: cfg.iconBios
-        readonly property alias iconLauncher: cfg.iconLauncher
         readonly property alias iconHyprInsp: cfg.iconHyprInsp
         readonly property alias iconControlBar: cfg.iconControlBar
         readonly property string launcherCommand: {
@@ -3977,7 +4088,6 @@ ShellRoot {
         function audioMicUtilColor(percent) { return cfg.audioMicUtilColor(percent) }
 
         // --- Workspaces
-        readonly property alias wsHoverYellow: cfg.wsHoverYellow
         property alias wsActiveBg: cfg.wsActiveBg
         readonly property alias wsActiveBorder: cfg.wsActiveBorder
         property alias wsActiveText: cfg.wsActiveText
@@ -3987,7 +4097,6 @@ ShellRoot {
         readonly property alias wsIconSize: cfg.wsIconSize
         readonly property alias wsNumberSize: cfg.wsNumberSize
         readonly property alias wsSpacing: cfg.wsSpacing
-        readonly property alias wsText: cfg.wsText
         readonly property alias wsIcon1: cfg.wsIcon1
         readonly property alias wsIcon2: cfg.wsIcon2
         readonly property alias wsIcon3: cfg.wsIcon3
@@ -4178,9 +4287,6 @@ ShellRoot {
         readonly property alias dividerSubtle: cfg.dividerSubtle
 
         // --- Animation & interaction
-        readonly property alias animFast: cfg.animFast
-        readonly property alias animMedium: cfg.animMedium
-        readonly property alias animSlow: cfg.animSlow
         property alias tooltipDelay: cfg.tooltipDelay
         property alias tooltipAlign: root.tooltipAlign
 
@@ -4191,9 +4297,6 @@ ShellRoot {
         readonly property alias menuBtnNone: cfg.menuBtnNone
         readonly property alias menuBtnCheck: cfg.menuBtnCheck
         readonly property alias menuBtnRadio: cfg.menuBtnRadio
-
-        // --- Z layers
-        readonly property alias zSysStats: cfg.zSysStats
 
         Rectangle {
             id: barBg
@@ -4926,15 +5029,7 @@ ShellRoot {
         color: "transparent"
         implicitHeight: bar.panelBarHeight()
         screen: bar.screen
-        exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Normal : ExclusionMode.Ignore
-        exclusiveZone: {
-            void (bar.flushWindowsToBar)
-            void (bar.barEdgeMargin)
-            void (bar.barHeight)
-            void (bar.barContentVMargin)
-            void (bar.hyprGapsOutBottom)
-            return bar.exclusiveZoneFor(false)
-        }
+        exclusiveZone: root.barLayoutMode === "dual" ? bar.bottomEdgeExclusiveZone : 0
         mask: Region { item: bottomBarBg }
         anchors.left: true
         anchors.right: true
@@ -5016,8 +5111,6 @@ ShellRoot {
         color: "transparent"
         implicitWidth: bar.barHeight
         screen: bar.screen
-        exclusionMode: (root.barLayoutMode === "dual" && root.showLeftBar)
-                       ? ExclusionMode.Normal : ExclusionMode.Ignore
         exclusiveZone: {
             void (root.showLeftBar)
             void (root.barLayoutMode)
@@ -5030,7 +5123,7 @@ ShellRoot {
                 return 0
             return bar.sideExclusiveZoneFor(true)
         }
-        mask: Region { item: leftEdgeBg }
+        mask: Region { item: leftEdgeFace }
         anchors.top: true
         anchors.bottom: true
         anchors.left: true
@@ -5038,80 +5131,13 @@ ShellRoot {
         margins.top: bar.sideTopInset()
         margins.bottom: bar.sideBottomInset()
 
-        Rectangle {
-            id: leftEdgeBg
-            readonly property bool spanHeight: !!root.leftBarSpanFull
-            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
-                              leftEdgeStack.height + 2 * bar.barContentHMargin))
-            property int hugH: 80
-            onHugMeasuredChanged: {
-                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
-                    hugH = hugMeasured
-            }
-            onSpanHeightChanged: hugH = hugMeasured
-            Component.onCompleted: hugH = hugMeasured
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 0
-            anchors.rightMargin: bar.barContentVMargin
-            y: spanHeight ? 0 : bar.alignY(root.leftBarAlign, parent.height, hugH, bar.barContentHMargin)
-            height: spanHeight ? parent.height : hugH
-            radius: bar.barRadius
-            topLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            bottomLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            topRightRadius: bar.barRadius
-            bottomRightRadius: bar.barRadius
-            color: bar.glassBg
-            border.width: Math.max(1, bar.controlBorderWidth)
-            border.color: bar.glassBorder
-            clip: true
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: bar.popupHeaderHighlightHeight
-                color: bar.glassHighlight
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                z: 0
-                acceptedButtons: Qt.RightButton
-                hoverEnabled: false
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton)
-                        barControlBar.toggle()
-                }
-            }
-
-            // Unrotated box is swapped so a 90° clockwise row lands inside it.
-            // Left alignment is the top of the screen, where that text starts.
-            Item {
-                id: leftEdgeStack
-                z: 1
-                width: Math.max(1, leftEdgeZone.implicitHeight)
-                height: Math.max(1, leftEdgeZone.implicitWidth)
-                x: Math.max(0, (parent.width - width) / 2)
-                y: leftEdgeBg.spanHeight
-                   ? bar.alignY(root.leftBarAlign, parent.height, height, bar.barContentHMargin)
-                   : Math.max(0, (parent.height - height) / 2)
-
-                RowLayout {
-                    id: leftEdgeZone
-                    rotation: 90
-                    transformOrigin: Item.Center
-                    spacing: bar.widgetSpacing
-                    x: (leftEdgeStack.width - implicitWidth) / 2
-                    y: (leftEdgeStack.height - implicitHeight) / 2
-                    onImplicitWidthChanged: width = implicitWidth
-                    onImplicitHeightChanged: height = implicitHeight
-                    Component.onCompleted: {
-                        width = implicitWidth
-                        height = implicitHeight
-                    }
-                }
-            }
+        EdgeBarFace {
+            id: leftEdgeFace
+            hostBar: bar
+            controlBar: barControlBar
+            leading: true
+            barAlign: root.leftBarAlign
+            spanFull: root.leftBarSpanFull
         }
 
         Component.onCompleted: {
@@ -5126,8 +5152,6 @@ ShellRoot {
         color: "transparent"
         implicitWidth: bar.barHeight
         screen: bar.screen
-        exclusionMode: (root.barLayoutMode === "dual" && root.showRightBar)
-                       ? ExclusionMode.Normal : ExclusionMode.Ignore
         exclusiveZone: {
             void (root.showRightBar)
             void (root.barLayoutMode)
@@ -5140,7 +5164,7 @@ ShellRoot {
                 return 0
             return bar.sideExclusiveZoneFor(false)
         }
-        mask: Region { item: rightEdgeBg }
+        mask: Region { item: rightEdgeFace }
         anchors.top: true
         anchors.bottom: true
         anchors.right: true
@@ -5148,78 +5172,13 @@ ShellRoot {
         margins.top: bar.sideTopInset()
         margins.bottom: bar.sideBottomInset()
 
-        Rectangle {
-            id: rightEdgeBg
-            readonly property bool spanHeight: !!root.rightBarSpanFull
-            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
-                              rightEdgeStack.height + 2 * bar.barContentHMargin))
-            property int hugH: 80
-            onHugMeasuredChanged: {
-                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
-                    hugH = hugMeasured
-            }
-            onSpanHeightChanged: hugH = hugMeasured
-            Component.onCompleted: hugH = hugMeasured
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: bar.barContentVMargin
-            anchors.rightMargin: 0
-            y: spanHeight ? 0 : bar.alignY(root.rightBarAlign, parent.height, hugH, bar.barContentHMargin)
-            height: spanHeight ? parent.height : hugH
-            radius: bar.barRadius
-            topLeftRadius: bar.barRadius
-            bottomLeftRadius: bar.barRadius
-            topRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            bottomRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            color: bar.glassBg
-            border.width: Math.max(1, bar.controlBorderWidth)
-            border.color: bar.glassBorder
-            clip: true
-
-            Rectangle {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: bar.popupHeaderHighlightHeight
-                color: bar.glassHighlight
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                z: 0
-                acceptedButtons: Qt.RightButton
-                hoverEnabled: false
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton)
-                        barControlBar.toggle()
-                }
-            }
-
-            Item {
-                id: rightEdgeStack
-                z: 1
-                width: Math.max(1, rightEdgeZone.implicitHeight)
-                height: Math.max(1, rightEdgeZone.implicitWidth)
-                x: Math.max(0, (parent.width - width) / 2)
-                y: rightEdgeBg.spanHeight
-                   ? bar.alignY(root.rightBarAlign, parent.height, height, bar.barContentHMargin)
-                   : Math.max(0, (parent.height - height) / 2)
-
-                RowLayout {
-                    id: rightEdgeZone
-                    rotation: 90
-                    transformOrigin: Item.Center
-                    spacing: bar.widgetSpacing
-                    x: (rightEdgeStack.width - implicitWidth) / 2
-                    y: (rightEdgeStack.height - implicitHeight) / 2
-                    onImplicitWidthChanged: width = implicitWidth
-                    onImplicitHeightChanged: height = implicitHeight
-                    Component.onCompleted: {
-                        width = implicitWidth
-                        height = implicitHeight
-                    }
-                }
-            }
+        EdgeBarFace {
+            id: rightEdgeFace
+            hostBar: bar
+            controlBar: barControlBar
+            leading: false
+            barAlign: root.rightBarAlign
+            spanFull: root.rightBarSpanFull
         }
 
         Component.onCompleted: {
@@ -5247,259 +5206,11 @@ ShellRoot {
         hostBar: bar
     }
 
-    Io.IpcHandler {
-        target: "overview"
-        function toggle(): void { overviewLayer.toggle() }
-        function open(): void { overviewLayer.openOverview("workspace") }
-        function close(): void { overviewLayer.closeOverview() }
-        function desktop(): void { overviewLayer.openMode("desktop") }
-        function all(): void { overviewLayer.openMode("all") }
-        function next(): void { overviewLayer.step(1) }
-        function prev(): void { overviewLayer.step(-1) }
-    }
-
-    // IPC handlers must use explicit types (bool, string, etc.) — `var` is not supported
-    Io.IpcHandler {
-        target: "shell"
-        function setShowLauncherPill(enabled: bool): void {
-            bar.setWidgetVisible("launcher", enabled)
-        }
-        function toggleShowLauncherPill(): void {
-            bar.toggleWidgetVisible("launcher")
-        }
-        function setShowQuickLaunchPill(enabled: bool): void {
-            bar.setWidgetVisible("quickLaunch", enabled)
-        }
-        function toggleShowQuickLaunchPill(): void {
-            bar.toggleWidgetVisible("quickLaunch")
-        }
-        function setShowWorkspacesPill(enabled: bool): void {
-            bar.setWidgetVisible("workspaces", enabled)
-        }
-        function toggleShowWorkspacesPill(): void {
-            bar.toggleWidgetVisible("workspaces")
-        }
-        function setShowStatsWidget(enabled: bool): void {
-            bar.setWidgetVisible("stats", enabled)
-        }
-        function toggleShowStatsWidget(): void {
-            bar.toggleWidgetVisible("stats")
-        }
-        function setShowTrayPill(enabled: bool): void {
-            bar.setWidgetVisible("tray", enabled)
-        }
-        function toggleShowTrayPill(): void {
-            bar.toggleWidgetVisible("tray")
-        }
-        function setShowNetworkPanel(enabled: bool): void {
-            bar.setWidgetVisible("networkPanel", enabled)
-        }
-        function toggleShowNetworkPanel(): void {
-            bar.toggleWidgetVisible("networkPanel")
-        }
-        function setShowBluetoothPill(enabled: bool): void {
-            bar.setWidgetVisible("bluetooth", enabled)
-        }
-        function toggleShowBluetoothPill(): void {
-            bar.toggleWidgetVisible("bluetooth")
-        }
-        function setShowAudioPill(enabled: bool): void {
-            bar.setWidgetVisible("audio", enabled)
-        }
-        function toggleShowAudioPill(): void {
-            bar.toggleWidgetVisible("audio")
-        }
-        function setShowClockPill(enabled: bool): void {
-            bar.setWidgetVisible("clock", enabled)
-        }
-        function toggleShowClockPill(): void {
-            bar.toggleWidgetVisible("clock")
-        }
-        function setShowNotificationPill(enabled: bool): void {
-            bar.setWidgetVisible("notifications", enabled)
-        }
-        function toggleShowNotificationPill(): void {
-            bar.toggleWidgetVisible("notifications")
-        }
-        function setShowPowerPill(enabled: bool): void {
-            bar.setWidgetVisible("power", enabled)
-        }
-        function toggleShowPowerPill(): void {
-            bar.toggleWidgetVisible("power")
-        }
-        function setShowOpacityPill(enabled: bool): void {
-            bar.setWidgetVisible("opacity", enabled)
-        }
-        function toggleShowOpacityPill(): void {
-            bar.toggleWidgetVisible("opacity")
-        }
-        function setShowTailscalePill(enabled: bool): void {
-            bar.setWidgetVisible("tailscale", enabled)
-        }
-        function toggleShowTailscalePill(): void {
-            bar.toggleWidgetVisible("tailscale")
-        }
-        function setClockFormat(format: string): void {
-            bar.setClockFormat(format)
-        }
-        function setClockFont(name: string): void {
-            bar.setClockFont(name)
-        }
-        function setClockFontScale(scale: string): void {
-            bar.setClockFontScale(scale)
-        }
-        function setWidgetZone(widgetId: string, zone: string): void {
-            bar.setWidgetZone(widgetId, zone)
-        }
-        function moveWidget(widgetId: string, delta: string): void {
-            bar.moveWidget(widgetId, Number(delta) || 0)
-        }
-        function resetWidgetLayout(): void {
-            bar.resetWidgetLayout()
-        }
-        function setBarPosition(position: string): void {
-            bar.setBarPosition(position)
-        }
-        function toggleBarPosition(): void {
-            bar.toggleBarPosition()
-        }
-        function setBarLayoutMode(mode: string): void {
-            bar.setBarLayoutMode(mode)
-        }
-        function toggleBarLayoutMode(): void {
-            bar.toggleBarLayoutMode()
-        }
-        function toggleBarControlBar(): void {
-            barControlBar.toggle()
-        }
-        function showBarControlBar(): void {
-            barControlBar.show()
-        }
-        function hideBarControlBar(): void {
-            barControlBar.hide()
-        }
-        function setUiScale(scale: string): void {
-            bar.setUiScale(scale)
-        }
-        function setUiScaleManual(scale: string): void {
-            bar.setUiScaleManual(scale)
-        }
-        function setUiScaleAuto(): void {
-            bar.setUiScaleAuto()
-        }
-        function setBarEdgeMargin(px: string): void {
-            bar.setBarEdgeMargin(px)
-        }
-        function setBarSizeScale(scale: string): void {
-            bar.setBarSizeScale(scale)
-        }
-        function setFlushWindowsToBar(enabled: bool): void {
-            bar.setFlushWindowsToBar(enabled)
-        }
-        function setTooltipDelay(ms: string): void {
-            bar.setTooltipDelay(ms)
-        }
-        function setShowFreshRssPill(enabled: bool): void {
-            bar.setWidgetVisible("freshRss", enabled)
-        }
-        function toggleShowFreshRssPill(): void {
-            bar.toggleWidgetVisible("freshRss")
-        }
-        function setShowHyprInspPill(enabled: bool): void {
-            bar.setWidgetVisible("hyprInsp", enabled)
-        }
-        function toggleShowHyprInspPill(): void {
-            bar.toggleWidgetVisible("hyprInsp")
-        }
-        function setShowControlBarPill(enabled: bool): void {
-            bar.setWidgetVisible("controlBar", enabled)
-        }
-        function toggleShowControlBarPill(): void {
-            bar.toggleWidgetVisible("controlBar")
-        }
-        function setShowActiveWindowPill(enabled: bool): void {
-            bar.setWidgetVisible("activeWindow", enabled)
-        }
-        function toggleShowActiveWindowPill(): void {
-            bar.toggleWidgetVisible("activeWindow")
-        }
-        function setActiveWindowCorner(corner: string): void {
-            bar.setActiveWindowCorner(corner)
-        }
-        function setNotificationCorner(corner: string): void {
-            if (bar && bar.setNotificationCorner)
-                bar.setNotificationCorner(corner)
-        }
-        function setNotificationTimeout(seconds: string): void {
-            if (bar && bar.setNotificationTimeout)
-                bar.setNotificationTimeout(seconds)
-        }
-        function addActiveWindowExclude(pattern: string): void {
-            if (bar && bar.addActiveWindowExclude)
-                bar.addActiveWindowExclude(pattern)
-        }
-        function removeActiveWindowExclude(pattern: string): void {
-            if (bar && bar.removeActiveWindowExclude)
-                bar.removeActiveWindowExclude(pattern)
-        }
-        function setShowMagicWorkspacePill(enabled: bool): void {
-            if (bar && bar.setShowMagicWorkspacePill)
-                bar.setShowMagicWorkspacePill(enabled)
-            else
-                root.showMagicWorkspacePill = enabled
-        }
-        function toggleShowMagicWorkspacePill(): void {
-            setShowMagicWorkspacePill(!root.showMagicWorkspacePill)
-        }
-        function setWsMinimumShown(count: int): void {
-            if (bar && bar.setWsMinimumShown)
-                bar.setWsMinimumShown(count)
-            else
-                root.wsMinimumShown = Math.max(1, Math.min(10, count))
-        }
-        function setWsShowOnlyActive(enabled: bool): void {
-            if (bar && bar.setWsShowOnlyActive)
-                bar.setWsShowOnlyActive(enabled)
-            else
-                root.wsShowOnlyActive = enabled
-        }
-        function setWsShowNumbers(enabled: bool): void {
-            if (bar && bar.setWsShowNumbers)
-                bar.setWsShowNumbers(enabled)
-            else
-                root.wsShowNumbers = !!enabled
-        }
-        function setWsStartupWorkspace(workspace: int): void {
-            if (bar && bar.setWsStartupWorkspace)
-                bar.setWsStartupWorkspace(workspace)
-            else
-                root.wsStartupWorkspace = Math.max(0, Math.min(10, workspace))
-        }
-        function setWsStartupCloseMagic(enabled: bool): void {
-            if (bar && bar.setWsStartupCloseMagic)
-                bar.setWsStartupCloseMagic(enabled)
-            else
-                root.wsStartupCloseMagic = enabled
-        }
-        function addWsSlot(): void {
-            if (bar && bar.addWsSlot)
-                bar.addWsSlot()
-        }
-        function removeWsSlot(index: int): void {
-            if (bar && bar.removeWsSlot)
-                bar.removeWsSlot(index)
-        }
-        function moveWsSlot(index: int, delta: int): void {
-            if (bar && bar.moveWsSlot)
-                bar.moveWsSlot(index, delta)
-        }
-        function setWsSlotLabel(index: int, label: string): void {
-            if (bar && bar.setWsSlotLabel)
-                bar.setWsSlotLabel(index, label)
-        }
-        function setWsSlotFont(index: int, font: string): void {
-            if (bar && bar.setWsSlotFont)
-                bar.setWsSlotFont(index, font)
-        }
+    // Shell and overview IPC live in components/ShellIpc.qml.
+    ShellIpc {
+        hostBar: bar
+        controlBar: barControlBar
+        overview: overviewLayer
+        shell: root
     }
 }

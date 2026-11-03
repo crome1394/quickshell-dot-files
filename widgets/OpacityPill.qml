@@ -17,7 +17,7 @@ Rectangle {
     readonly property real _ws: (bar.widgetScale ? bar.widgetScale("opacity") : 1.0)
     readonly property string scriptPath: (bar.opacityApplyScript && String(bar.opacityApplyScript).length)
         ? String(bar.opacityApplyScript)
-        : "/home/crome/.config/quickshell/scripts/opacity-apply.sh"
+        : Quickshell.shellPath("scripts/opacity-apply.sh")
     // 0 = never applied. The slider shows 100 until the user moves it.
     property int appsRaw: 0
     property int sattyRaw: 0

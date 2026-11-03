@@ -45,7 +45,7 @@ import "../components"
 // Dependencies:
 //   - required property var bar
 //   - required property Item barBg (for popup positioning)
-//   - property bool embedded — when true, omit outer chrome (grouped Net/BT/Audio pill)
+//   - property bool embedded — when true, omit outer chrome (grouped Bluetooth + Audio pill). Network is separate.
 //   - property real pillScale — multiplies horizontal content width (BarControlBar Sizes)
 //   - Quickshell.Services.Pipewire (volume, channels, PwNodePeakMonitor)
 //   - scripts/audio-control.sh (card profile list/set; L/R pactl fallback)
@@ -137,8 +137,8 @@ Rectangle {
     }
 
     // Path to the shared pactl helper (profiles + optional channel-volume fallback).
-    readonly property string audioControlScript: "/home/crome/.config/quickshell/scripts/audio-control.sh"
-    readonly property string audioOsdScript: "/home/crome/.config/quickshell/scripts/audio-osd.sh"
+    readonly property string audioControlScript: Quickshell.shellPath("scripts/audio-control.sh")
+    readonly property string audioOsdScript: Quickshell.shellPath("scripts/audio-osd.sh")
 
     // Debounced swayosd feedback for wheel volume changes (same helper as AudioMonitorView).
     property var _pendingOsd: null

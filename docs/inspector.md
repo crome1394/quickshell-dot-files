@@ -79,7 +79,7 @@ If you are used to one monolithic `hyprland.conf`, think of `hyprland.lua` as a 
 | **Runtime Options** | Live Hyprland options via `hyprctl getoption`, grouped by category with wiki links |
 | **Config Files** | Browse all split `config/*.lua` modules plus Hypridle/Hyprlock/Hyprpaper configs; syntax highlighting, search, copy, and edit |
 | **CPU** | CPU usage gauge, history sparkline, load averages, and top CPU processes |
-| **GPU** | GPU utilization, VRAM, temperature, and related stats (when available) |
+| **GPU** | NVIDIA utilization, VRAM, and temperature via `nvidia-smi`. Missing `nvidia-smi` shows N/A. Intel and AMD GPUs are not read. |
 | **Memory** | System memory and swap usage with history and breakdown |
 | **Temperature** | CPU and GPU temperature monitoring with history |
 | **Network** | Interfaces, routing, DNS, latency, firewall, active connections, per-process bandwidth, and live traffic graphs |

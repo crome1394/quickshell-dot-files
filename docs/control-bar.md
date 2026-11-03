@@ -206,7 +206,30 @@ Theme JSON shape:
 }
 ```
 
-Script helper: `scripts/theme-io.sh` (`list` / `export` / `import`). Advanced tokens (volume tiers, inspector semantics) stay in `Config.qml`.
+Script helper: `scripts/theme-io.sh` (`list` / `export` / `import`). Setups use `scripts/profile-io.sh` the same way. Advanced tokens (volume tiers, inspector semantics) stay in `Config.qml`.
+
+### Importing a preset or a setup
+
+Both import commands take a name already saved in the directory, or a path to a file anywhere else: a download, a USB stick, or a symlink inside `themes/` or `profiles/` that resolves outside that directory.
+
+A file whose canonical path is already inside the directory is printed unchanged. The file is not rewritten, and nothing is dropped.
+
+An outside file is checked, then copied in under a sanitized name (`A-Za-z0-9._-`, spaces become underscores). An existing file or symlink with that name stays in place, and the copy uses a `-2`, `-3`, … suffix. The copy is a regular file, mode 644. Each dropped key is written to the status line as `dropped … (reason)`, followed by `copied …`.
+
+A theme file must be UTF-8 JSON, at most 256 KiB (262144 bytes), and a JSON object. A setup file has the same rules at 1 MiB (1048576 bytes). A known key of the wrong type, a bad hex color, or an alpha outside 0–1 refuses the import. Unknown keys are dropped and named. They do not refuse the import.
+
+An outside setup also drops these layout keys:
+
+| Key | When | Why |
+|-----|------|-----|
+| `quickLaunchAppsJson` | Always, including an empty value | Each entry can run on click. The whole key is removed. Commands inside it are not blanked one by one. |
+| `launcherCommandCustom` | When it is not empty | It runs on click through a shell. An empty value means the default menu and is kept. |
+| `statTerminal` | When it is not empty | The Sys Stats buttons launch this terminal. An empty value is kept. |
+| `wallpaperDir` | Always | This machine's wallpaper directory. Rename and delete pass it to a script. |
+| `wallpaperCurrent` | Always | This machine's current wallpaper path. |
+| `screenshotDir` | Always | This machine's screenshot directory. |
+
+A file that already lives in `themes/` or `profiles/` keeps those keys.
 
 ## XDG Autostart panel
 
@@ -235,7 +258,7 @@ To change a command without replacing the file, use **Edit** on the row, or:
 Login helper in Hyprland `autostarts.lua`:
 
 ```lua
-hl.exec_cmd("/home/crome/.config/quickshell/scripts/xdg-autostart-run.sh")
+hl.exec_cmd("~/.config/quickshell/scripts/xdg-autostart-run.sh")
 ```
 
 `X-systemd-skip=true` tells the systemd user xdg-autostart generator to ignore these files so only this helper starts them (avoids double-start / D-Bus activation quirks).

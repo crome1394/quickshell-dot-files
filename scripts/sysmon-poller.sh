@@ -3,11 +3,23 @@
 # Efficient single-invocation data collector for the sysmon dashboard.
 # Outputs one line of JSON. Designed to be fast and safe when called frequently.
 #
-# State for rate calculations lives in /tmp/sysmon-state.json.
+# State for rate calculations lives under $XDG_RUNTIME_DIR, not /tmp.
+# SYSMON_STATE_FILE overrides the path. Never fall back to /tmp.
 
 set -u pipefail   # removed -e so we can always produce some JSON even if individual sensors fail
 
-STATE_FILE="/tmp/sysmon-state.json"
+if [[ -n "${SYSMON_STATE_FILE:-}" ]]; then
+  STATE_FILE="$SYSMON_STATE_FILE"
+elif [[ -n "${XDG_RUNTIME_DIR:-}" && -d "$XDG_RUNTIME_DIR" ]]; then
+  STATE_FILE="$XDG_RUNTIME_DIR/quickshell/sysmon-state.json"
+else
+  STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell/sysmon-state.json"
+fi
+# Follow a symlink so the write replaces the real file and leaves the link.
+if [[ -L "$STATE_FILE" ]]; then
+  STATE_FILE="$(readlink -f -- "$STATE_FILE")"
+fi
+mkdir -p "$(dirname "$STATE_FILE")" 2>/dev/null || true
 NOW=$(date +%s%3N)
 
 # ---------- Helpers ----------
@@ -75,8 +87,12 @@ proc_running=$(awk '{split($4,a,"/"); print a[1]+0}' /proc/loadavg 2>/dev/null |
 proc_total=$(awk '{split($4,a,"/"); print a[2]+0}' /proc/loadavg 2>/dev/null || echo 0)
 uptime_s=$(awk '{print int($1)}' /proc/uptime)
 
-# ---------- NVIDIA GPU (RTX 5080) ----------
-nvidia_raw=$(nvidia-smi --query-gpu=\
+# ---------- NVIDIA GPU ----------
+# No Intel or AMD path. Missing nvidia-smi stays unavailable instead of 0.
+gpu_available=0
+if command -v nvidia-smi >/dev/null 2>&1; then
+  gpu_available=1
+  nvidia_raw=$(nvidia-smi --query-gpu=\
 utilization.gpu,\
 utilization.memory,\
 memory.used,\
@@ -86,6 +102,9 @@ power.draw,\
 power.limit,\
 fan.speed \
 --format=csv,noheader,nounits 2>/dev/null || echo "0,0,0,0,0,0,0,0")
+else
+  nvidia_raw="0,0,0,0,0,0,0,0"
+fi
 
 IFS=',' read -r gpu_util gpu_mem_util gpu_vram_used gpu_vram_total gpu_temp gpu_power gpu_power_limit gpu_fan <<<"$nvidia_raw"
 
@@ -112,8 +131,12 @@ cpu_model=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2- | xargs)
 cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2- | xargs)
 cpu_arch=$(uname -m)
 cpu_cores=$(nproc 2>/dev/null || echo 0)
-gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | xargs)
-gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | xargs)
+gpu_name=""
+gpu_driver=""
+if (( gpu_available == 1 )); then
+  gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | xargs)
+  gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | xargs)
+fi
 
 # ---------- Sensors via lm-sensors ----------
 sensors_json=$(sensors -j 2>/dev/null || echo '{}')
@@ -265,15 +288,10 @@ if command -v resolvectl >/dev/null 2>&1; then
                 dns_current="${dns_current%%#*}"
                 dns_link="${cur_link:-}"
                 ;;
+            # Fallback DNS Servers matches here on purpose. resolvectl
+            # prints that label, and those servers belong in this list.
             *"DNS Servers:"*)
                 rest="${line#*DNS Servers: }"
-                while read -r srv; do
-                    srv="${srv%%#*}"
-                    [[ -n "$srv" ]] && dns_servers+=("$srv")
-                done < <(tr ' ' '\n' <<<"$rest")
-                ;;
-            "Fallback DNS Servers:"*)
-                rest="${line#Fallback DNS Servers: }"
                 while read -r srv; do
                     srv="${srv%%#*}"
                     [[ -n "$srv" ]] && dns_servers+=("$srv")
@@ -546,13 +564,21 @@ root_total=$(awk '{print $2}' <<<"$root_usage")
 root_pct=$(awk '{print $3}' <<<"$root_usage")
 
 # ---------- Detailed disk info for NVMe + key mounts (robust, always produces array) ----------
-# Collects root, the /data media mount, and any other mounted nvme partitions with usage + model.
+# Collects root, optional extra mounts, and any other mounted NVMe partition.
 disks=$(
   declare -A seen_mounts
   out="[]"
 
-  # Primary mounts we always want if present
-  for m in / /run/media/crome/data; do
+  # Root is always listed. Extra mounts are opt-in via SYSMON_EXTRA_MOUNTS
+  # (colon-separated). Other mounted NVMe partitions are discovered below.
+  mounts=(/)
+  if [[ -n "${SYSMON_EXTRA_MOUNTS:-}" ]]; then
+    IFS=':' read -ra _extra <<< "${SYSMON_EXTRA_MOUNTS}"
+    for _m in "${_extra[@]}"; do
+      [[ -n "$_m" ]] && mounts+=("$_m")
+    done
+  fi
+  for m in "${mounts[@]}"; do
     if mountpoint -q "$m" 2>/dev/null; then
       src=$(findmnt -rn -o SOURCE --target "$m" 2>/dev/null || echo "")
       # Resolve backing disk for accurate MODEL (handles partitions + btrfs subvol paths like /dev/nvme0n1p2[/@])
@@ -611,7 +637,7 @@ disks=$(
 # PSD (profile-sync-daemon) - parse `psd p` output for real profile + overlayfs usage
 psd_profile_total_mb=0
 psd_overlay_used_mb=0
-psd_profiles_list=()
+psd_profiles_list=""
 
 if command -v psd >/dev/null 2>&1; then
     psd_out=$(psd p 2>/dev/null || echo "")
@@ -734,7 +760,7 @@ top_gpu=$(nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=
 ' 2>/dev/null || echo '[]')
 
 # ---------- Assemble final JSON ----------
-TMP_JSON=$(mktemp /tmp/sysmon-out.XXXXXX.json)
+TMP_JSON=$(mktemp "${STATE_FILE}.out.XXXXXX")
 
 jq -cn \
   --argjson ts "$NOW" \
@@ -799,13 +825,20 @@ jq -cn \
   --argjson cpu_cores "$cpu_cores" \
   --arg gpu_name "$gpu_name" \
   --arg gpu_driver "$gpu_driver" \
+  --argjson gpu_available "$gpu_available" \
   '{
     timestamp: $ts,
     cpu: { util: $cpu_util, temp: $cpu_temp, tccd1: $cpu_tccd1, tccd2: $cpu_tccd2 },
     gpu: {
-      util: $gpu_util, vram_used: $gpu_vram_used, vram_total: $gpu_vram_total,
-      vram_pct: $gpu_vram_pct, temp: $gpu_temp, power: $gpu_power,
-      power_limit: $gpu_power_limit, fan: $gpu_fan,
+      available: ($gpu_available == 1),
+      util: (if $gpu_available == 1 then $gpu_util else null end),
+      vram_used: (if $gpu_available == 1 then $gpu_vram_used else null end),
+      vram_total: (if $gpu_available == 1 then $gpu_vram_total else null end),
+      vram_pct: (if $gpu_available == 1 then $gpu_vram_pct else null end),
+      temp: (if $gpu_available == 1 then $gpu_temp else null end),
+      power: (if $gpu_available == 1 then $gpu_power else null end),
+      power_limit: (if $gpu_available == 1 then $gpu_power_limit else null end),
+      fan: (if $gpu_available == 1 then $gpu_fan else null end),
       name: $gpu_name, driver: $gpu_driver
     },
     cpu_info: { model: $cpu_model, vendor: $cpu_vendor, arch: $cpu_arch, cores: $cpu_cores },
@@ -845,16 +878,19 @@ else
 fi
 rm -f "$TMP_JSON" 2>/dev/null || true
 
-# Update delta state
-jq -n \
-  --argjson ts "$NOW" \
-  --argjson net_rx "${net_rx:-0}" \
-  --argjson net_tx "${net_tx:-0}" \
-  --argjson disk_read "${disk_read:-0}" \
-  --argjson disk_write "${disk_write:-0}" \
-  --argjson net_proc "${net_proc_state:-{}}" \
-  '{ts: $ts, net_rx: $net_rx, net_tx: $net_tx, disk_read: $disk_read, disk_write: $disk_write, net_proc: $net_proc}' \
-  > "$STATE_FILE" 2>/dev/null || cat > "$STATE_FILE" <<EOF
+# Update delta state. Temp file is in the same directory as the real state file.
+state_tmp="$(mktemp "${STATE_FILE}.XXXXXX" 2>/dev/null || true)"
+if [[ -n "$state_tmp" ]]; then
+  if ! jq -n \
+    --argjson ts "$NOW" \
+    --argjson net_rx "${net_rx:-0}" \
+    --argjson net_tx "${net_tx:-0}" \
+    --argjson disk_read "${disk_read:-0}" \
+    --argjson disk_write "${disk_write:-0}" \
+    --argjson net_proc "${net_proc_state:-{}}" \
+    '{ts: $ts, net_rx: $net_rx, net_tx: $net_tx, disk_read: $disk_read, disk_write: $disk_write, net_proc: $net_proc}' \
+    > "$state_tmp" 2>/dev/null; then
+    cat > "$state_tmp" <<EOF
 {
   "ts": $NOW,
   "net_rx": ${net_rx:-0},
@@ -863,3 +899,6 @@ jq -n \
   "disk_write": ${disk_write:-0}
 }
 EOF
+  fi
+  mv -f "$state_tmp" "$STATE_FILE" 2>/dev/null || rm -f "$state_tmp"
+fi

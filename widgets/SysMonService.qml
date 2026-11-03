@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io as Io
+import Quickshell
 
 // =============================================================================
 // SysMonService.qml — Source of truth for system metrics polling + history
@@ -87,7 +88,8 @@ Item {
 
         // GPU util
         let gh = gpuHistory.slice()
-        gh.push(data.gpu ? data.gpu.util : 0)
+        if (data.gpu && data.gpu.available !== false && data.gpu.util !== null && data.gpu.util !== undefined)
+            gh.push(data.gpu.util || 0)
         if (gh.length > 48) gh.shift()
         gpuHistory = gh
 
@@ -126,7 +128,8 @@ Item {
         cpuTempHistory = cth
 
         let gth = gpuTempHistory.slice()
-        gth.push(data.gpu ? (data.gpu.temp || 0) : 0)
+        if (data.gpu && data.gpu.available !== false && data.gpu.temp !== null && data.gpu.temp !== undefined)
+            gth.push(data.gpu.temp || 0)
         if (gth.length > 48) gth.shift()
         gpuTempHistory = gth
     }
@@ -137,7 +140,7 @@ Item {
 
     Io.Process {
         id: poller
-        command: ["/home/crome/.config/quickshell/scripts/sysmon-poller.sh"]
+        command: [Quickshell.shellPath("scripts/sysmon-poller.sh")]
         stdout: Io.SplitParser {
             splitMarker: "\n"
             onRead: (line) => {

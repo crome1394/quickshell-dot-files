@@ -3,8 +3,8 @@
 # Does not enable DPMS. Super+L and hypridle both call start/stop here.
 set -euo pipefail
 
-CONF="${HOME}/.config/hypr/screensaver.conf"
-HYPRIDLE="${HOME}/.config/hypr/hypridle.conf"
+CONF="${SCREENSAVER_CONF:-$HOME/.config/hypr/screensaver.conf}"
+HYPRIDLE="${HYPRIDLE_CONF:-$HOME/.config/hypr/hypridle.conf}"
 DEFAULT_VIDEO="${HOME}/Videos/screensaver/g9-screen-saver.mp4"
 DEFAULT_SCRIPT="${HOME}/.local/bin/screensaver.sh"
 SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
@@ -192,54 +192,75 @@ PY
 }
 
 write_conf() {
-    mkdir -p "$(dirname "$CONF")"
-    local tmp
-    tmp="$(mktemp "${CONF}.XXXXXX")"
-    cat >"$tmp" <<EOF
-# Managed by Quickshell Options → Screensaver. Do not put secrets here.
-enabled=${ENABLED}
-timeout_sec=${TIMEOUT_SEC}
-video=${VIDEO}
-script=${SCRIPT}
-mode=${MODE}
-style=${STYLE}
-clock=${CLOCK}
-warp_speed=${WARP_SPEED}
-warp_density=${WARP_DENSITY}
-warp_streak=${WARP_STREAK}
-ignore_inhibit=${IGNORE_INHIBIT}
-dim_enable=${DIM_ENABLE}
-dim_level=${DIM_LEVEL}
-restore_enable=${RESTORE_ENABLE}
-restore_level=${RESTORE_LEVEL}
-EOF
-    mv -f "$tmp" "$CONF"
+    case "$VIDEO" in *$'\n'*|*$'\r'*) echo "refusing video path" >&2; return 1 ;; esac
+    case "$SCRIPT" in *$'\n'*|*$'\r'*) echo "refusing script path" >&2; return 1 ;; esac
+    # Follow a symlink and replace the real file. The temp file is created
+    # in that file's directory so mv is atomic and the link stays a link.
+    local dest tmp
+    if [[ -L "$CONF" ]]; then
+        dest="$(readlink -f -- "$CONF")"
+    else
+        dest="$CONF"
+    fi
+    mkdir -p "$(dirname "$dest")"
+    tmp="$(mktemp "${dest}.XXXXXX")"
+    {
+        printf '# Managed by Quickshell Options → Screensaver. Do not put secrets here.\n'
+        printf 'enabled=%s\n' "$ENABLED"
+        printf 'timeout_sec=%s\n' "$TIMEOUT_SEC"
+        printf 'video=%s\n' "$VIDEO"
+        printf 'script=%s\n' "$SCRIPT"
+        printf 'mode=%s\n' "$MODE"
+        printf 'style=%s\n' "$STYLE"
+        printf 'clock=%s\n' "$CLOCK"
+        printf 'warp_speed=%s\n' "$WARP_SPEED"
+        printf 'warp_density=%s\n' "$WARP_DENSITY"
+        printf 'warp_streak=%s\n' "$WARP_STREAK"
+        printf 'ignore_inhibit=%s\n' "$IGNORE_INHIBIT"
+        printf 'dim_enable=%s\n' "$DIM_ENABLE"
+        printf 'dim_level=%s\n' "$DIM_LEVEL"
+        printf 'restore_enable=%s\n' "$RESTORE_ENABLE"
+        printf 'restore_level=%s\n' "$RESTORE_LEVEL"
+    } > "$tmp"
+    mv -f "$tmp" "$dest"
 }
 
 write_hypridle_if_missing() {
     [[ -f "$HYPRIDLE" ]] && return 0
-    mkdir -p "$(dirname "$HYPRIDLE")"
-    cat >"$HYPRIDLE" <<EOF
-general {
-    ignore_dbus_inhibit = true
-    ignore_systemd_inhibit = true
-    ignore_wayland_inhibit = true
-}
-
-${BEGIN}
-listener {
-    timeout = ${TIMEOUT_SEC}
-    on-timeout = ${SELF} start
-    on-resume = ${SELF} stop
-    condition_cmd = ${SELF} idle-ok
-}
-${END}
-EOF
+    local dest tmp
+    if [[ -L "$HYPRIDLE" ]]; then
+        dest="$(readlink -f -- "$HYPRIDLE")"
+    else
+        dest="$HYPRIDLE"
+    fi
+    [[ -f "$dest" ]] && return 0
+    mkdir -p "$(dirname "$dest")"
+    tmp="$(mktemp "${dest}.XXXXXX")"
+    {
+        printf 'general {\n'
+        printf '    ignore_dbus_inhibit = true\n'
+        printf '    ignore_systemd_inhibit = true\n'
+        printf '    ignore_wayland_inhibit = true\n'
+        printf '}\n\n'
+        printf '%s\n' "$BEGIN"
+        printf 'listener {\n'
+        printf '    timeout = %s\n' "$TIMEOUT_SEC"
+        printf '    on-timeout = %s start\n' "$SELF"
+        printf '    on-resume = %s stop\n' "$SELF"
+        printf '    condition_cmd = %s idle-ok\n' "$SELF"
+        printf '}\n'
+        printf '%s\n' "$END"
+    } > "$tmp"
+    mv -f "$tmp" "$dest"
 }
 
 patch_hypridle() {
-    [[ -f "$HYPRIDLE" ]] || return 0
-    python3 - "$HYPRIDLE" "$BEGIN" "$END" "$TIMEOUT_SEC" "$SELF" <<'PY'
+    local dest="$HYPRIDLE"
+    if [[ -L "$dest" ]]; then
+        dest="$(readlink -f -- "$dest")"
+    fi
+    [[ -f "$dest" ]] || return 0
+    python3 - "$dest" "$BEGIN" "$END" "$TIMEOUT_SEC" "$SELF" <<'PY'
 import pathlib, sys
 path, begin, end, timeout, self = sys.argv[1:6]
 try:

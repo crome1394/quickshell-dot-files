@@ -16,8 +16,8 @@ Item {
     property color overlayColor: "#6e7a90"
 
     readonly property string stubPath: "/usr/share/hypr/stubs/hl.meta.lua"
-    readonly property string configDir: "/home/crome/.config/hypr/config"
-    readonly property string hyprMainConfig: "/home/crome/.config/hypr/hyprland.lua"
+    readonly property string configDir: (Quickshell.env("HOME") + "/.config/hypr/config")
+    readonly property string hyprMainConfig: (Quickshell.env("HOME") + "/.config/hypr/hyprland.lua")
 
     property var categories: []
     property string selectedCategoryId: "general"

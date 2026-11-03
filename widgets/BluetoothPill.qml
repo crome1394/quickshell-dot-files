@@ -36,7 +36,8 @@ import Quickshell.Io as Io
 //   - required property var bar
 //   - required property Item barBg (for popup positioning)
 //   - property bool embedded (optional) — when true, omit pill chrome so a
-//     parent shell (shell.qml connectivityPill) can group Network + Bluetooth
+//     parent shell (shell.qml connectivityPill) can group Bluetooth + Audio.
+//     Network is its own widget.
 //   - Quickshell.Bluetooth (adapter + devices)
 //   - scripts/audio-control.sh (list-card-profiles / set-card-profile)
 //
@@ -66,8 +67,8 @@ Rectangle {
     readonly property int _padW: embedded ? 12 : 14
     readonly property int _naturalW: btContent.implicitWidth + _padW
 
-    readonly property string audioControlScript: "/home/crome/.config/quickshell/scripts/audio-control.sh"
-    readonly property string bluemanControlScript: "/home/crome/.config/quickshell/scripts/blueman-applet-control.sh"
+    readonly property string audioControlScript: Quickshell.shellPath("scripts/audio-control.sh")
+    readonly property string bluemanControlScript: Quickshell.shellPath("scripts/blueman-applet-control.sh")
 
     // Address of expanded / detail device (stable key; never store live object long-term)
     property string expandedAddress: ""

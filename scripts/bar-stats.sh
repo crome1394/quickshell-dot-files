@@ -29,31 +29,48 @@ else
     cpu_util="0.0"
 fi
 
-# ---------- CPU Temperature (k10temp Tctl - the package temp) ----------
-# hwmon2 is reliably k10temp on this 9950X3D system (see hwmon inspection)
-cpu_temp_raw=$(cat /sys/class/hwmon/hwmon2/temp1_input 2>/dev/null || echo 0)
+# ---------- CPU Temperature (k10temp Tctl is temp1_input) ----------
+cpu_temp_raw=0
+for _hwmon in /sys/class/hwmon/hwmon*; do
+  [[ -r "$_hwmon/name" ]] || continue
+  [[ "$(< "$_hwmon/name")" == "k10temp" ]] || continue
+  if [[ -r "$_hwmon/temp1_input" ]]; then
+    cpu_temp_raw=$(< "$_hwmon/temp1_input")
+    break
+  fi
+done
 cpu_temp=$(( cpu_temp_raw / 1000 ))
 
-# ---------- NVIDIA RTX 5080 (minimal fast query) ----------
-nvg_raw=$(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total \
-    --format=csv,noheader,nounits 2>/dev/null || echo "0, 0, 0, 0")
+# ---------- NVIDIA GPU (minimal fast query) ----------
+# No Intel or AMD path. A missing nvidia-smi is reported as null, not 0.
+if command -v nvidia-smi >/dev/null 2>&1; then
+  nvg_raw=$(nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total \
+      --format=csv,noheader,nounits 2>/dev/null || echo "0, 0, 0, 0")
 
-gpu_util=$(echo "$nvg_raw" | cut -d, -f1 | xargs)
-gpu_temp=$(echo "$nvg_raw" | cut -d, -f2 | xargs)
-vram_used=$(echo "$nvg_raw" | cut -d, -f3 | xargs)
-vram_total=$(echo "$nvg_raw" | cut -d, -f4 | xargs)
+  gpu_util=$(echo "$nvg_raw" | cut -d, -f1 | xargs)
+  gpu_temp=$(echo "$nvg_raw" | cut -d, -f2 | xargs)
+  vram_used=$(echo "$nvg_raw" | cut -d, -f3 | xargs)
+  vram_total=$(echo "$nvg_raw" | cut -d, -f4 | xargs)
 
-: "${gpu_util:=0}"
-: "${gpu_temp:=0}"
-: "${vram_used:=0}"
-: "${vram_total:=0}"
+  : "${gpu_util:=0}"
+  : "${gpu_temp:=0}"
+  : "${vram_used:=0}"
+  : "${vram_total:=0}"
 
-# nvidia-smi can report [N/A]; force numeric values for arithmetic.
-[[ "$vram_used" =~ ^[0-9]+$ ]] || vram_used=0
-[[ "$vram_total" =~ ^[0-9]+$ ]] || vram_total=0
+  # nvidia-smi can report [N/A]; force numeric values for arithmetic.
+  [[ "$vram_used" =~ ^[0-9]+$ ]] || vram_used=0
+  [[ "$vram_total" =~ ^[0-9]+$ ]] || vram_total=0
+  [[ "$gpu_util" =~ ^[0-9.]+$ ]] || gpu_util=0
+  [[ "$gpu_temp" =~ ^[0-9.]+$ ]] || gpu_temp=0
 
-vram_pct=$(awk "BEGIN { if ($vram_total > 0) printf \"%.1f\", ($vram_used * 100.0) / $vram_total; else printf \"0.0\" }")
-vram_used_gib=$(awk "BEGIN { printf \"%.1f\", $vram_used / 1024 }")
+  vram_pct=$(awk "BEGIN { if ($vram_total > 0) printf \"%.1f\", ($vram_used * 100.0) / $vram_total; else printf \"0.0\" }")
+  vram_used_gib=$(awk "BEGIN { printf \"%.1f\", $vram_used / 1024 }")
+  gpu_json=$(printf '{"util":%s,"temp":%s}' "$gpu_util" "$gpu_temp")
+  vram_json=$(printf '{"util":%s,"used_gib":%s}' "$vram_pct" "$vram_used_gib")
+else
+  gpu_json='{"util":null,"temp":null}'
+  vram_json='{"util":null,"used_gib":null}'
+fi
 
 # ---------- Memory (used % + used GiB from /proc/meminfo) ----------
 mem_total=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
@@ -70,5 +87,5 @@ fi
 ram_used_gib=$(awk "BEGIN { printf \"%.1f\", $ram_used_mib / 1024 }")
 
 # Emit clean single-line JSON (no whitespace bloat)
-printf '{"cpu":{"util":%s,"temp":%s},"vram":{"util":%s,"used_gib":%s},"mem":{"util":%s,"used_gib":%s},"gpu":{"util":%s,"temp":%s}}\n' \
-    "$cpu_util" "$cpu_temp" "$vram_pct" "$vram_used_gib" "$ram_pct" "$ram_used_gib" "$gpu_util" "$gpu_temp"
+printf '{"cpu":{"util":%s,"temp":%s},"vram":%s,"mem":{"util":%s,"used_gib":%s},"gpu":%s}\n' \
+    "$cpu_util" "$cpu_temp" "$vram_json" "$ram_pct" "$ram_used_gib" "$gpu_json"

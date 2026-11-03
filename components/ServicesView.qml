@@ -20,8 +20,8 @@ Item {
     property color warnColor: "#f0d060"
     property color errorColor: "#FF3D8A"
 
-    readonly property string pollerScript: "/home/crome/.config/quickshell/scripts/services-poller.sh"
-    readonly property string controlScript: "/home/crome/.config/quickshell/scripts/services-control.sh"
+    readonly property string pollerScript: Quickshell.shellPath("scripts/services-poller.sh")
+    readonly property string controlScript: Quickshell.shellPath("scripts/services-control.sh")
     readonly property var filterModes: [
         { id: "all", label: "All" },
         { id: "running", label: "Running" },
