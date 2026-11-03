@@ -4,7 +4,7 @@ Where to look in the three largest QML files. Names and section comments are the
 
 ## shell.qml
 
-Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprConfigInsp.qml`, and `widgets/ActiveWindowPill.qml`, and lists the IPC calls. The full set is `qs ipc show`.
+Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprlandInspectorPanel.qml`, and `widgets/ActiveWindowPill.qml`, and lists the IPC calls. The full set is `qs ipc show`.
 
 Section comment "BAR LAYOUT — classic (left / center / right) or dual (top / bottom, centered)":
 

@@ -6,7 +6,7 @@
 //   - widgets/*.qml      (self-contained pills and menus)
 //   - components/*.qml   (reusable pieces like VolumeBar)
 //   - Config.qml      (colors, spacing, metrics, workspace behavior)
-//   - widgets/HyprConfigInsp.qml (Hyprland Config Inspector overlay)
+//   - widgets/HyprlandInspectorPanel.qml (Hyprland Config Inspector overlay)
 //   - widgets/ActiveWindowPill.qml (focused-window pill, top-left overlay)
 //
 // IPC:
@@ -4829,7 +4829,7 @@ ShellRoot {
         }
 
         // --- Background services (do not move to zones) ---
-        HyprConfigInsp { id: hyprConfigInsp; bar: bar }
+        HyprlandInspectorPanel { id: hyprConfigInsp; bar: bar }
 
         Io.IpcHandler {
             target: "hyprConfigInsp"

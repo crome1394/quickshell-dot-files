@@ -5,7 +5,7 @@ import QtQuick.Controls
 import Quickshell.Io as Io
 
 // =============================================================================
-// HyprConfigInsp.qml — Hyprland Config Inspector
+// HyprlandInspectorPanel.qml — Hyprland Config Inspector
 // =============================================================================
 //
 // Floating overlay for browsing and editing split Hyprland configuration.

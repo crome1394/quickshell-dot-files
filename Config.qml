@@ -2067,7 +2067,7 @@ QtObject {
     readonly property bool showOpacityPill:        true   // OpacityPill.qml
     readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
-    readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
+    readonly property bool showHyprInspPill:       false  // Opens HyprlandInspectorPanel from the bar (shell.qml)
     readonly property bool showControlBarPill:     true   // Opens SettingsPanel (config strip) from the bar
 
     // Glyphs for bar position toggle in SettingsPanel (right-click empty bar chrome)
@@ -2667,25 +2667,25 @@ QtObject {
     }
 
     // =========================================================================
-    // SYSTEM MONITORING (SysMonService + HyprConfigInsp sysmon tabs)
+    // SYSTEM MONITORING (SysMonService + HyprlandInspectorPanel sysmon tabs)
     // =========================================================================
-    // Shared tokens for live metrics in HyprConfigInsp (CPU/GPU/Memory/Temperature tabs)
+    // Shared tokens for live metrics in HyprlandInspectorPanel (CPU/GPU/Memory/Temperature tabs)
     // and reusable gauge/sparkline components.
     //
     // Consumed by:
     //   - widgets/SysMonService.qml (pollInterval default kept in sync by convention)
-    //   - widgets/HyprConfigInsp.qml + components/*MonitorView.qml
+    //   - widgets/HyprlandInspectorPanel.qml + components/*MonitorView.qml
     //   - components/CircularGauge.qml, Sparkline.qml
     //
     // Notes:
     //   - pollInterval is owned by SysMonService at runtime (default 1500 ms).
-    //   - panelTabActive* is reused by HyprConfigInsp tab chips (inspTabActive* aliases).
+    //   - panelTabActive* is reused by HyprlandInspectorPanel tab chips (inspTabActive* aliases).
     // =========================================================================
 
     // Poll rate default (ms). SysMonService hardcodes 1500 to match; change both if tuning.
     readonly property int sysmonDefaultPollInterval: 1500
 
-    // Shared active-tab chip style (HyprConfigInsp tab bar)
+    // Shared active-tab chip style (HyprlandInspectorPanel tab bar)
     readonly property color panelTabActiveBg:   Qt.rgba(0.0, 0.85, 0.80, 0.25)  // teal glass chip
     readonly property color panelTabActiveBorder: accent
 
@@ -2695,16 +2695,16 @@ QtObject {
     readonly property color gaugeHigh: muted
 
     // =========================================================================
-    // HYPR CONFIG INSPECTOR (HyprConfigInsp.qml floating overlay)
+    // HYPR CONFIG INSPECTOR (HyprlandInspectorPanel.qml floating overlay)
     // =========================================================================
     // Visual tokens for the tabbed Hyprland config / sysmon inspector window.
     // Reuses popupHelpWidth/Height for default size; panelTabActive* for tab chips.
     //
     // Consumed by:
-    //   - widgets/HyprConfigInsp.qml (primary)
+    //   - widgets/HyprlandInspectorPanel.qml (primary)
     //
     // How to extend:
-    //   - Add a property here, alias it in HyprConfigInsp via `th.xxx`, use in UI.
+    //   - Add a property here, alias it in HyprlandInspectorPanel via `th.xxx`, use in UI.
     //   - Semantic color helpers (envValueColor) live in config so other tools can reuse.
     // =========================================================================
 
