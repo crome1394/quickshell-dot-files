@@ -2049,9 +2049,10 @@ QtObject {
     // Magic pill visibility is separate (wsShowSpecialPill + setShowMagicWorkspacePill).
 
     readonly property bool showLauncherPill:        true   // Inline app launcher (shell.qml)
-    // Shell command for the Application Menu pill. The helper toggles: it closes
-    // rofi when the drawer is already open, and launches it otherwise.
-    readonly property string launcherCommand: "~/.local/bin/rofi-app-drawer"
+    // Shell command for the Application Menu pill. Empty
+    // launcherCommandCustom uses this. The script tries rofi, then wofi,
+    // then fuzzel, and shows an error if none of them is installed.
+    readonly property string launcherCommand: Quickshell.shellPath("scripts/app-drawer.sh")
     readonly property string launcherTooltip: "Application Menu"
     readonly property bool showQuickLaunchPill:     true   // QuickLaunchPill.qml
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
