@@ -115,7 +115,7 @@ Rectangle {
 
     Io.Process {
         id: statsPoller
-        command: ["/home/crome/.config/quickshell/scripts/bar-stats.sh"]
+        command: [Quickshell.shellPath("scripts/bar-stats.sh")]
         stdout: Io.SplitParser {
             splitMarker: "\n"
             onRead: (line) => {

@@ -11,11 +11,12 @@
 # scale is always 1.0; position 0x0
 #
 # Env:
-#   HYPR_MONITOR=DP-1
+#   HYPR_MONITOR               optional output; empty uses the focused output
 #   HYPR_MONITOR_BITDEPTH=10   (default for apply when omitted)
 set -euo pipefail
 
-MONITOR="${HYPR_MONITOR:-DP-1}"
+# Empty selects the focused output inside monitor_json (then the first).
+MONITOR="${HYPR_MONITOR:-}"
 DEFAULT_BITDEPTH="${HYPR_MONITOR_BITDEPTH:-10}"
 POSITION="0x0"
 SCALE="1"
@@ -66,7 +67,7 @@ monitor_json() {
   '
 }
 
-# DRM card / connector for a Hyprland output name (e.g. DP-1 → card1-DP-1)
+# DRM card / connector for a Hyprland output name (cardN-<output>).
 drm_adapter_info() {
   local out_name="$1"
   local link card conn path
@@ -404,7 +405,7 @@ monitor-mode.sh — Hyprland monitor modes for Quickshell BarControlBar
   scale:    always 1.0
 
 Env:
-  HYPR_MONITOR=DP-1
+  HYPR_MONITOR           optional output; empty uses the focused output
   HYPR_MONITOR_BITDEPTH=10
 EOF
 }

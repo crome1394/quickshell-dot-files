@@ -121,8 +121,8 @@ Item {
     readonly property int envTableColSpacing: th.inspEnvTableColSpacing
 
     // === Static paths (edit here if your Hypr config lives elsewhere) ===
-    readonly property string configDir: "/home/crome/.config/hypr/config"
-    readonly property string hyprDir: "/home/crome/.config/hypr"
+    readonly property string configDir: (Quickshell.env("HOME") + "/.config/hypr/config")
+    readonly property string hyprDir: (Quickshell.env("HOME") + "/.config/hypr")
 
     readonly property var configFileEntries: [
         { id: "monitors", label: "Monitors", file: "monitors.lua" },

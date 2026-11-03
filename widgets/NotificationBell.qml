@@ -78,7 +78,7 @@ Rectangle {
             if (local && local.length)
                 return local
         } catch (e) {}
-        return "/home/crome/.config/quickshell/scripts/notification-history.py"
+        return Quickshell.shellPath("scripts/notification-history.py")
     }
 
     function applyState(j) {

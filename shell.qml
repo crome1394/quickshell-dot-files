@@ -204,7 +204,7 @@ ShellRoot {
     property var quickLaunchApps: []
 
     // Wallpaper directory (Config default; editable from BarControlBar, persisted)
-    property string wallpaperDir: "/home/crome/Pictures/wallpapers"
+    property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
     property string wallpaperCurrent: ""
     // Preferred wallpaper thumbnail width (px); grid stretches tiles to fill the panel.
     property int wallpaperTileSize: 148
@@ -942,7 +942,7 @@ ShellRoot {
 
         Io.FileView {
             id: barLayoutFile
-            path: "/home/crome/.config/quickshell/state/bar-layout.json"
+            path: Quickshell.shellPath("state/bar-layout.json")
             watchChanges: true
             onFileChanged: {
                 if (bar._barLayoutWriteGuard)
@@ -1309,7 +1309,7 @@ ShellRoot {
         // =====================================================================
         Io.FileView {
             id: themeColorsFile
-            path: "/home/crome/.config/quickshell/state/theme-colors.json"
+            path: Quickshell.shellPath("state/theme-colors.json")
             watchChanges: true
             onFileChanged: {
                 if (bar._themeWriteGuard)
@@ -2635,7 +2635,7 @@ ShellRoot {
             bar._appliedNotificationCorner = corner
             bar._appliedNotificationTimeout = timeout
             Quickshell.execDetached([
-                "/home/crome/.config/quickshell/scripts/swaync-corner.py",
+                Quickshell.shellPath("scripts/swaync-corner.py"),
                 corner,
                 String(timeout)
             ])
@@ -3252,7 +3252,7 @@ ShellRoot {
             if (!p.length)
                 return
             const script = cfg.wallpaperApplyScript || ""
-            const mon = cfg.wallpaperMonitor || "DP-1"
+            const mon = cfg.wallpaperMonitor || ""
             if (!script.length)
                 return
             Quickshell.execDetached([script, p, mon])
@@ -3491,8 +3491,8 @@ ShellRoot {
         readonly property alias themeStatVramTierUiRows: cfg.themeStatVramTierUiRows
         readonly property alias themeStatTempUiRows: cfg.themeStatTempUiRows
         readonly property alias themeEditableNumbers: cfg.themeEditableNumbers
-        readonly property string themeIoScript: "/home/crome/.config/quickshell/scripts/theme-io.sh"
-        readonly property string profileIoScript: "/home/crome/.config/quickshell/scripts/profile-io.sh"
+        readonly property string themeIoScript: Quickshell.shellPath("scripts/theme-io.sh")
+        readonly property string profileIoScript: Quickshell.shellPath("scripts/profile-io.sh")
         property string themeStatus: ""
         property var themeSavedList: []
         property var setupSavedList: []
@@ -3925,7 +3925,7 @@ ShellRoot {
         property alias ovExitOnSwitch: root.ovExitOnSwitch
         property alias widgetScales: root.widgetScales
         // Desktop app picker script for the Launch panel
-        readonly property string desktopAppsJsonScript: "/home/crome/.config/quickshell/scripts/desktop-apps-json.sh"
+        readonly property string desktopAppsJsonScript: Quickshell.shellPath("scripts/desktop-apps-json.sh")
         readonly property alias wallpaperListScript: cfg.wallpaperListScript
         readonly property alias wallpaperApplyScript: cfg.wallpaperApplyScript
         readonly property alias wallpaperAddScript: cfg.wallpaperAddScript

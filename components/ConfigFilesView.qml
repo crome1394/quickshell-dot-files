@@ -1,13 +1,14 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Quickshell
 
 // Static Hyprland config files under ~/.config/hypr/config/ with bat syntax view.
 Item {
     id: root
 
     property var files: []
-    property string configDir: "/home/crome/.config/hypr/config"
+    property string configDir: (Quickshell.env("HOME") + "/.config/hypr/config")
     property string selectedFileId: "monitors"
     property string fileSearch: ""
     property string globalFilter: ""

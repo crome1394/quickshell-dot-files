@@ -558,13 +558,21 @@ root_total=$(awk '{print $2}' <<<"$root_usage")
 root_pct=$(awk '{print $3}' <<<"$root_usage")
 
 # ---------- Detailed disk info for NVMe + key mounts (robust, always produces array) ----------
-# Collects root, the /data media mount, and any other mounted nvme partitions with usage + model.
+# Collects root, optional extra mounts, and any other mounted NVMe partition.
 disks=$(
   declare -A seen_mounts
   out="[]"
 
-  # Primary mounts we always want if present
-  for m in / /run/media/crome/data; do
+  # Root is always listed. Extra mounts are opt-in via SYSMON_EXTRA_MOUNTS
+  # (colon-separated). Other mounted NVMe partitions are discovered below.
+  mounts=(/)
+  if [[ -n "${SYSMON_EXTRA_MOUNTS:-}" ]]; then
+    IFS=':' read -ra _extra <<< "${SYSMON_EXTRA_MOUNTS}"
+    for _m in "${_extra[@]}"; do
+      [[ -n "$_m" ]] && mounts+=("$_m")
+    done
+  fi
+  for m in "${mounts[@]}"; do
     if mountpoint -q "$m" 2>/dev/null; then
       src=$(findmnt -rn -o SOURCE --target "$m" 2>/dev/null || echo "")
       # Resolve backing disk for accurate MODEL (handles partitions + btrfs subvol paths like /dev/nvme0n1p2[/@])

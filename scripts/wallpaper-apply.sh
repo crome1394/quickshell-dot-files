@@ -4,7 +4,8 @@
 set -euo pipefail
 
 PATH_IMG="${1:-}"
-MONITOR="${2:-${HYPR_WALLPAPER_MONITOR:-DP-1}}"
+# Empty monitor means the focused Hyprland output. HYPR_WALLPAPER_MONITOR overrides that.
+MONITOR="${2:-${HYPR_WALLPAPER_MONITOR:-}}"
 FIT="${HYPR_WALLPAPER_FIT:-cover}"
 CONF="${HYPR_WALLPAPER_CONF:-$HOME/.config/hypr/hyprpaper.conf}"
 
@@ -20,6 +21,15 @@ PATH_IMG="$(readlink -f "$PATH_IMG" 2>/dev/null || realpath "$PATH_IMG" 2>/dev/n
 case "$PATH_IMG" in
   *$'\n'*|*$'\r'*) echo "error: path contains a newline" >&2; exit 1 ;;
 esac
+if [[ -z "$MONITOR" ]]; then
+  # Path is next to this script; shellcheck cannot follow the cd.
+  # shellcheck disable=SC1091
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/focused-monitor.sh"
+  MONITOR="$(detect_focused_monitor)" || {
+    echo "error: no monitor; set HYPR_WALLPAPER_MONITOR" >&2
+    exit 1
+  }
+fi
 [[ "$MONITOR" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "error: refusing monitor name" >&2; exit 1; }
 [[ "$FIT" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "error: refusing fit mode" >&2; exit 1; }
 

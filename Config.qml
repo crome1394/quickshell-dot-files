@@ -13,6 +13,7 @@
 // =============================================================================
 
 import QtQuick
+import Quickshell
 
 QtObject {
     id: theme
@@ -1951,55 +1952,55 @@ QtObject {
 
     readonly property var quickLaunchApps: [
         {
-            icon: "/home/crome/icons/vscodium.svg",
+            icon: (Quickshell.env("HOME") + "/icons/vscodium.svg"),
             glyph: "",
             command: ["gtk-launch", "vscodium"],
             tooltip: "VSCodium"
         },
         {
-            icon: "/home/crome/icons/firefox.svg",
+            icon: (Quickshell.env("HOME") + "/icons/firefox.svg"),
             glyph: "",
             command: ["env", "MOZ_ENABLE_WAYLAND=0", "firefox"],
             tooltip: "Firefox"
         },
         {
-            icon: "/home/crome/icons/brave.svg",
+            icon: (Quickshell.env("HOME") + "/icons/brave.svg"),
             glyph: "",
             command: ["/usr/bin/brave-origin"],
             tooltip: "Brave Origin"
         },
         {
-            icon: "/home/crome/icons/google-chrome.svg",
+            icon: (Quickshell.env("HOME") + "/icons/google-chrome.svg"),
             glyph: "",
             command: ["/usr/bin/google-chrome-stable"],
             tooltip: "Google Chrome"
         },
         {
-            icon: "/home/crome/icons/logseq-a.svg",
+            icon: (Quickshell.env("HOME") + "/icons/logseq-a.svg"),
             glyph: "",
             command: ["gtk-launch", "logseq"],
             tooltip: "Logseq"
         },
         {
-            icon: "/home/crome/icons/lmstudio-dark.png",
+            icon: (Quickshell.env("HOME") + "/icons/lmstudio-dark.png"),
             glyph: "",
-            command: ["/home/crome/applications/LM-Studio-0.4.13-1-x64.AppImage"],
+            command: [(Quickshell.env("HOME") + "/applications/LM-Studio-0.4.13-1-x64.AppImage")],
             tooltip: "LM Studio"
         },
         {
-            icon: "/home/crome/icons/steam.svg",
+            icon: (Quickshell.env("HOME") + "/icons/steam.svg"),
             glyph: "",
             command: ["/usr/bin/steam"],
             tooltip: "Steam"
         },   
         {
-            icon: "/home/crome/icons/com.system76.CosmicFiles.svg",
+            icon: (Quickshell.env("HOME") + "/icons/com.system76.CosmicFiles.svg"),
             glyph: "",
             command: ["/usr/bin/cosmic-files"],
             tooltip: "Cosmic Files"
         },    
         {
-            icon: "/home/crome/icons/kitty.svg",
+            icon: (Quickshell.env("HOME") + "/icons/kitty.svg"),
             glyph: "",
             command: ["/usr/bin/kitty"],
             tooltip: "Kitty"
@@ -2077,26 +2078,26 @@ QtObject {
     // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)
     // CLI/rofi: hypr-resolution (on PATH). Script: list/status/apply for the control strip.
     readonly property string hyprResolutionBin: "hypr-resolution"
-    readonly property string monitorModeScript: "/home/crome/.config/quickshell/scripts/monitor-mode.sh"
-    readonly property string monitorName: "DP-1"
+    readonly property string monitorModeScript: Quickshell.shellPath("scripts/monitor-mode.sh")
+    readonly property string monitorName: ""  // empty: focused Hyprland output
 
     // Wallpaper (BarControlBar → Wallpaper panel; hyprpaper apply)
-    readonly property string wallpaperDir: "/home/crome/Pictures/wallpapers"
-    readonly property string wallpaperMonitor: "DP-1"
+    readonly property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
+    readonly property string wallpaperMonitor: ""  // empty: focused Hyprland output
     readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
-    readonly property string wallpaperListScript:  "/home/crome/.config/quickshell/scripts/wallpaper-list-json.sh"
-    readonly property string wallpaperApplyScript: "/home/crome/.config/quickshell/scripts/wallpaper-apply.sh"
-    readonly property string wallpaperAddScript:   "/home/crome/.config/quickshell/scripts/wallpaper-add.sh"
-    readonly property string wallpaperRenameScript: "/home/crome/.config/quickshell/scripts/wallpaper-rename.sh"
-    readonly property string wallpaperDeleteScript: "/home/crome/.config/quickshell/scripts/wallpaper-delete.sh"
-    readonly property string wallpaperPickDirScript: "/home/crome/.config/quickshell/scripts/wallpaper-pick-dir.sh"
+    readonly property string wallpaperListScript:  Quickshell.shellPath("scripts/wallpaper-list-json.sh")
+    readonly property string wallpaperApplyScript: Quickshell.shellPath("scripts/wallpaper-apply.sh")
+    readonly property string wallpaperAddScript:   Quickshell.shellPath("scripts/wallpaper-add.sh")
+    readonly property string wallpaperRenameScript: Quickshell.shellPath("scripts/wallpaper-rename.sh")
+    readonly property string wallpaperDeleteScript: Quickshell.shellPath("scripts/wallpaper-delete.sh")
+    readonly property string wallpaperPickDirScript: Quickshell.shellPath("scripts/wallpaper-pick-dir.sh")
 
     // XDG Autostart (BarControlBar → Autostart panel; ~/.config/autostart)
-    readonly property string autostartListScript: "/home/crome/.config/quickshell/scripts/autostart-list-json.sh"
-    readonly property string autostartSetScript:  "/home/crome/.config/quickshell/scripts/autostart-set.sh"
-    readonly property string autostartAddScript:  "/home/crome/.config/quickshell/scripts/autostart-add.sh"
-    readonly property string autostartRunScript:  "/home/crome/.config/quickshell/scripts/autostart-run.sh"
-    readonly property string opacityApplyScript: "/home/crome/.config/quickshell/scripts/opacity-apply.sh"
+    readonly property string autostartListScript: Quickshell.shellPath("scripts/autostart-list-json.sh")
+    readonly property string autostartSetScript:  Quickshell.shellPath("scripts/autostart-set.sh")
+    readonly property string autostartAddScript:  Quickshell.shellPath("scripts/autostart-add.sh")
+    readonly property string autostartRunScript:  Quickshell.shellPath("scripts/autostart-run.sh")
+    readonly property string opacityApplyScript: Quickshell.shellPath("scripts/opacity-apply.sh")
 
     // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
@@ -2109,7 +2110,7 @@ QtObject {
         return s.length ? s : fontBarResolved
     }
     readonly property int clockFontFace: fspRole(13, clockFontScale)
-    readonly property string timezoneControlScript: "/home/crome/.config/quickshell/scripts/timezone-control.sh"
+    readonly property string timezoneControlScript: Quickshell.shellPath("scripts/timezone-control.sh")
     // Presets shown in the control-bar Clock menu: { label, format, tip }
     readonly property var clockFormatPresets: [
         { label: "Full",   format: "dddd, MM·dd·yyyy | HH:mm:ss", tip: "Weekday, date, 24h with seconds" },
@@ -2201,9 +2202,9 @@ QtObject {
     readonly property int freshRssListMaxWidth:    sp(720)
     readonly property int freshRssDetailMinWidth:  sp(260)   // drag limit — article pane
     // Scripts for Options panel credentials UI
-    readonly property string freshRssSecretsReadScript:  "/home/crome/.config/quickshell/scripts/freshrss-secrets-read.sh"
-    readonly property string freshRssSecretsWriteScript: "/home/crome/.config/quickshell/scripts/freshrss-secrets-write.sh"
-    readonly property string freshRssConnectionTestScript: "/home/crome/.config/quickshell/scripts/freshrss-connection-test.sh"
+    readonly property string freshRssSecretsReadScript:  Quickshell.shellPath("scripts/freshrss-secrets-read.sh")
+    readonly property string freshRssSecretsWriteScript: Quickshell.shellPath("scripts/freshrss-secrets-write.sh")
+    readonly property string freshRssConnectionTestScript: Quickshell.shellPath("scripts/freshrss-connection-test.sh")
 
     // =========================================================================
     // NOTIFICATION BELL (widgets/NotificationBell.qml)
@@ -2229,7 +2230,7 @@ QtObject {
     // Timer poller — DND backup. Script still prints {"count":N,"dnd":true|false};
     // the bell ignores count and uses the history list length.
     readonly property var notificationSync: [
-        "/home/crome/.config/quickshell/scripts/notification-sync.sh"
+        Quickshell.shellPath("scripts/notification-sync.sh")
     ]
     readonly property int notificationSyncIntervalMs: 2500  // Ms between sync script runs
     readonly property color notificationDndAccent: muted  // Warning red pill border + bell when DND is on

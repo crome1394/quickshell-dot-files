@@ -66,8 +66,8 @@ Rectangle {
     readonly property int _padW: embedded ? 12 : 14
     readonly property int _naturalW: btContent.implicitWidth + _padW
 
-    readonly property string audioControlScript: "/home/crome/.config/quickshell/scripts/audio-control.sh"
-    readonly property string bluemanControlScript: "/home/crome/.config/quickshell/scripts/blueman-applet-control.sh"
+    readonly property string audioControlScript: Quickshell.shellPath("scripts/audio-control.sh")
+    readonly property string bluemanControlScript: Quickshell.shellPath("scripts/blueman-applet-control.sh")
 
     // Address of expanded / detail device (stable key; never store live object long-term)
     property string expandedAddress: ""

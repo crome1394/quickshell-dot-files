@@ -29,9 +29,16 @@ else
     cpu_util="0.0"
 fi
 
-# ---------- CPU Temperature (k10temp Tctl - the package temp) ----------
-# hwmon2 is reliably k10temp on this 9950X3D system (see hwmon inspection)
-cpu_temp_raw=$(cat /sys/class/hwmon/hwmon2/temp1_input 2>/dev/null || echo 0)
+# ---------- CPU Temperature (k10temp Tctl is temp1_input) ----------
+cpu_temp_raw=0
+for _hwmon in /sys/class/hwmon/hwmon*; do
+  [[ -r "$_hwmon/name" ]] || continue
+  [[ "$(< "$_hwmon/name")" == "k10temp" ]] || continue
+  if [[ -r "$_hwmon/temp1_input" ]]; then
+    cpu_temp_raw=$(< "$_hwmon/temp1_input")
+    break
+  fi
+done
 cpu_temp=$(( cpu_temp_raw / 1000 ))
 
 # ---------- NVIDIA RTX 5080 (minimal fast query) ----------

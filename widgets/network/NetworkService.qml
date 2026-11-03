@@ -29,7 +29,7 @@ Item {
     width: 0
     height: 0
 
-    readonly property string controlScript: "/home/crome/.config/quickshell/scripts/network-control.sh"
+    readonly property string controlScript: Quickshell.shellPath("scripts/network-control.sh")
 
     // The button sets this while the popup is open. Scanning and the fast
     // rate sample stay off when it is closed.

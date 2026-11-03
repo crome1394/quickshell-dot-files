@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io as Io
+import Quickshell
 
 // =============================================================================
 // SysMonService.qml — Source of truth for system metrics polling + history
@@ -137,7 +138,7 @@ Item {
 
     Io.Process {
         id: poller
-        command: ["/home/crome/.config/quickshell/scripts/sysmon-poller.sh"]
+        command: [Quickshell.shellPath("scripts/sysmon-poller.sh")]
         stdout: Io.SplitParser {
             splitMarker: "\n"
             onRead: (line) => {
