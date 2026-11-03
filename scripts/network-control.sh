@@ -515,10 +515,15 @@ cmd_status() {
                 timestamp: $ts
             }'
     else
-        # Extremely minimal without jq
+        # Extremely minimal without jq. Join first so the device list stays
+        # one quoted argument and does not shift the timestamp.
+        local devices_csv=""
+        if ((${#dev_objs[@]} > 0)); then
+            devices_csv="$(IFS=,; echo "${dev_objs[*]}")"
+        fi
         printf '{"networking":%s,"wifi_radio":%s,"wifi_hw":%s,"connectivity":"%s","devices":[%s],"active_connections":[],"timestamp":%s}\n' \
             "$networking" "$wifi_radio" "$wifi_hw" "$(json_esc "$connectivity")" \
-            "$((${#dev_objs[@]} > 0)) && printf '%s' "$(IFS=,; echo "${dev_objs[*]}")" || true" \
+            "$devices_csv" \
             "$(date +%s)"
     fi
 }
