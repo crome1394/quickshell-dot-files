@@ -826,15 +826,6 @@ QtObject {
         return true
     }
 
-    // Keep role scales sane when loading older themes without them
-    function ensureFontRoleDefaults() {
-        fontScale = _clampFontRoleScale(fontScale)
-        fontMonoScale = _clampFontRoleScale(fontMonoScale)
-        fontMainScale = _clampFontRoleScale(fontMainScale)
-        fontSecondaryScale = _clampFontRoleScale(fontSecondaryScale)
-        fontBarScale = _clampFontRoleScale(fontBarScale)
-    }
-
     function themeFactoryDefaults() {
         return {
             name: "Liquid glass",
@@ -2344,13 +2335,11 @@ QtObject {
     // Main text → menu titles / section headers
     readonly property int fontClock:      fspRole(15, fontBarScale)   // Clock face (bar widget text)
     readonly property int fontPillLabel:  fsp(12)   // Volume % etc. (tier colors; global scale only)
-    readonly property int fontPillLabelBold: fsp(12)
     readonly property int fontPopupTitle: fspRole(16, fontMainScale)   // Menu main titles
     readonly property int fontSection:    fspRole(13, fontMainScale)   // Menu section headers
     readonly property int fontBody:       fspRole(12, fontSecondaryScale)   // Menu body / secondary
     readonly property int fontSmall:      fspRole(11, fontSecondaryScale)
     readonly property int fontTiny:       fspRole(10, fontSecondaryScale)
-    readonly property int fontPowerLabel: fspRole(12, fontSecondaryScale)
     // Explicit bar-face size (~sysstats / clock / IP) — Themes → Bar widget text size
     readonly property int fontBarFace:    fspRole(13, fontBarScale)
     // Mono sample / mono-labeled UI (Themes → Monospace size)
