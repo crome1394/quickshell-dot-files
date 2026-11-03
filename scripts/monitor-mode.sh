@@ -30,10 +30,14 @@ need_jq() {
 }
 
 normalize_mode() {
-  # Strip trailing Hz/hz and whitespace
+  # WxH@rate only. The string is interpolated into hyprctl eval and monitors.lua.
   local m="${1// /}"
   m="${m%Hz}"
   m="${m%hz}"
+  if [[ ! "$m" =~ ^[0-9]+x[0-9]+@[0-9]+([.][0-9]+)?$ ]]; then
+    printf ''
+    return 0
+  fi
   printf '%s' "$m"
 }
 
@@ -295,6 +299,7 @@ apply_mode() {
   local mon_name
   mon_name="$(monitor_json | jq -r '.name // empty')"
   [[ -n "$mon_name" ]] || mon_name="$MONITOR"
+  [[ "$mon_name" =~ ^[A-Za-z0-9_.-]+$ ]] || die "refusing monitor name"
 
   # cm=srgb: Hyprland "auto" maps 10-bit to wide/BT2020, which fringes
   # Quickshell anti-aliased icons. Known-good 10-bit is sRGB primaries.
@@ -342,9 +347,19 @@ apply_mode() {
 # Keeps cm = "srgb" (not auto: 10-bit auto → wide/BT2020, fringes Qt UI) and scale 1.0.
 persist_monitors_lua() {
   local mon_name="$1" mode="$2" bitdepth="$3"
-  local conf_dir conf bak
+  local conf_dir conf bak tmp
   conf_dir="${HYPR_MONITORS_LUA_DIR:-$HOME/.config/hypr/config}"
   conf="${HYPR_MONITORS_LUA:-$conf_dir/monitors.lua}"
+
+  [[ "$mon_name" =~ ^[A-Za-z0-9_.-]+$ ]] || return 1
+  [[ "$mode" =~ ^[0-9]+x[0-9]+@[0-9]+([.][0-9]+)?$ ]] || return 1
+  [[ "$bitdepth" == "8" || "$bitdepth" == "10" ]] || return 1
+
+  # Follow a symlink and replace the real file. The temp file is created
+  # in that file's directory so mv is atomic and the link stays a link.
+  if [[ -L "$conf" ]]; then
+    conf="$(readlink -f -- "$conf")"
+  fi
 
   mkdir -p "$(dirname "$conf")" 2>/dev/null || return 1
 
@@ -353,8 +368,9 @@ persist_monitors_lua() {
     cp -f "$conf" "$bak" 2>/dev/null || true
   fi
 
-  # mode is WxH@rate — quote as string for Lua
-  cat >"$conf" <<EOF
+  # mode is WxH@rate — quote as string for Lua. Write aside, then replace.
+  tmp="$(mktemp "${conf}.XXXXXX")"
+  cat >"$tmp" <<EOF
 -- ━━━━ Monitors ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
 --
 -- Managed by Quickshell Display panel (scripts/monitor-mode.sh).
@@ -372,6 +388,7 @@ hl.monitor({
     cm = "srgb",
 })
 EOF
+  mv -f "$tmp" "$conf"
 }
 
 usage() {
