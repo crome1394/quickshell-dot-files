@@ -4170,9 +4170,6 @@ ShellRoot {
         readonly property alias dividerSubtle: cfg.dividerSubtle
 
         // --- Animation & interaction
-        readonly property alias animFast: cfg.animFast
-        readonly property alias animMedium: cfg.animMedium
-        readonly property alias animSlow: cfg.animSlow
         property alias tooltipDelay: cfg.tooltipDelay
         property alias tooltipAlign: root.tooltipAlign
 

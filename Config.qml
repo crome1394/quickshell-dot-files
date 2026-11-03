@@ -2901,14 +2901,6 @@ QtObject {
     // =========================================================================
     // ANIMATION & INTERACTION TOKENS
     // =========================================================================
-    // Centralized durations and delays for consistent feel across the bar.
-    // Recommended easing for most UI motion: Easing.OutQuad (used in existing Behaviors).
-
-    readonly property int animFast:   90    // Quick feedback (Cava bars, small state changes)
-    readonly property int animMedium: 140   // Standard hover / color transitions (WorkspacesPill)
-    readonly property int animSlow:   220   // Slower, more noticeable motion
-
-    // Interaction delays
     // Writable: Options → Tooltips delay + bar-layout.json (200–3000 ms).
     property int tooltipDelay: 1550
 
