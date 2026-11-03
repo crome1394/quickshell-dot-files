@@ -10,10 +10,11 @@
 #   freshrss-api.sh play-mpv <url>
 #
 # Secrets: ~/.config/freshrss-quickshell/freshrss.env (outside git)
-#   FRESHRSS_BASE_URL=http://freshrss.example
-#   FRESHRSS_USER=admin
+#   FRESHRSS_BASE_URL=http://freshrss.example   # required
+#   FRESHRSS_USER=name                          # required, no default
 #   FRESHRSS_API_PASSWORD=...   # optional; Profile → API password
-# With no secrets file the client exits "not configured" and does not use a default host.
+# With no secrets file, or an empty URL or user, the client exits "not configured"
+# and does not use a default host or user.
 #
 set -euo pipefail
 
@@ -68,11 +69,18 @@ load_secrets() {
     # shellcheck source=/dev/null
     source "$SECRETS"
     set +a
-    FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL:-http://10.74.10.8}"
-    FRESHRSS_USER="${FRESHRSS_USER:-admin}"
+    FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL:-}"
+    FRESHRSS_USER="${FRESHRSS_USER:-}"
     FRESHRSS_API_PASSWORD="${FRESHRSS_API_PASSWORD:-}"
-    # strip trailing slash
+    # strip trailing slash and surrounding whitespace
     FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL%/}"
+    FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL#"${FRESHRSS_BASE_URL%%[![:space:]]*}"}"
+    FRESHRSS_BASE_URL="${FRESHRSS_BASE_URL%"${FRESHRSS_BASE_URL##*[![:space:]]}"}"
+    FRESHRSS_USER="${FRESHRSS_USER#"${FRESHRSS_USER%%[![:space:]]*}"}"
+    FRESHRSS_USER="${FRESHRSS_USER%"${FRESHRSS_USER##*[![:space:]]}"}"
+    if [[ -z "$FRESHRSS_BASE_URL" || -z "$FRESHRSS_USER" ]]; then
+        return 1
+    fi
 }
 
 api_key() {
@@ -336,9 +344,12 @@ cmd_status() {
             python3 - <<'PY'
 import json, os, urllib.parse, urllib.request, hashlib, time
 
-base = os.environ["FRESHRSS_BASE_URL"].rstrip("/")
-user = os.environ.get("FRESHRSS_USER", "admin")
+base = os.environ.get("FRESHRSS_BASE_URL", "").rstrip("/")
+user = os.environ.get("FRESHRSS_USER", "")
 pw = os.environ.get("FRESHRSS_API_PASSWORD", "")
+if not base or not user:
+    print(json.dumps({"ok": False, "error": "not configured"}))
+    raise SystemExit(1)
 cache = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
                      "quickshell", "freshrss-greader.auth")
 
@@ -488,8 +499,10 @@ max_days = max(0, int(sys.argv[4]) if len(sys.argv) > 4 else 0)
 base = os.environ.get("FRESHRSS_BASE_URL", "").rstrip("/")
 if not base:
     raise SystemExit("not configured")
-user = os.environ.get("FRESHRSS_USER", "admin")
+user = os.environ.get("FRESHRSS_USER", "")
 pw = os.environ.get("FRESHRSS_API_PASSWORD", "")
+if not user:
+    raise SystemExit("not configured")
 auth_cache = os.environ.get("FRESHRSS_AUTH_CACHE", "")
 # Cap body size sent to QML (list + detail); full article is always a click away.
 HTML_MAX = 6000
@@ -1097,9 +1110,12 @@ greader_auth_token() {
     FRESHRSS_API_PASSWORD="$FRESHRSS_API_PASSWORD" \
     python3 - <<'PY'
 import json, os, time, urllib.parse, urllib.request
-base = os.environ["FRESHRSS_BASE_URL"].rstrip("/")
-user = os.environ.get("FRESHRSS_USER", "admin")
+base = os.environ.get("FRESHRSS_BASE_URL", "").rstrip("/")
+user = os.environ.get("FRESHRSS_USER", "")
 pw = os.environ.get("FRESHRSS_API_PASSWORD", "")
+if not base or not user:
+    print(json.dumps({"ok": False, "error": "not configured"}))
+    raise SystemExit(1)
 cache = os.path.join(os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
                      "quickshell", "freshrss-greader.auth")
 

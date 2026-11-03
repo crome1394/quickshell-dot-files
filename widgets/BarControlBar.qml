@@ -13452,7 +13452,7 @@ Item {
                                         verticalAlignment: Text.AlignVCenter
                                         Layout.fillWidth: true
                                         Layout.preferredHeight: 30
-                                        placeholderText: "freshrss.example or 10.74.10.8"
+                                        placeholderText: "freshrss.example"
                                         color: bar.text
                                         placeholderTextColor: bar.subtext
                                         font.pixelSize: 14
