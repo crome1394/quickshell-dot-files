@@ -71,14 +71,25 @@ PASSWORD="${PASSWORD//$'\n'/}"
 q_base=$(printf '%q' "$BASE_URL")
 q_user=$(printf '%q' "$USER")
 q_pass=$(printf '%q' "$PASSWORD")
-cat > "$OUT_FILE" <<ENV
+# Follow a symlink and replace the real file. The temp file is created
+# in that file's directory so mv is atomic and the link stays a link.
+if [[ -L "$OUT_FILE" ]]; then
+  dest="$(readlink -f -- "$OUT_FILE")"
+else
+  dest="$OUT_FILE"
+fi
+mkdir -p "$(dirname "$dest")"
+tmp="$(mktemp "${dest}.XXXXXX")"
+chmod 600 "$tmp"
+cat > "$tmp" <<ENV
 # FreshRSS client secrets (outside quickshell git tree — never commit)
 # API password = Profile → API password, not web form password.
 FRESHRSS_BASE_URL=${q_base}
 FRESHRSS_USER=${q_user}
 FRESHRSS_API_PASSWORD=${q_pass}
 ENV
-chmod 600 "$OUT_FILE"
+mv -f "$tmp" "$dest"
+chmod 600 "$dest"
 
 HAS_PW="false"
 [[ -n "${PASSWORD// }" ]] && HAS_PW="true"
