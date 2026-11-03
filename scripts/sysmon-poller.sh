@@ -288,15 +288,10 @@ if command -v resolvectl >/dev/null 2>&1; then
                 dns_current="${dns_current%%#*}"
                 dns_link="${cur_link:-}"
                 ;;
+            # Fallback DNS Servers matches here on purpose. resolvectl
+            # prints that label, and those servers belong in this list.
             *"DNS Servers:"*)
                 rest="${line#*DNS Servers: }"
-                while read -r srv; do
-                    srv="${srv%%#*}"
-                    [[ -n "$srv" ]] && dns_servers+=("$srv")
-                done < <(tr ' ' '\n' <<<"$rest")
-                ;;
-            "Fallback DNS Servers:"*)
-                rest="${line#Fallback DNS Servers: }"
                 while read -r srv; do
                     srv="${srv%%#*}"
                     [[ -n "$srv" ]] && dns_servers+=("$srv")
