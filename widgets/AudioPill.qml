@@ -46,7 +46,7 @@ import "../components"
 //   - required property var bar
 //   - required property Item barBg (for popup positioning)
 //   - property bool embedded — when true, omit outer chrome (grouped Bluetooth + Audio pill). Network is separate.
-//   - property real pillScale — multiplies horizontal content width (BarControlBar Sizes)
+//   - property real pillScale — multiplies horizontal content width (SettingsPanel Sizes)
 //   - Quickshell.Services.Pipewire (volume, channels, PwNodePeakMonitor)
 //   - scripts/audio-control.sh (card profile list/set; L/R pactl fallback)
 //
@@ -65,7 +65,7 @@ Rectangle {
 
     // When true, section inside shared connectivity/audio pill (no own border/bg).
     property bool embedded: false
-    // Horizontal scale from BarControlBar Sizes panel (1.0 = default). Height stays fixed.
+    // Horizontal scale from SettingsPanel Sizes panel (1.0 = default). Height stays fixed.
     property real pillScale: 1.0
 
     readonly property real _s: (pillScale > 0 ? pillScale : 1)

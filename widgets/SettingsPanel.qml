@@ -1,12 +1,12 @@
 // =============================================================================
-// BarControlBar.qml — Temporary mini-bar opened from empty main-bar chrome
+// SettingsPanel.qml — Settings window
 // =============================================================================
 //
-// Right-click blank area of the main bar (wired in shell.qml) toggles this
-// strip. Horizontally centered; stacks just inward from the main bar.
+// Right-click blank main-bar chrome (wired in shell.qml) or the gear pill
+// toggles this window. FloatingWindow titled "Settings" (movable like the
+// Hyprland inspector). Esc / ✕ close it.
 //
-// Single FloatingWindow (movable like the Hypr inspector). Expandable panel
-// on top; toolbar buttons
+// Expandable panel on top; toolbar buttons
 // along the bottom: Position · Display · Wallpaper · Widgets · Options ·
 // Themes · App Launcher · Autostart · MIME · Services · Audio · Keybinds · Clock
 // Widgets = layout; Options = behavior prefs; Themes = bar/widget theme;

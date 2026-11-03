@@ -7,7 +7,7 @@ import Quickshell.Services.Pipewire
 import ".."
 
 // PulseAudio/PipeWire audio devices via pactl (sinks, sources, ports, defaults).
-// Used by Inspector Audio tab and BarControlBar Audio panel.
+// Used by Inspector Audio tab and SettingsPanel Audio panel.
 // Optional tools strip (pw-top / restart / AEC) via showTools.
 // Defaults: card profiles + VU levels (name-resolved PipeWire nodes, gated while active).
 Item {

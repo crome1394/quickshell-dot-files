@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # list-terminals.sh — print installed terminal emulators, one per line.
-# Used by BarControlBar (Options → Stats → Terminal) to build the picker chips,
+# Used by SettingsPanel (Options → Stats → Terminal) to build the picker chips,
 # and consumed as argv[0] when SysStatsPill launches btop / nvtop.
 # Known terminals come first (preference order); anything else registering an
 # XDG "TerminalEmulator" desktop entry is appended. Extend the list as needed.

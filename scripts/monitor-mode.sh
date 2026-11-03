@@ -394,7 +394,7 @@ EOF
 
 usage() {
   cat <<'EOF'
-monitor-mode.sh — Hyprland monitor modes for Quickshell BarControlBar
+monitor-mode.sh — Hyprland monitor modes for Quickshell SettingsPanel
 
   monitor-mode.sh status-json
   monitor-mode.sh list-json

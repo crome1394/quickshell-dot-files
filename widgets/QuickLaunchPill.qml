@@ -13,7 +13,7 @@ import Quickshell.Hyprland
 // Purpose:
 //   Horizontal row of icon buttons inside a pill. Apps and icons are defined in
 //   Config.qml defaults (search QUICK LAUNCH); runtime list is bar.quickLaunchApps
-//   (editable from BarControlBar → Launch, persisted in bar-layout.json).
+//   (editable from SettingsPanel → Launch, persisted in bar-layout.json).
 //
 //   Running apps get a Mac-dock-style accent dot on the pill's bottom edge (any
 //   workspace, including magic). Icons are centerIn like the rest of the bar;

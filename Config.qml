@@ -2068,21 +2068,21 @@ QtObject {
     readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
     readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
-    readonly property bool showControlBarPill:     true   // Opens BarControlBar (config strip) from the bar
+    readonly property bool showControlBarPill:     true   // Opens SettingsPanel (config strip) from the bar
 
-    // Glyphs for bar position toggle in BarControlBar (right-click empty bar chrome)
+    // Glyphs for bar position toggle in SettingsPanel (right-click empty bar chrome)
     readonly property string barPositionIconTop:    "󰁝"  // shown when bar is on bottom (click → move to top)
     readonly property string barPositionIconBottom: "󰁅"  // shown when bar is on top (click → move to bottom)
     readonly property string iconHyprInsp:          "󰓙"  // Hyprland Config Inspector (spotlight, not cog)
     readonly property string iconControlBar:        "󰢻"  // Settings / config menu pill
 
-    // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)
+    // Display (SettingsPanel → Display panel; hyprctl modes + bitdepth)
     // CLI/rofi: hypr-resolution (on PATH). Script: list/status/apply for the control strip.
     readonly property string hyprResolutionBin: "hypr-resolution"
     readonly property string monitorModeScript: Quickshell.shellPath("scripts/monitor-mode.sh")
     readonly property string monitorName: ""  // empty: focused Hyprland output
 
-    // Wallpaper (BarControlBar → Wallpaper panel; hyprpaper apply)
+    // Wallpaper (SettingsPanel → Wallpaper panel; hyprpaper apply)
     readonly property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
     readonly property string wallpaperMonitor: ""  // empty: focused Hyprland output
     readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
@@ -2093,14 +2093,14 @@ QtObject {
     readonly property string wallpaperDeleteScript: Quickshell.shellPath("scripts/wallpaper-delete.sh")
     readonly property string wallpaperPickDirScript: Quickshell.shellPath("scripts/wallpaper-pick-dir.sh")
 
-    // XDG Autostart (BarControlBar → Autostart panel; ~/.config/autostart)
+    // XDG Autostart (SettingsPanel → Autostart panel; ~/.config/autostart)
     readonly property string autostartListScript: Quickshell.shellPath("scripts/autostart-list-json.sh")
     readonly property string autostartSetScript:  Quickshell.shellPath("scripts/autostart-set.sh")
     readonly property string autostartAddScript:  Quickshell.shellPath("scripts/autostart-add.sh")
     readonly property string autostartRunScript:  Quickshell.shellPath("scripts/autostart-run.sh")
     readonly property string opacityApplyScript: Quickshell.shellPath("scripts/opacity-apply.sh")
 
-    // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
+    // Clock format (Qt.formatDateTime) — editable from SettingsPanel; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
     readonly property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
     // Clock face family (empty = inherit bar widget text). Scale is independent of fontBarScale.
@@ -2122,7 +2122,7 @@ QtObject {
         { label: "US",     format: "ddd M/d/yyyy  h:mm AP",       tip: "US-style date + 12h" }
     ]
 
-    // Default widget order + zone for BarControlBar layout editor / runtime reparent.
+    // Default widget order + zone for SettingsPanel layout editor / runtime reparent.
     // Classic zone: "left" | "center" | "right". Connectivity is Bluetooth+Audio as one unit.
     readonly property var defaultWidgetLayout: [
         { id: "launcher",      zone: "left" },

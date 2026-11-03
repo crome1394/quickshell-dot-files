@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wallpaper-list-json.sh — list images in a directory as JSON for BarControlBar
+# wallpaper-list-json.sh — list images in a directory as JSON for SettingsPanel
 # Usage: wallpaper-list-json.sh [directory]
 set -euo pipefail
 

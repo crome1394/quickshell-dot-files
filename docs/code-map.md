@@ -19,7 +19,7 @@ Windows and hosts:
 | Name | What it is |
 |------|------------|
 | `PanelWindow` id `bar` | The classic bar. In dual mode this same window is the top bar. Right-click empty chrome is `MouseArea` id `barBgContext`, which toggles `barControlBar`. |
-| `BarControlBar` id `barControlBar` | The settings window. Comment: "Host for the control strip". |
+| `SettingsPanel` id `barControlBar` | The settings window. Comment: "Host for the control strip". |
 | `Item` id `widgetPool` | Holding pen for widgets the layout editor moves between zones. Parked off-screen, kept visible so children are not force-hidden. |
 | `Rectangle` id `controlBarPill` | Comment: "Settings / config menu". The config-menu pill. It starts in `widgetPool`. |
 | `PanelWindow` id `bottomBar` | Comment: "Dual-mode bottom bar". Hidden in classic, so it takes no exclusive zone. |
@@ -29,9 +29,9 @@ Windows and hosts:
 | `Overview` id `overviewLayer` | Comment: "Fullscreen workspace overview". |
 | `ShellIpc` | Comment: "Shell and overview IPC live in components/ShellIpc.qml." |
 
-## widgets/BarControlBar.qml
+## widgets/SettingsPanel.qml
 
-Header: "Temporary mini-bar opened from empty main-bar chrome". Right-click on blank main-bar chrome opens it. One `FloatingWindow`, an expandable panel on top, toolbar along the bottom. Window height follows the content.
+Header: "Settings window". Right-click on blank main-bar chrome or the gear pill opens it. One `FloatingWindow` titled "Settings", an expandable panel on top, toolbar along the bottom. Window height follows the content.
 
 The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, Themes, App Launcher, Autostart, MIME, Services, Audio, Keybinds, and Clock. It also says what those words mean: Widgets is layout, Options is behavior, Themes is the bar and widget theme, MIME is `MimeAppsView`, Services is systemd, Audio is `AudioMonitorView`, Keybinds is chord / category / description, Display is monitor resolution / refresh / bit depth, and Clock is Region & Clock.
 
