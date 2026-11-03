@@ -2083,7 +2083,6 @@ QtObject {
     // Wallpaper (BarControlBar → Wallpaper panel; hyprpaper apply)
     readonly property string wallpaperDir: "/home/crome/Pictures/wallpapers"
     readonly property string wallpaperMonitor: "DP-1"
-    readonly property string wallpaperFitMode: "cover"
     readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
     readonly property string wallpaperListScript:  "/home/crome/.config/quickshell/scripts/wallpaper-list-json.sh"
     readonly property string wallpaperApplyScript: "/home/crome/.config/quickshell/scripts/wallpaper-apply.sh"
