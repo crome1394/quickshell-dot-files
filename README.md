@@ -112,7 +112,7 @@ Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**).
 
 **Left bar** and **Right bar** are off until Options → **Bar** turns them on. Faces on a side bar rotate 90° clockwise. Popups stay upright.
 
-Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B/L/R in Dual). **Active Window** is not in those lists. It lives under **Other**, and the corner chips place it. Theme in **Themes**. Options cover the overview, stats, dock, screensaver, and screenshots. **Save setup** (Themes → Presets) snapshots colors plus this layout.
+Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B/L/R in Dual). **Active Window** is not in those lists. It lives under **Other**, and the corner chips place it. Theme in **Themes**. Options cover the overview, stats, dock, screensaver, and screenshots. **Save setup** (Themes → Presets) snapshots colors plus this layout. Importing a file from outside `themes/` or `profiles/` checks the JSON and drops machine-specific paths and click commands. The size limits and the drop list are in `docs/control-bar.md`.
 
 ## IPC (cheat sheet)
 
