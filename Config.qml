@@ -2029,7 +2029,6 @@ QtObject {
     readonly property int popupNetworkPanelMaxHeight: popupH(680)
     readonly property int popupHelpWidth:     popupW(1060)  // Hypr Config Inspector default width
     readonly property int popupHelpHeight:    popupH(720)   // Hypr Config Inspector default height
-    readonly property int popupTrayMaxHeight:  popupH(520)   // SystemTrayPill menu max height before scroll
 
     // Popup internal layout tokens (standardizes the repeated glass card patterns)
     readonly property real popupHeaderHighlightHeight: 1.5   // Top light edge on popup glass cards
@@ -2909,11 +2908,6 @@ QtObject {
     // =========================================================================
     readonly property int zSysStats:   5
     // Most other z usage is local (z: -1 for click-eaters)
-
-    // =========================================================================
-    // CONVENIENCE / DERIVED (rarely need editing)
-    // =========================================================================
-    readonly property int popupY: barHeight + 2   // Legacy Y offset under the bar (prefer popupBarGap + popupAnchorY)
 
     // --- NotificationBell command resolver (used by shell.qml + NotificationBell.qml)
     function notificationCommand(action) {
