@@ -399,7 +399,119 @@ ShellRoot {
         // --- Config (single source of truth — see Config.qml) ---
         Config { id: cfg }
 
+        // state/, themes/, and profiles/ are gitignored, so a fresh clone has
+        // none of them. mkdir -p before the first writeAdapter. Writes wait
+        // until that mkdir exits. An existing directory is left unchanged.
+        property bool _saveDirsReady: false
+        property bool _saveDirsStarted: false
+        property bool _saveDirsPendingLayout: false
+        property bool _saveDirsPendingTheme: false
+
+        function parentDirOf(path) {
+            const p = String(path || "")
+            const i = p.lastIndexOf("/")
+            return i > 0 ? p.substring(0, i) : ""
+        }
+
+        function saveDirPaths() {
+            const stateDir = bar.parentDirOf(barLayoutFile.path)
+            const themeFileDir = bar.parentDirOf(themeColorsFile.path)
+            const out = []
+            if (stateDir.length)
+                out.push(stateDir)
+            if (themeFileDir.length && themeFileDir !== stateDir)
+                out.push(themeFileDir)
+            const slash = stateDir.lastIndexOf("/")
+            if (slash > 0 && stateDir.substring(slash + 1) === "state") {
+                const configRoot = stateDir.substring(0, slash)
+                out.push(configRoot + "/themes")
+                out.push(configRoot + "/profiles")
+            }
+            return out
+        }
+
+        function ensureSaveDirs() {
+            if (bar._saveDirsReady || bar._saveDirsStarted)
+                return
+            const dirs = bar.saveDirPaths()
+            if (!dirs.length) {
+                bar.finishSaveDirs()
+                return
+            }
+            bar._saveDirsStarted = true
+            saveDirProc.exec(["/usr/bin/mkdir", "-p"].concat(dirs))
+            saveDirFallbackTimer.restart()
+        }
+
+        function finishSaveDirs() {
+            if (bar._saveDirsReady)
+                return
+            bar._saveDirsReady = true
+            saveDirFallbackTimer.stop()
+            if (bar._saveDirsPendingLayout) {
+                bar._saveDirsPendingLayout = false
+                barLayoutFile.writeAdapter()
+                bar.scheduleBarLayoutGuardClear()
+            }
+            if (bar._saveDirsPendingTheme) {
+                bar._saveDirsPendingTheme = false
+                themeColorsFile.writeAdapter()
+                bar.scheduleThemeGuardClear()
+            }
+        }
+
+        function writeBarLayoutWhenReady() {
+            if (!bar._saveDirsReady) {
+                bar._saveDirsPendingLayout = true
+                bar.ensureSaveDirs()
+                return false
+            }
+            bar._saveDirsPendingLayout = false
+            barLayoutFile.writeAdapter()
+            return true
+        }
+
+        function writeThemeColorsWhenReady() {
+            if (!bar._saveDirsReady) {
+                bar._saveDirsPendingTheme = true
+                bar.ensureSaveDirs()
+                return false
+            }
+            bar._saveDirsPendingTheme = false
+            themeColorsFile.writeAdapter()
+            return true
+        }
+
+        function scheduleBarLayoutGuardClear() {
+            Qt.callLater(function() {
+                Qt.callLater(function() {
+                    bar._barLayoutWriteGuard = false
+                })
+            })
+        }
+
+        function scheduleThemeGuardClear() {
+            Qt.callLater(function() {
+                Qt.callLater(function() {
+                    bar._themeWriteGuard = false
+                })
+            })
+        }
+
+        Io.Process {
+            id: saveDirProc
+            onExited: bar.finishSaveDirs()
+        }
+
+        Timer {
+            id: saveDirFallbackTimer
+            interval: 2000
+            repeat: false
+            onTriggered: bar.finishSaveDirs()
+        }
+
         Component.onCompleted: {
+            bar.ensureSaveDirs()
             root.showLauncherPill = cfg.showLauncherPill
             root.showQuickLaunchPill = cfg.showQuickLaunchPill
             root.showWorkspacesPill = cfg.showWorkspacesPill
@@ -527,7 +639,7 @@ ShellRoot {
             }
             cfg.uiScaleManual = s
             barLayoutAdapter.uiScaleManual = s
-            barLayoutFile.writeAdapter()
+            bar.writeBarLayoutWhenReady()
             bar.applyUiScale()
         }
 
@@ -1232,12 +1344,8 @@ ShellRoot {
             } catch (e) {
                 themeColorsAdapter.themeJson = "{}"
             }
-            themeColorsFile.writeAdapter()
-            Qt.callLater(function() {
-                Qt.callLater(function() {
-                    bar._themeWriteGuard = false
-                })
-            })
+            if (bar.writeThemeColorsWhenReady())
+                bar.scheduleThemeGuardClear()
         }
 
         function schedulePersistThemeColors() {
@@ -1905,13 +2013,10 @@ ShellRoot {
             barLayoutAdapter.dockRadius = Math.max(32, Math.min(160, Math.round(root.dockRadius || 72)))
             barLayoutAdapter.dockJumpPx = Math.max(4, Math.min(20, Math.round(root.dockJumpPx || 8)))
             barLayoutAdapter.dockScope = root.dockScope === "quicklaunch" ? "quicklaunch" : "icons"
-            barLayoutFile.writeAdapter()
             // Clear guard after filesystem watcher has had a chance to fire.
-            Qt.callLater(function() {
-                Qt.callLater(function() {
-                    bar._barLayoutWriteGuard = false
-                })
-            })
+            // A deferred write clears it from finishSaveDirs instead.
+            if (bar.writeBarLayoutWhenReady())
+                bar.scheduleBarLayoutGuardClear()
         }
 
         // --- Options panel setters (shared with shell IPC) ---
