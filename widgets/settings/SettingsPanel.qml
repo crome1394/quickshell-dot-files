@@ -25,7 +25,7 @@ import Quickshell.Io as Io
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import "../components"
+import "../../components"
 
 Item {
     id: root
@@ -2931,7 +2931,7 @@ Item {
     function monitorModeScriptPath() {
         // Resolve relative to this widget so worktrees and ~/.config/quickshell both work.
         try {
-            const local = Qt.resolvedUrl("../scripts/monitor-mode.sh").toString().replace("file://", "")
+            const local = Qt.resolvedUrl("../../scripts/monitor-mode.sh").toString().replace("file://", "")
             if (local && local.length)
                 return local
         } catch (e) {}

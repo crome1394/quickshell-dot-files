@@ -29,7 +29,7 @@ Windows and hosts:
 | `Overview` id `overviewLayer` | Comment: "Fullscreen workspace overview". |
 | `ShellIpc` | Comment: "Shell and overview IPC live in components/ShellIpc.qml." |
 
-## widgets/SettingsPanel.qml
+## widgets/settings/SettingsPanel.qml
 
 Header: "Settings window". Right-click on blank main-bar chrome or the gear pill opens it. One `FloatingWindow` titled "Settings", an expandable panel on top, toolbar along the bottom. Window height follows the content.
 
