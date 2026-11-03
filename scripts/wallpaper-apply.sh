@@ -16,6 +16,13 @@ fi
 # Absolute path
 PATH_IMG="$(readlink -f "$PATH_IMG" 2>/dev/null || realpath "$PATH_IMG" 2>/dev/null || echo "$PATH_IMG")"
 
+# The path is written literally. Reject a newline so it cannot break the conf.
+case "$PATH_IMG" in
+  *$'\n'*|*$'\r'*) echo "error: path contains a newline" >&2; exit 1 ;;
+esac
+[[ "$MONITOR" =~ ^[A-Za-z0-9_.-]+$ ]] || { echo "error: refusing monitor name" >&2; exit 1; }
+[[ "$FIT" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "error: refusing fit mode" >&2; exit 1; }
+
 # Apply now (hyprpaper IPC)
 if ! hyprctl hyprpaper wallpaper "${MONITOR},${PATH_IMG},${FIT}" >/dev/null 2>&1; then
   # Older syntax without fit mode
@@ -33,20 +40,38 @@ if [[ -f "$CONF" ]]; then
   grep -q '^ipc' "$CONF" && ipc="$(grep -E '^ipc\s*=' "$CONF" | head -1 | cut -d= -f2- | tr -d '[:space:]' || echo true)"
 fi
 
-mkdir -p "$(dirname "$CONF")"
-cat >"$CONF" <<EOF
-# Managed by quickshell wallpaper-apply.sh — last applied $(date -Iseconds)
-preload = ${PATH_IMG}
-wallpaper = ${MONITOR},${PATH_IMG}
-splash = ${splash:-false}
-ipc = ${ipc:-true}
+case "$splash" in
+  true|false) ;;
+  *) splash=false ;;
+esac
+case "$ipc" in
+  true|false) ;;
+  *) ipc=true ;;
+esac
 
-wallpaper {
-	monitor = ${MONITOR}
-	path = ${PATH_IMG}
-	fit_mode = ${FIT}
-}
-EOF
+# Follow a symlink and replace the real file. mktemp stays in that
+# file's directory so mv is atomic and the link itself is left alone.
+if [[ -L "$CONF" ]]; then
+  dest="$(readlink -f -- "$CONF")"
+else
+  dest="$CONF"
+fi
+mkdir -p "$(dirname "$dest")"
+tmp="$(mktemp "${dest}.XXXXXX")"
+{
+  printf '# Managed by quickshell wallpaper-apply.sh — last applied %s\n' "$(date -Iseconds)"
+  printf 'preload = %s\n' "$PATH_IMG"
+  printf 'wallpaper = %s,%s\n' "$MONITOR" "$PATH_IMG"
+  printf 'splash = %s\n' "$splash"
+  printf 'ipc = %s\n' "$ipc"
+  printf '\n'
+  printf 'wallpaper {\n'
+  printf '\tmonitor = %s\n' "$MONITOR"
+  printf '\tpath = %s\n' "$PATH_IMG"
+  printf '\tfit_mode = %s\n' "$FIT"
+  printf '}\n'
+} > "$tmp"
+mv -f "$tmp" "$dest"
 
 # State for the control bar
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hypr-wallpaper"
