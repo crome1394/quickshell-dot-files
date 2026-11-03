@@ -18,20 +18,11 @@
 //   - qs ipc call shell setShowMagicWorkspacePill true
 //   - qs ipc call shell toggleShowMagicWorkspacePill
 //   - qs ipc call shell setShowAudioPill false   (and set/toggle for each bar pill)
-//   - qs ipc call shell setShowNetworkPill true / toggleShowNetworkPill
 //   - qs ipc call shell setShowBluetoothPill true / toggleShowBluetoothPill
 //   - qs ipc call audioPill setEchoCancel true|false
 //   - qs ipc call audioPill toggleEchoCancel / enableEchoCancel / disableEchoCancel
-//   - qs ipc call networkPill showPopup / hidePopup / togglePopup
-//   - qs ipc call networkPill setWifi true|false / toggleWifi / enableWifi / disableWifi
-//   - qs ipc call networkPill setNetworking true|false / toggleNetworking
-//   - qs ipc call networkPill startScan / stopScan / connectSsid / forgetSsid
-//   - qs ipc call networkPill disconnectDevice "iface" / openEditor
-//   - qs ipc call networkPill refreshIp [iface] / refreshDns [iface]
-//   - qs ipc call networkPill activateConnection "uuid|name" / deactivateConnection "uuid|name"
-//   - qs ipc call networkPill startApplet / stopApplet / toggleApplet   (session only)
-//   - qs ipc call networkPill enableApplet / disableApplet              (survives reboot)
-//   - qs ipc call networkPill setAppletAutostart true|false
+//   - qs ipc call networkPanel showPopup / hidePopup / togglePopup / toggleWifi
+//   - qs ipc call shell setShowNetworkPanel true / toggleShowNetworkPanel
 //   - qs ipc call bluetoothPill showPopup / hidePopup / togglePopup
 //   - qs ipc call bluetoothPill setPower true|false / togglePower / enable / disable
 //   - qs ipc call bluetoothPill startScan / stopScan / toggleScan
@@ -47,6 +38,7 @@
 //   - qs ipc call clockPill showCalendar
 //   - qs ipc call notificationBell toggleHistory / showHistory / hideHistory
 //   - qs ipc call notificationBell toggleDoNotDisturb
+//   - qs ipc call overview toggle / open / close / desktop / all / next / prev
 //   - qs ipc call shell setWsMinimumShown 7
 //   - qs ipc call shell setWsShowOnlyActive true
 //   - qs ipc call shell setWsShowNumbers false
@@ -88,13 +80,13 @@
 // Classic default:
 //   LEFT:   App Launcher, Quick Launch, FreshRSS
 //   CENTER: Workspaces
-//   RIGHT:  System Stats, System Tray, Connectivity (Network+Bluetooth+Audio),
+//   RIGHT:  System Stats, System Tray, Network, Bluetooth+Audio,
 //           Clock, Notifications, Power
 //
 // Dual default:
 //   TOP:    Clock, Workspaces, System Tray, Notifications, Power
 //   BOTTOM: Sys Stats, Launcher, Quick Launch, FreshRSS, Config menu,
-//           Net · BT · Audio
+//           Bluetooth · Audio, Network
 // =============================================================================
 
 import Quickshell
@@ -110,6 +102,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Io as Io
 import "components"
 import "widgets"
+import "widgets/network"   // NetworkButton, NetworkPopup, NetworkService
 
 ShellRoot {
     id: root
@@ -120,7 +113,7 @@ ShellRoot {
     property bool showWorkspacesPill: true
     property bool showStatsWidget: true
     property bool showTrayPill: true
-    property bool showNetworkPill: true
+    property bool showNetworkPanel: true
     property bool showBluetoothPill: true
     property bool showAudioPill: true
     property bool showClockPill: true
@@ -153,8 +146,6 @@ ShellRoot {
     property string statTerminal: cfg.statTerminal
     // Which mouse button on the Sys Stats pill launches btop/nvtop ("left"/"right").
     property string statLaunchButton: cfg.statLaunchButton
-    // Network details traffic sparkline (adapters / connections stay)
-    property bool showNetTrafficGraph: true
     // Network pill face: last IPv4 octet (false) vs full address (true)
     property bool showNetworkFullIp: false
     // Network pill face: show last IPv4 octet when full IP is off (default on)
@@ -224,6 +215,51 @@ ShellRoot {
     // Screenshot output folder (blank = XDG Pictures; editable from Options → ScreenShots, persisted)
     property string screenshotDir: ""
 
+    // Workspace overview (Options → Overview, state/bar-layout.json).
+    property bool hasOverviewPrefs: false
+    property string ovLayout: "rows"          // rows | grid | natural
+    property string ovAnchor: "top"           // top | bottom | left | right
+    property int ovGap: 34
+    property int ovPadding: 80
+    property int ovPaddingTop: 40
+    property int ovPaddingBottom: 70
+    property real ovMaxScale: 1.0
+    property int ovDuration: 360
+    property int ovPreviewRound: 12
+    property real ovBlur: 1.0
+    property bool ovBackdropBlur: false
+    property bool ovSwitchAnimation: true
+    property int ovSwitchDuration: 260
+    property bool ovMoveAnimation: true
+    property int ovMoveDuration: 240
+    property int ovStripOffset: 0
+    property int ovStripHeight: 150
+    property int ovStripWidth: 150
+    property int ovStripCardMax: 300
+    property int ovStripMargin: 22
+    property int ovStripGap: 18
+    property int ovStripCardRound: 10
+    property int ovHoverBorder: 3
+    property int ovSelectBorder: 3
+    property bool ovLivePreviews: true
+    property bool ovShowWindowLabels: true
+    property bool ovShowWsLabels: true
+    property bool ovStripPreviews: true
+    property bool ovNumberLabels: false
+    property bool ovDynamic: true
+    property bool ovAutodelete: true
+    property bool ovShowEmpty: true
+    property bool ovShowSpecial: false
+    property bool ovStripAllCard: false
+    property bool ovShowAll: false
+    property bool ovSwitchOnNew: true
+    property bool ovSwitchOnDrop: false
+    property bool ovDragToSwap: true
+    property bool ovFocusFollowsMouse: true
+    property bool ovScrollSwitches: true
+    property bool ovExitOnClick: true
+    property bool ovExitOnSwitch: false
+
     // Per-widget pill scale (1.0 = default). Keys match widgetCatalog / layout ids.
     property var widgetScales: ({})
 
@@ -232,15 +268,14 @@ ShellRoot {
     property bool densityHideQuickLaunch: false
     property bool densityHideStats: false
     property bool densityHideSecondary: false   // FreshRSS
-    property bool densityHideConnectivity: false  // Network + Bluetooth
+    property bool densityHideConnectivity: false  // Bluetooth
 
     // Effective visibility helpers (preference AND density)
     readonly property bool effQuickLaunch: showQuickLaunchPill && !densityHideQuickLaunch
     readonly property bool effStats: showStatsWidget && !densityHideStats
     readonly property bool effFreshRss: showFreshRssPill && !densityHideSecondary
-    readonly property bool effNetwork: showNetworkPill && !densityHideConnectivity
     readonly property bool effBluetooth: showBluetoothPill && !densityHideConnectivity
-    readonly property bool effConnectivity: effNetwork || effBluetooth
+    readonly property bool effConnectivity: effBluetooth
 
     // Catalog for BarControlBar menus (id → label + visibility property name)
     readonly property var widgetCatalog: [
@@ -250,7 +285,8 @@ ShellRoot {
         { id: "workspaces",    label: "Workspaces",    vis: "showWorkspacesPill" },
         { id: "stats",         label: "System Stat Bars",     vis: "showStatsWidget" },
         { id: "tray",          label: "System Tray",   vis: "showTrayPill" },
-        { id: "connectivity",  label: "Net · BT · Audio", vis: "connectivity" },
+        { id: "connectivity",  label: "BT · Audio", vis: "connectivity" },
+        { id: "networkPanel",  label: "Network",          vis: "showNetworkPanel" },
         { id: "clock",         label: "Clock",         vis: "showClockPill" },
         { id: "notifications", label: "Notifications", vis: "showNotificationPill" },
         { id: "hyprInsp",      label: "Hypr Inspector", vis: "showHyprInspPill" },
@@ -274,6 +310,11 @@ ShellRoot {
     property bool notificationClearOnBoot: false
     // Options → Notifications. When off, the bell shows no number.
     property bool notificationShowCount: true
+    // Options → Notifications. SwayNC toast corner.
+    // topLeft | topRight | bottomLeft | bottomRight. Bottom stacks upward.
+    property string notificationCorner: "bottomRight"
+    // Options → Notifications. Seconds a normal toast stays. 0 stays until closed.
+    property int notificationTimeout: 8
     // Empty uses Config.wsIconSpecial. Options → Workspaces can override the special pill glyph.
     property string wsIconSpecialCustom: ""
     // Empty name uses Config.wsSpecialName. The rest match a numbered workspace row.
@@ -368,7 +409,7 @@ ShellRoot {
             root.showWorkspacesPill = cfg.showWorkspacesPill
             root.showStatsWidget = cfg.showStatsPill
             root.showTrayPill = cfg.showTrayPill
-            root.showNetworkPill = cfg.showNetworkPill
+            root.showNetworkPanel = cfg.showNetworkPanel
             root.showBluetoothPill = cfg.showBluetoothPill
             root.showAudioPill = cfg.showAudioPill
             root.showClockPill = cfg.showClockPill
@@ -388,7 +429,6 @@ ShellRoot {
             root.showStatGauges = true
             root.statTerminal = cfg.statTerminal
             root.statLaunchButton = cfg.statLaunchButton
-            root.showNetTrafficGraph = true
             root.showEchoCancelInMenu = true
             root.showAudioSummary = true
             root.showAudioDefaults = true
@@ -842,13 +882,56 @@ ShellRoot {
                 property string wallpaperCurrent: ""
                 property int wallpaperTileSize: 148
                 property string screenshotDir: ""
+                property bool hasOverviewPrefs: false
+                property string ovLayout: "rows"
+                property string ovAnchor: "top"
+                property int ovGap: 34
+                property int ovPadding: 80
+                property int ovPaddingTop: 40
+                property int ovPaddingBottom: 70
+                property real ovMaxScale: 1.0
+                property int ovDuration: 360
+                property int ovPreviewRound: 12
+                property real ovBlur: 1.0
+                property bool ovBackdropBlur: false
+                property bool ovSwitchAnimation: true
+                property int ovSwitchDuration: 260
+                property bool ovMoveAnimation: true
+                property int ovMoveDuration: 240
+                property int ovStripOffset: 0
+                property int ovStripHeight: 150
+                property int ovStripWidth: 150
+                property int ovStripCardMax: 300
+                property int ovStripMargin: 22
+                property int ovStripGap: 18
+                property int ovStripCardRound: 10
+                property int ovHoverBorder: 3
+                property int ovSelectBorder: 3
+                property bool ovLivePreviews: true
+                property bool ovShowWindowLabels: true
+                property bool ovShowWsLabels: true
+                property bool ovStripPreviews: true
+                property bool ovNumberLabels: false
+                property bool ovDynamic: true
+                property bool ovAutodelete: true
+                property bool ovShowEmpty: true
+                property bool ovShowSpecial: false
+                property bool ovStripAllCard: false
+                property bool ovShowAll: false
+                property bool ovSwitchOnNew: true
+                property bool ovSwitchOnDrop: false
+                property bool ovDragToSwap: true
+                property bool ovFocusFollowsMouse: true
+                property bool ovScrollSwitches: true
+                property bool ovExitOnClick: true
+                property bool ovExitOnSwitch: false
                 property string widgetScalesJson: ""
                 property bool showLauncherPill: true
                 property bool showQuickLaunchPill: true
                 property bool showWorkspacesPill: true
                 property bool showStatsWidget: true
                 property bool showTrayPill: true
-                property bool showNetworkPill: true
+                property bool showNetworkPanel: true
                 property bool showBluetoothPill: true
                 property bool showAudioPill: true
                 property bool showClockPill: true
@@ -873,6 +956,8 @@ ShellRoot {
                 property bool notificationStaggerRows: true
                 property bool notificationClearOnBoot: false
                 property bool notificationShowCount: true
+                property string notificationCorner: "bottomRight"
+                property int notificationTimeout: 8
                 property int  wsStartupWorkspace: 0
                 property bool wsStartupCloseMagic: false
                 property string wsIconSpecialCustom: ""
@@ -897,7 +982,6 @@ ShellRoot {
                 property bool showStatGauges: true
                 property string statTerminal: ""
                 property string statLaunchButton: ""
-                property bool showNetTrafficGraph: true
                 property bool showNetworkFullIp: false
                 property bool showNetworkLastOctet: true
                 property bool showNetworkDeviceName: false
@@ -969,7 +1053,7 @@ ShellRoot {
                 root.showWorkspacesPill = barLayoutAdapter.showWorkspacesPill
                 root.showStatsWidget = barLayoutAdapter.showStatsWidget
                 root.showTrayPill = barLayoutAdapter.showTrayPill
-                root.showNetworkPill = barLayoutAdapter.showNetworkPill
+                root.showNetworkPanel = barLayoutAdapter.showNetworkPanel
                 root.showBluetoothPill = barLayoutAdapter.showBluetoothPill
                 root.showAudioPill = barLayoutAdapter.showAudioPill
                 root.showClockPill = barLayoutAdapter.showClockPill
@@ -1001,7 +1085,6 @@ ShellRoot {
                         root.statTerminal = barLayoutAdapter.statTerminal
                     if (barLayoutAdapter.statLaunchButton === "left" || barLayoutAdapter.statLaunchButton === "right")
                         root.statLaunchButton = barLayoutAdapter.statLaunchButton
-                    root.showNetTrafficGraph = barLayoutAdapter.showNetTrafficGraph
                     if (barLayoutAdapter.showNetworkFullIp !== undefined)
                         root.showNetworkFullIp = barLayoutAdapter.showNetworkFullIp
                     if (barLayoutAdapter.showNetworkLastOctet !== undefined)
@@ -1051,10 +1134,15 @@ ShellRoot {
                     root.wallpaperTileSize = Math.max(100, Math.min(260, barLayoutAdapter.wallpaperTileSize))
                 if (barLayoutAdapter.screenshotDir !== undefined)
                     root.screenshotDir = String(barLayoutAdapter.screenshotDir || "").trim()
+                if (barLayoutAdapter.hasOverviewPrefs)
+                    bar.applyOverviewFromAdapter()
                 root.notificationAutoExpand = !!barLayoutAdapter.notificationAutoExpand
                 root.notificationStaggerRows = barLayoutAdapter.notificationStaggerRows !== false
                 root.notificationClearOnBoot = !!barLayoutAdapter.notificationClearOnBoot
                 root.notificationShowCount = barLayoutAdapter.notificationShowCount !== false
+                root.notificationCorner = bar.coerceNotificationCorner(barLayoutAdapter.notificationCorner)
+                root.notificationTimeout = bar.coerceNotificationTimeout(barLayoutAdapter.notificationTimeout)
+                bar.applyNotificationToast()
                 if (root.notificationAutoExpand) {
                     Qt.callLater(function() {
                         if (notificationBell && notificationBell.expandAllHistory)
@@ -1690,6 +1778,49 @@ ShellRoot {
             barLayoutAdapter.wallpaperCurrent = root.wallpaperCurrent || ""
             barLayoutAdapter.wallpaperTileSize = Math.max(100, Math.min(260, root.wallpaperTileSize || 148))
             barLayoutAdapter.screenshotDir = String(root.screenshotDir || "")
+            barLayoutAdapter.hasOverviewPrefs = true
+            barLayoutAdapter.ovLayout = root.ovLayout
+            barLayoutAdapter.ovAnchor = root.ovAnchor
+            barLayoutAdapter.ovGap = root.ovGap
+            barLayoutAdapter.ovPadding = root.ovPadding
+            barLayoutAdapter.ovPaddingTop = root.ovPaddingTop
+            barLayoutAdapter.ovPaddingBottom = root.ovPaddingBottom
+            barLayoutAdapter.ovMaxScale = root.ovMaxScale
+            barLayoutAdapter.ovDuration = root.ovDuration
+            barLayoutAdapter.ovPreviewRound = root.ovPreviewRound
+            barLayoutAdapter.ovBlur = root.ovBlur
+            barLayoutAdapter.ovBackdropBlur = root.ovBackdropBlur
+            barLayoutAdapter.ovSwitchAnimation = root.ovSwitchAnimation
+            barLayoutAdapter.ovSwitchDuration = root.ovSwitchDuration
+            barLayoutAdapter.ovMoveAnimation = root.ovMoveAnimation
+            barLayoutAdapter.ovMoveDuration = root.ovMoveDuration
+            barLayoutAdapter.ovStripOffset = root.ovStripOffset
+            barLayoutAdapter.ovStripHeight = root.ovStripHeight
+            barLayoutAdapter.ovStripWidth = root.ovStripWidth
+            barLayoutAdapter.ovStripCardMax = root.ovStripCardMax
+            barLayoutAdapter.ovStripMargin = root.ovStripMargin
+            barLayoutAdapter.ovStripGap = root.ovStripGap
+            barLayoutAdapter.ovStripCardRound = root.ovStripCardRound
+            barLayoutAdapter.ovHoverBorder = root.ovHoverBorder
+            barLayoutAdapter.ovSelectBorder = root.ovSelectBorder
+            barLayoutAdapter.ovLivePreviews = root.ovLivePreviews
+            barLayoutAdapter.ovShowWindowLabels = root.ovShowWindowLabels
+            barLayoutAdapter.ovShowWsLabels = root.ovShowWsLabels
+            barLayoutAdapter.ovStripPreviews = root.ovStripPreviews
+            barLayoutAdapter.ovNumberLabels = root.ovNumberLabels
+            barLayoutAdapter.ovDynamic = root.ovDynamic
+            barLayoutAdapter.ovAutodelete = root.ovAutodelete
+            barLayoutAdapter.ovShowEmpty = root.ovShowEmpty
+            barLayoutAdapter.ovShowSpecial = root.ovShowSpecial
+            barLayoutAdapter.ovStripAllCard = root.ovStripAllCard
+            barLayoutAdapter.ovShowAll = root.ovShowAll
+            barLayoutAdapter.ovSwitchOnNew = root.ovSwitchOnNew
+            barLayoutAdapter.ovSwitchOnDrop = root.ovSwitchOnDrop
+            barLayoutAdapter.ovDragToSwap = root.ovDragToSwap
+            barLayoutAdapter.ovFocusFollowsMouse = root.ovFocusFollowsMouse
+            barLayoutAdapter.ovScrollSwitches = root.ovScrollSwitches
+            barLayoutAdapter.ovExitOnClick = root.ovExitOnClick
+            barLayoutAdapter.ovExitOnSwitch = root.ovExitOnSwitch
             try {
                 barLayoutAdapter.widgetScalesJson = JSON.stringify(root.widgetScales || {})
             } catch (e) {
@@ -1700,7 +1831,7 @@ ShellRoot {
             barLayoutAdapter.showWorkspacesPill = root.showWorkspacesPill
             barLayoutAdapter.showStatsWidget = root.showStatsWidget
             barLayoutAdapter.showTrayPill = root.showTrayPill
-            barLayoutAdapter.showNetworkPill = root.showNetworkPill
+            barLayoutAdapter.showNetworkPanel = root.showNetworkPanel
             barLayoutAdapter.showBluetoothPill = root.showBluetoothPill
             barLayoutAdapter.showAudioPill = root.showAudioPill
             barLayoutAdapter.showClockPill = root.showClockPill
@@ -1730,6 +1861,8 @@ ShellRoot {
             barLayoutAdapter.notificationStaggerRows = root.notificationStaggerRows !== false
             barLayoutAdapter.notificationClearOnBoot = !!root.notificationClearOnBoot
             barLayoutAdapter.notificationShowCount = root.notificationShowCount !== false
+            barLayoutAdapter.notificationCorner = bar.coerceNotificationCorner(root.notificationCorner)
+            barLayoutAdapter.notificationTimeout = bar.coerceNotificationTimeout(root.notificationTimeout)
             barLayoutAdapter.wsStartupWorkspace = root.wsStartupWorkspace
             barLayoutAdapter.wsStartupCloseMagic = root.wsStartupCloseMagic
             barLayoutAdapter.wsIconSpecialCustom = String(root.wsIconSpecialCustom || "")
@@ -1758,7 +1891,6 @@ ShellRoot {
             barLayoutAdapter.showStatGauges = root.showStatGauges
             barLayoutAdapter.statTerminal = root.statTerminal
             barLayoutAdapter.statLaunchButton = root.statLaunchButton
-            barLayoutAdapter.showNetTrafficGraph = root.showNetTrafficGraph
             barLayoutAdapter.showNetworkFullIp = root.showNetworkFullIp
             barLayoutAdapter.showNetworkLastOctet = root.showNetworkLastOctet
             barLayoutAdapter.showNetworkDeviceName = root.showNetworkDeviceName
@@ -1826,10 +1958,6 @@ ShellRoot {
             root.statLaunchButton = String(button || "").toLowerCase() === "left" ? "left" : "right"
             persistBarLayout()
         }
-        function setShowNetTrafficGraph(enabled) {
-            root.showNetTrafficGraph = !!enabled
-            persistBarLayout()
-        }
         function setShowNetworkFullIp(enabled) {
             root.showNetworkFullIp = !!enabled
             persistBarLayout()
@@ -1862,6 +1990,136 @@ ShellRoot {
         function setDockScope(mode) {
             root.dockScope = String(mode) === "quicklaunch" ? "quicklaunch" : "icons"
             persistBarLayout()
+        }
+
+        function ovClamp(value, lo, hi, fallback) {
+            let n = Number(value)
+            if (n !== n)
+                n = fallback
+            if (n < lo)
+                n = lo
+            if (n > hi)
+                n = hi
+            return n
+        }
+
+        function applyOverviewFromAdapter() {
+            const layout = String(barLayoutAdapter.ovLayout || "rows")
+            root.ovLayout = (layout === "grid" || layout === "natural") ? layout : "rows"
+            const anchor = String(barLayoutAdapter.ovAnchor || "top")
+            root.ovAnchor = (anchor === "bottom" || anchor === "left" || anchor === "right") ? anchor : "top"
+            root.ovGap = Math.round(bar.ovClamp(barLayoutAdapter.ovGap, 0, 120, 34))
+            root.ovPadding = Math.round(bar.ovClamp(barLayoutAdapter.ovPadding, 0, 200, 80))
+            root.ovPaddingTop = Math.round(bar.ovClamp(barLayoutAdapter.ovPaddingTop, 0, 160, 40))
+            root.ovPaddingBottom = Math.round(bar.ovClamp(barLayoutAdapter.ovPaddingBottom, 0, 160, 70))
+            root.ovMaxScale = bar.ovClamp(barLayoutAdapter.ovMaxScale, 0.2, 1.5, 1)
+            root.ovDuration = Math.round(bar.ovClamp(barLayoutAdapter.ovDuration, 0, 800, 360))
+            root.ovPreviewRound = Math.round(bar.ovClamp(barLayoutAdapter.ovPreviewRound, 0, 32, 12))
+            root.ovBlur = bar.ovClamp(barLayoutAdapter.ovBlur, 0, 1, 1)
+            root.ovBackdropBlur = !!barLayoutAdapter.ovBackdropBlur
+            root.ovSwitchAnimation = !!barLayoutAdapter.ovSwitchAnimation
+            root.ovSwitchDuration = Math.round(bar.ovClamp(barLayoutAdapter.ovSwitchDuration, 0, 800, 260))
+            root.ovMoveAnimation = !!barLayoutAdapter.ovMoveAnimation
+            root.ovMoveDuration = Math.round(bar.ovClamp(barLayoutAdapter.ovMoveDuration, 0, 800, 240))
+            root.ovStripOffset = Math.round(bar.ovClamp(barLayoutAdapter.ovStripOffset, 0, 120, 0))
+            root.ovStripHeight = Math.round(bar.ovClamp(barLayoutAdapter.ovStripHeight, 72, 640, 150))
+            root.ovStripWidth = Math.round(bar.ovClamp(barLayoutAdapter.ovStripWidth, 72, 640, 150))
+            root.ovStripCardMax = Math.round(bar.ovClamp(barLayoutAdapter.ovStripCardMax, 160, 960, 300))
+            root.ovStripMargin = Math.round(bar.ovClamp(barLayoutAdapter.ovStripMargin, 0, 64, 22))
+            root.ovStripGap = Math.round(bar.ovClamp(barLayoutAdapter.ovStripGap, 0, 64, 18))
+            root.ovStripCardRound = Math.round(bar.ovClamp(barLayoutAdapter.ovStripCardRound, 0, 28, 10))
+            root.ovHoverBorder = Math.round(bar.ovClamp(barLayoutAdapter.ovHoverBorder, 0, 8, 3))
+            root.ovSelectBorder = Math.round(bar.ovClamp(barLayoutAdapter.ovSelectBorder, 0, 8, 3))
+            root.ovLivePreviews = barLayoutAdapter.ovLivePreviews !== false
+            root.ovShowWindowLabels = barLayoutAdapter.ovShowWindowLabels !== false
+            root.ovShowWsLabels = barLayoutAdapter.ovShowWsLabels !== false
+            root.ovStripPreviews = barLayoutAdapter.ovStripPreviews !== false
+            root.ovNumberLabels = !!barLayoutAdapter.ovNumberLabels
+            root.ovDynamic = barLayoutAdapter.ovDynamic !== false
+            root.ovAutodelete = barLayoutAdapter.ovAutodelete !== false
+            root.ovShowEmpty = barLayoutAdapter.ovShowEmpty !== false
+            root.ovShowSpecial = !!barLayoutAdapter.ovShowSpecial
+            root.ovStripAllCard = !!barLayoutAdapter.ovStripAllCard
+            root.ovShowAll = !!barLayoutAdapter.ovShowAll
+            root.ovSwitchOnNew = barLayoutAdapter.ovSwitchOnNew !== false
+            root.ovSwitchOnDrop = !!barLayoutAdapter.ovSwitchOnDrop
+            root.ovDragToSwap = barLayoutAdapter.ovDragToSwap !== false
+            root.ovFocusFollowsMouse = barLayoutAdapter.ovFocusFollowsMouse !== false
+            root.ovScrollSwitches = barLayoutAdapter.ovScrollSwitches !== false
+            root.ovExitOnClick = barLayoutAdapter.ovExitOnClick !== false
+            root.ovExitOnSwitch = !!barLayoutAdapter.ovExitOnSwitch
+            root.hasOverviewPrefs = true
+            Qt.callLater(function () { bar.syncOverviewBlur() })
+        }
+
+        // Hyprland blurs the overview layer. BackgroundEffect on the panel blanks it.
+        function syncOverviewBlur() {
+            // layer_rule is config, not a dispatcher. A dispatched function can still add it.
+            const on = !!root.ovBackdropBlur
+            Hyprland.dispatch("function() hl.layer_rule({ name = \"quickshell-overview-blur\", match = { namespace = \"^quickshell-overview$\" }, blur = "
+                + (on ? "true" : "false") + ", ignore_alpha = 0.05 }) end")
+        }
+
+        // Options → Overview. persist === false updates the live value without writing.
+        function setOverview(key, value, persist) {
+            const k = String(key || "")
+            switch (k) {
+            case "layout": {
+                const v = String(value || "")
+                root.ovLayout = (v === "grid" || v === "natural") ? v : "rows"
+                break
+            }
+            case "anchor": {
+                const v = String(value || "")
+                root.ovAnchor = (v === "bottom" || v === "left" || v === "right") ? v : "top"
+                break
+            }
+            case "gap": root.ovGap = Math.round(bar.ovClamp(value, 0, 120, 34)); break
+            case "padding": root.ovPadding = Math.round(bar.ovClamp(value, 0, 200, 80)); break
+            case "paddingTop": root.ovPaddingTop = Math.round(bar.ovClamp(value, 0, 160, 40)); break
+            case "paddingBottom": root.ovPaddingBottom = Math.round(bar.ovClamp(value, 0, 160, 70)); break
+            case "maxScale": root.ovMaxScale = bar.ovClamp(value, 0.2, 1.5, 1); break
+            case "duration": root.ovDuration = Math.round(bar.ovClamp(value, 0, 800, 360)); break
+            case "round": root.ovPreviewRound = Math.round(bar.ovClamp(value, 0, 32, 12)); break
+            case "blur": root.ovBlur = bar.ovClamp(value, 0, 1, 1); break
+            case "backdropBlur": root.ovBackdropBlur = !!value; bar.syncOverviewBlur(); break
+            case "switchAnim": root.ovSwitchAnimation = !!value; break
+            case "switchDuration": root.ovSwitchDuration = Math.round(bar.ovClamp(value, 0, 800, 260)); break
+            case "moveAnim": root.ovMoveAnimation = !!value; break
+            case "moveDuration": root.ovMoveDuration = Math.round(bar.ovClamp(value, 0, 800, 240)); break
+            case "stripOffset": root.ovStripOffset = Math.round(bar.ovClamp(value, 0, 120, 0)); break
+            case "stripHeight": root.ovStripHeight = Math.round(bar.ovClamp(value, 72, 640, 150)); break
+            case "stripWidth": root.ovStripWidth = Math.round(bar.ovClamp(value, 72, 640, 150)); break
+            case "cardMax": root.ovStripCardMax = Math.round(bar.ovClamp(value, 160, 960, 300)); break
+            case "stripMargin": root.ovStripMargin = Math.round(bar.ovClamp(value, 0, 64, 22)); break
+            case "stripGap": root.ovStripGap = Math.round(bar.ovClamp(value, 0, 64, 18)); break
+            case "stripRound": root.ovStripCardRound = Math.round(bar.ovClamp(value, 0, 28, 10)); break
+            case "hoverBorder": root.ovHoverBorder = Math.round(bar.ovClamp(value, 0, 8, 3)); break
+            case "selectBorder": root.ovSelectBorder = Math.round(bar.ovClamp(value, 0, 8, 3)); break
+            case "live": root.ovLivePreviews = !!value; break
+            case "windowLabels": root.ovShowWindowLabels = !!value; break
+            case "wsLabels": root.ovShowWsLabels = !!value; break
+            case "stripPreviews": root.ovStripPreviews = !!value; break
+            case "numberLabels": root.ovNumberLabels = !!value; break
+            case "dynamic": root.ovDynamic = !!value; break
+            case "autodelete": root.ovAutodelete = !!value; break
+            case "showEmpty": root.ovShowEmpty = !!value; break
+            case "showSpecial": root.ovShowSpecial = !!value; break
+            case "allCard": root.ovStripAllCard = !!value; break
+            case "showAll": root.ovShowAll = !!value; break
+            case "switchOnNew": root.ovSwitchOnNew = !!value; break
+            case "switchOnDrop": root.ovSwitchOnDrop = !!value; break
+            case "dragSwap": root.ovDragToSwap = !!value; break
+            case "focusFollowsMouse": root.ovFocusFollowsMouse = !!value; break
+            case "scroll": root.ovScrollSwitches = !!value; break
+            case "exitOnClick": root.ovExitOnClick = !!value; break
+            case "exitOnSwitch": root.ovExitOnSwitch = !!value; break
+            default:
+                return
+            }
+            root.hasOverviewPrefs = true
+            if (persist !== false)
+                persistBarLayout()
         }
         function dockMagnifyOn() {
             const e = String(root.dockEffect || "off")
@@ -2251,6 +2509,50 @@ ShellRoot {
             root.notificationShowCount = !!enabled
             persistBarLayout()
         }
+        function coerceNotificationCorner(v) {
+            const s = String(v || "")
+            if (s === "topLeft" || s === "topRight" || s === "bottomLeft" || s === "bottomRight")
+                return s
+            return "bottomRight"
+        }
+        function coerceNotificationTimeout(v) {
+            let n = Math.round(Number(v))
+            if (!(n >= 0))
+                n = 8
+            if (n > 60)
+                n = 60
+            return n
+        }
+        property string _appliedNotificationCorner: ""
+        property int _appliedNotificationTimeout: -1
+        function applyNotificationToast() {
+            const corner = bar.coerceNotificationCorner(root.notificationCorner)
+            const timeout = bar.coerceNotificationTimeout(root.notificationTimeout)
+            if (bar._appliedNotificationCorner === corner
+                    && bar._appliedNotificationTimeout === timeout)
+                return
+            bar._appliedNotificationCorner = corner
+            bar._appliedNotificationTimeout = timeout
+            Quickshell.execDetached([
+                "/home/crome/.config/quickshell/scripts/swaync-corner.py",
+                corner,
+                String(timeout)
+            ])
+        }
+        function setNotificationCorner(corner) {
+            const next = bar.coerceNotificationCorner(corner)
+            if (root.notificationCorner !== next) {
+                root.notificationCorner = next
+                persistBarLayout()
+            }
+            bar.applyNotificationToast()
+        }
+        function setNotificationTimeout(seconds) {
+            const next = bar.coerceNotificationTimeout(seconds)
+            root.notificationTimeout = next
+            persistBarLayout()
+            bar.applyNotificationToast()
+        }
         function setWsStartupWorkspace(workspace) {
             let n = Number(workspace)
             if (!(n >= 0))
@@ -2271,13 +2573,6 @@ ShellRoot {
         function getEchoCancelEnabled() {
             return !!(audioPill && audioPill.echoCancelEnabled)
         }
-        function setNetworkAppletAutostart(enabled) {
-            if (networkPill && networkPill.setAppletAutostart)
-                networkPill.setAppletAutostart(!!enabled)
-        }
-        function getNetworkAppletAutostart() {
-            return networkPill ? !!networkPill.appletAutostartEnabled : true
-        }
         function setBluetoothAppletAutostart(enabled) {
             if (bluetoothPill && bluetoothPill.setAppletAutostart)
                 bluetoothPill.setAppletAutostart(!!enabled)
@@ -2291,10 +2586,6 @@ ShellRoot {
                 if (audioPill && audioPill.refreshEchoCancelStatus)
                     audioPill.refreshEchoCancelStatus()
             } catch (e) {}
-            try {
-                if (networkPill && networkPill.refreshAppletStatus)
-                    networkPill.refreshAppletStatus()
-            } catch (e2) {}
             try {
                 if (bluetoothPill && bluetoothPill.refreshBluemanStatus)
                     bluetoothPill.refreshBluemanStatus()
@@ -2450,6 +2741,7 @@ ShellRoot {
             case "stats": return sysStatsPill
             case "tray": return trayPill
             case "connectivity": return connectivityPill
+            case "networkPanel": return networkPanel
             case "audio": return null  // audio lives inside connectivityPill
             case "clock": return clockPill
             case "notifications": return notificationBell
@@ -2526,7 +2818,6 @@ ShellRoot {
                 w.parent = zoneItem
                 bar.assignWidgetChrome(w, chrome)
                 if (entry.id === "connectivity") {
-                    bar.assignWidgetChrome(networkPill, chrome)
                     bar.assignWidgetChrome(bluetoothPill, chrome)
                     bar.assignWidgetChrome(audioPill, chrome)
                 }
@@ -2615,8 +2906,8 @@ ShellRoot {
             case "workspaces": return root.showWorkspacesPill
             case "stats": return root.showStatsWidget
             case "tray": return root.showTrayPill
-            case "connectivity": return root.showNetworkPill || root.showBluetoothPill || root.showAudioPill
-            case "network": return root.showNetworkPill
+            case "connectivity": return root.showBluetoothPill || root.showAudioPill
+            case "networkPanel": return root.showNetworkPanel
             case "bluetooth": return root.showBluetoothPill
             case "audio": return root.showAudioPill
             case "clock": return root.showClockPill
@@ -2650,11 +2941,10 @@ ShellRoot {
             case "stats": root.showStatsWidget = on; break
             case "tray": root.showTrayPill = on; break
             case "connectivity":
-                root.showNetworkPill = on
                 root.showBluetoothPill = on
                 root.showAudioPill = on
                 break
-            case "network": root.showNetworkPill = on; break
+            case "networkPanel": root.showNetworkPanel = on; break
             case "bluetooth": root.showBluetoothPill = on; break
             case "audio": root.showAudioPill = on; break
             case "clock": root.showClockPill = on; break
@@ -3478,6 +3768,48 @@ ShellRoot {
         property alias wallpaperCurrent: root.wallpaperCurrent
         property alias wallpaperTileSize: root.wallpaperTileSize
         property alias screenshotDir: root.screenshotDir
+        property alias ovLayout: root.ovLayout
+        property alias ovAnchor: root.ovAnchor
+        property alias ovGap: root.ovGap
+        property alias ovPadding: root.ovPadding
+        property alias ovPaddingTop: root.ovPaddingTop
+        property alias ovPaddingBottom: root.ovPaddingBottom
+        property alias ovMaxScale: root.ovMaxScale
+        property alias ovDuration: root.ovDuration
+        property alias ovPreviewRound: root.ovPreviewRound
+        property alias ovBlur: root.ovBlur
+        property alias ovBackdropBlur: root.ovBackdropBlur
+        property alias ovSwitchAnimation: root.ovSwitchAnimation
+        property alias ovSwitchDuration: root.ovSwitchDuration
+        property alias ovMoveAnimation: root.ovMoveAnimation
+        property alias ovMoveDuration: root.ovMoveDuration
+        property alias ovStripOffset: root.ovStripOffset
+        property alias ovStripHeight: root.ovStripHeight
+        property alias ovStripWidth: root.ovStripWidth
+        property alias ovStripCardMax: root.ovStripCardMax
+        property alias ovStripMargin: root.ovStripMargin
+        property alias ovStripGap: root.ovStripGap
+        property alias ovStripCardRound: root.ovStripCardRound
+        property alias ovHoverBorder: root.ovHoverBorder
+        property alias ovSelectBorder: root.ovSelectBorder
+        property alias ovLivePreviews: root.ovLivePreviews
+        property alias ovShowWindowLabels: root.ovShowWindowLabels
+        property alias ovShowWsLabels: root.ovShowWsLabels
+        property alias ovStripPreviews: root.ovStripPreviews
+        property alias ovNumberLabels: root.ovNumberLabels
+        property alias ovDynamic: root.ovDynamic
+        property alias ovAutodelete: root.ovAutodelete
+        property alias ovShowEmpty: root.ovShowEmpty
+        property alias ovShowSpecial: root.ovShowSpecial
+        property alias ovStripAllCard: root.ovStripAllCard
+        property alias ovShowAll: root.ovShowAll
+        property alias ovSwitchOnNew: root.ovSwitchOnNew
+        property alias ovSwitchOnDrop: root.ovSwitchOnDrop
+        property alias ovDragToSwap: root.ovDragToSwap
+        property alias ovFocusFollowsMouse: root.ovFocusFollowsMouse
+        property alias ovScrollSwitches: root.ovScrollSwitches
+        property alias ovExitOnClick: root.ovExitOnClick
+        property alias ovExitOnSwitch: root.ovExitOnSwitch
         property alias widgetScales: root.widgetScales
         // Desktop app picker script for the Launch panel
         readonly property string desktopAppsJsonScript: "/home/crome/.config/quickshell/scripts/desktop-apps-json.sh"
@@ -3510,9 +3842,8 @@ ShellRoot {
         readonly property alias popupTailscaleWidth: cfg.popupTailscaleWidth
         readonly property alias popupTailscaleHeight: cfg.popupTailscaleHeight
         readonly property alias bluetoothScanSeconds: cfg.bluetoothScanSeconds
-        readonly property alias popupNetworkWidth: cfg.popupNetworkWidth
-        readonly property alias popupNetworkWifiWidth: cfg.popupNetworkWifiWidth
-        readonly property alias popupNetworkHeight: cfg.popupNetworkHeight
+        readonly property alias popupNetworkPanelWidth: cfg.popupNetworkPanelWidth
+        readonly property alias popupNetworkPanelMaxHeight: cfg.popupNetworkPanelMaxHeight
         readonly property alias popupHelpWidth: cfg.popupHelpWidth
         readonly property alias popupHelpHeight: cfg.popupHelpHeight
 
@@ -3597,6 +3928,8 @@ ShellRoot {
         readonly property alias iconNetworkDisconnected: cfg.iconNetworkDisconnected
         readonly property alias iconNetworkOff: cfg.iconNetworkOff
         readonly property alias iconNetworkPortal: cfg.iconNetworkPortal
+        readonly property alias iconNetworkVpn: cfg.iconNetworkVpn
+        readonly property alias iconNetworkAirplane: cfg.iconNetworkAirplane
         readonly property alias iconPower: cfg.iconPower
         readonly property alias iconOpacity: cfg.iconOpacity
         readonly property alias opacityApplyScript: cfg.opacityApplyScript
@@ -3751,6 +4084,8 @@ ShellRoot {
         property alias notificationStaggerRows: root.notificationStaggerRows
         property alias notificationClearOnBoot: root.notificationClearOnBoot
         property alias notificationShowCount: root.notificationShowCount
+        property alias notificationCorner: root.notificationCorner
+        property alias notificationTimeout: root.notificationTimeout
         property alias wsStartupWorkspace: root.wsStartupWorkspace
         property alias wsStartupCloseMagic: root.wsStartupCloseMagic
         property alias hasWsSlots: root.hasWsSlots
@@ -3769,7 +4104,6 @@ ShellRoot {
         property alias showStatGauges: root.showStatGauges
         property alias statTerminal: root.statTerminal
         property alias statLaunchButton: root.statLaunchButton
-        property alias showNetTrafficGraph: root.showNetTrafficGraph
         property alias showNetworkFullIp: root.showNetworkFullIp
         property alias showNetworkLastOctet: root.showNetworkLastOctet
         property alias showNetworkDeviceName: root.showNetworkDeviceName
@@ -4169,7 +4503,7 @@ ShellRoot {
                 barBg: barBg
             }
 
-            // ─ Connectivity + Audio (Network · Bluetooth · Sound as one pill) ─
+            // ─ Bluetooth + Audio as one pill. Network is its own widget. ─
             Rectangle {
                 id: connectivityPill
                 parent: widgetPool
@@ -4188,23 +4522,6 @@ ShellRoot {
                     anchors.centerIn: parent
                     spacing: Math.max(2, bar.widgetW("connectivity", 4))
 
-                    NetworkPill {
-                        id: networkPill
-                        embedded: true
-                        pillScale: bar.widgetScale("connectivity")
-                        visible: root.effNetwork
-                        bar: bar
-                        barBg: barBg
-                    }
-
-                    Rectangle {
-                        visible: root.effNetwork && root.effBluetooth
-                        width: Math.max(1, bar.widgetW("connectivity", bar.dividerThickness))
-                        height: Math.max(14, Math.round((bar.wsButtonHeight || 32) * 0.55))
-                        anchors.verticalCenter: parent.verticalCenter
-                        color: bar.divider
-                    }
-
                     BluetoothPill {
                         id: bluetoothPill
                         embedded: true
@@ -4215,7 +4532,7 @@ ShellRoot {
                     }
 
                     Rectangle {
-                        visible: (root.effNetwork || root.effBluetooth) && root.showAudioPill
+                        visible: root.effBluetooth && root.showAudioPill
                         width: Math.max(1, bar.widgetW("connectivity", bar.dividerThickness))
                         height: Math.max(14, Math.round((bar.wsButtonHeight || 32) * 0.55))
                         anchors.verticalCenter: parent.verticalCenter
@@ -4230,6 +4547,19 @@ ShellRoot {
                         bar: bar
                         barBg: barBg
                     }
+                }
+            }
+
+            // Network panel. Import is `import "widgets/network"` at the top of this file.
+            NetworkButton {
+                id: networkPanel
+                parent: widgetPool
+                visible: root.showNetworkPanel
+                bar: bar
+                barBg: barBg
+                pillScale: {
+                    void (root.widgetScales)
+                    return bar.widgetScale("networkPanel")
                 }
             }
 
@@ -4453,92 +4783,21 @@ ShellRoot {
         }
 
         Io.IpcHandler {
-            target: "networkPill"
+            target: "networkPanel"
             function showPopup(): void {
-                if (networkPill && networkPill.showPopup) networkPill.showPopup()
+                if (networkPanel && networkPanel.showPopup) networkPanel.showPopup()
             }
             function hidePopup(): void {
-                if (networkPill && networkPill.hidePopup) networkPill.hidePopup()
+                if (networkPanel && networkPanel.hidePopup) networkPanel.hidePopup()
             }
             function togglePopup(): void {
-                if (networkPill && networkPill.togglePopup) networkPill.togglePopup()
-            }
-            function setWifi(enabled: bool): void {
-                if (networkPill && networkPill.setWifi) networkPill.setWifi(enabled)
+                if (networkPanel && networkPanel.togglePopup) networkPanel.togglePopup()
             }
             function toggleWifi(): void {
-                if (networkPill && networkPill.toggleWifi) networkPill.toggleWifi()
+                if (networkPanel && networkPanel.toggleWifi) networkPanel.toggleWifi()
             }
-            function enableWifi(): void {
-                if (networkPill && networkPill.enableWifi) networkPill.enableWifi()
-            }
-            function disableWifi(): void {
-                if (networkPill && networkPill.disableWifi) networkPill.disableWifi()
-            }
-            function setNetworking(enabled: bool): void {
-                if (networkPill && networkPill.setNetworking) networkPill.setNetworking(enabled)
-            }
-            function toggleNetworking(): void {
-                if (networkPill && networkPill.toggleNetworking) networkPill.toggleNetworking()
-            }
-            function startScan(): void {
-                if (networkPill && networkPill.startScan) networkPill.startScan()
-            }
-            function stopScan(): void {
-                if (networkPill && networkPill.stopScan) networkPill.stopScan()
-            }
-            function connectSsid(ssid: string): void {
-                if (networkPill && networkPill.connectSsid) networkPill.connectSsid(ssid)
-            }
-            function disconnectDevice(iface: string): void {
-                if (networkPill && networkPill.disconnectDevice) networkPill.disconnectDevice(iface)
-            }
-            function enableDevice(iface: string): void {
-                if (networkPill && networkPill.enableDevice) networkPill.enableDevice(iface)
-            }
-            function disableAllAdapters(): void {
-                if (networkPill && networkPill.disableAllAdapters) networkPill.disableAllAdapters()
-            }
-            function forgetSsid(ssid: string): void {
-                if (networkPill && networkPill.forgetSsid) networkPill.forgetSsid(ssid)
-            }
-            // nm-applet: session-only start/stop (does not change login enablement)
-            function startApplet(): void {
-                if (networkPill && networkPill.startApplet) networkPill.startApplet()
-            }
-            function stopApplet(): void {
-                if (networkPill && networkPill.stopApplet) networkPill.stopApplet()
-            }
-            function toggleApplet(): void {
-                if (networkPill && networkPill.toggleApplet) networkPill.toggleApplet()
-            }
-            // nm-applet: persist across reboots (systemctl --user enable/disable)
-            function enableApplet(): void {
-                if (networkPill && networkPill.enableApplet) networkPill.enableApplet()
-            }
-            function disableApplet(): void {
-                if (networkPill && networkPill.disableApplet) networkPill.disableApplet()
-            }
-            function setAppletAutostart(enabled: bool): void {
-                if (networkPill && networkPill.setAppletAutostart)
-                    networkPill.setAppletAutostart(enabled)
-            }
-            function openEditor(): void {
-                if (networkPill && networkPill.openConnectionEditor) networkPill.openConnectionEditor()
-            }
-            function refreshIp(): void {
-                if (networkPill && networkPill.refreshIp) networkPill.refreshIp("")
-            }
-            function refreshDns(): void {
-                if (networkPill && networkPill.refreshDns) networkPill.refreshDns("")
-            }
-            function activateConnection(id: string): void {
-                if (networkPill && networkPill.activateConnection)
-                    networkPill.activateConnection(id)
-            }
-            function deactivateConnection(id: string): void {
-                if (networkPill && networkPill.deactivateConnection)
-                    networkPill.deactivateConnection(id)
+            function setWifi(enabled: bool): void {
+                if (networkPanel && networkPanel.setWifi) networkPanel.setWifi(enabled)
             }
         }
 
@@ -4982,6 +5241,23 @@ ShellRoot {
         stripHeight: bar.activeWindowStripHeight(root.activeWindowPillCorner)
     }
 
+    // Fullscreen workspace overview. Super+Tab is bound in Hyprland.
+    Overview {
+        id: overviewLayer
+        hostBar: bar
+    }
+
+    Io.IpcHandler {
+        target: "overview"
+        function toggle(): void { overviewLayer.toggle() }
+        function open(): void { overviewLayer.openOverview("workspace") }
+        function close(): void { overviewLayer.closeOverview() }
+        function desktop(): void { overviewLayer.openMode("desktop") }
+        function all(): void { overviewLayer.openMode("all") }
+        function next(): void { overviewLayer.step(1) }
+        function prev(): void { overviewLayer.step(-1) }
+    }
+
     // IPC handlers must use explicit types (bool, string, etc.) — `var` is not supported
     Io.IpcHandler {
         target: "shell"
@@ -5015,11 +5291,11 @@ ShellRoot {
         function toggleShowTrayPill(): void {
             bar.toggleWidgetVisible("tray")
         }
-        function setShowNetworkPill(enabled: bool): void {
-            bar.setWidgetVisible("network", enabled)
+        function setShowNetworkPanel(enabled: bool): void {
+            bar.setWidgetVisible("networkPanel", enabled)
         }
-        function toggleShowNetworkPill(): void {
-            bar.toggleWidgetVisible("network")
+        function toggleShowNetworkPanel(): void {
+            bar.toggleWidgetVisible("networkPanel")
         }
         function setShowBluetoothPill(enabled: bool): void {
             bar.setWidgetVisible("bluetooth", enabled)
@@ -5149,6 +5425,14 @@ ShellRoot {
         }
         function setActiveWindowCorner(corner: string): void {
             bar.setActiveWindowCorner(corner)
+        }
+        function setNotificationCorner(corner: string): void {
+            if (bar && bar.setNotificationCorner)
+                bar.setNotificationCorner(corner)
+        }
+        function setNotificationTimeout(seconds: string): void {
+            if (bar && bar.setNotificationTimeout)
+                bar.setNotificationTimeout(seconds)
         }
         function addActiveWindowExclude(pattern: string): void {
             if (bar && bar.addActiveWindowExclude)

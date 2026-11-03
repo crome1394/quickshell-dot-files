@@ -64,6 +64,8 @@ Use `[]` to disable subscribe, sync, or any action. Keep `notificationSync` enab
 
 **SwayNC tip:** run only one instance (e.g. `swaync.service` via systemd, not also `hl.exec_cmd("swaync")` in Hyprland autostart). If `notify-send` shows nothing, check DND: `swaync-client -D -sw` — use `swaync-client -df -sw` to turn off.
 
+**Popup corner and timeout:** Settings → Options → Notifications. `scripts/swaync-corner.py` writes `positionX`, `positionY`, and the normal `timeout` in `~/.config/swaync/config.json`, then reloads SwayNC when a value changes. Bottom corners stack upward. Timeout is 0–60 seconds; 0 keeps the toast up until you close it. Saved as `notificationCorner` and `notificationTimeout` in `state/bar-layout.json`.
+
 ## Power menu (`Config.qml`)
 
 Search for **POWER MENU**. Each session action has its own command list (or shell string). Use `[]` to hide an action from both the grid and right-click menu.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NetworkManager helpers for Quickshell NetworkPill.
+# NetworkManager helpers for the Quickshell network panel.
 # Emits JSON on stdout for status; other actions print {"ok":true|false,...}.
 set -euo pipefail
 
@@ -12,14 +12,16 @@ usage() {
 usage: network-control.sh status
        network-control.sh networking on|off|toggle
        network-control.sh wifi on|off|toggle
+       network-control.sh radio all on|off
+       network-control.sh wifi-rescan
+       network-control.sh wifi-hidden <ssid> [password]
        network-control.sh device disconnect <iface>
        network-control.sh device connect <iface>
        network-control.sh connection up <uuid|name>
        network-control.sh connection down <uuid|name>
+       network-control.sh connection delete <uuid|name>
        network-control.sh refresh-ip [iface]
        network-control.sh refresh-dns [iface]
-       network-control.sh applet status|start|stop|toggle|enable|disable
-       network-control.sh applet set-autostart true|false
 EOF
 }
 
@@ -53,114 +55,6 @@ err_json() {
 
 need_nmcli() {
     command -v nmcli >/dev/null 2>&1 || { err_json "nmcli not found"; exit 1; }
-}
-
-# nm-applet can start from:
-#   - user unit nm-applet.service (hyprland-session)
-#   - /etc/xdg/autostart/nm-applet.desktop
-# Sticky disable must cover both (mirrors blueman-applet-control.sh).
-APPLETSVC="nm-applet.service"
-AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
-OVERRIDE_DESKTOP="${AUTOSTART_DIR}/nm-applet.desktop"
-
-applet_running() {
-    # Match the real binary only — not this script.
-    if pgrep -x nm-applet >/dev/null 2>&1; then
-        return 0
-    fi
-    pgrep -f '/usr/bin/nm-applet' >/dev/null 2>&1
-}
-
-# true if nm-applet is allowed to start at login (unit + no XDG mask)
-applet_enabled() {
-    # XDG override with Hidden=true → sticky disabled
-    if [[ -f "$OVERRIDE_DESKTOP" ]]; then
-        if grep -qiE '^[[:space:]]*Hidden[[:space:]]*=[[:space:]]*true' "$OVERRIDE_DESKTOP" 2>/dev/null; then
-            return 1
-        fi
-        if grep -qiE '^[[:space:]]*X-GNOME-Autostart-enabled[[:space:]]*=[[:space:]]*false' "$OVERRIDE_DESKTOP" 2>/dev/null; then
-            return 1
-        fi
-    fi
-    local st
-    st=$(systemctl --user is-enabled "$APPLETSVC" 2>/dev/null || true)
-    [[ "$st" == "enabled" || "$st" == "enabled-runtime" || "$st" == "static" || "$st" == "indirect" ]]
-}
-
-applet_start() {
-    # Do not start if sticky-disabled (XDG mask present)
-    if [[ -f "$OVERRIDE_DESKTOP" ]] \
-        && grep -qiE '^[[:space:]]*Hidden[[:space:]]*=[[:space:]]*true' "$OVERRIDE_DESKTOP" 2>/dev/null; then
-        return 1
-    fi
-    systemctl --user start --no-block "$APPLETSVC" 2>/dev/null || true
-    sleep 0.35
-    if applet_running; then
-        return 0
-    fi
-    if command -v nm-applet >/dev/null 2>&1; then
-        nohup nm-applet --indicator >/dev/null 2>&1 &
-        disown || true
-        sleep 0.35
-        applet_running && return 0
-    fi
-    return 1
-}
-
-applet_stop() {
-    systemctl --user stop --no-block "$APPLETSVC" 2>/dev/null || true
-    if applet_running; then
-        pkill -x nm-applet 2>/dev/null || true
-        pkill -f '/usr/bin/nm-applet' 2>/dev/null || true
-        sleep 0.2
-    fi
-    if applet_running; then
-        pkill -9 -x nm-applet 2>/dev/null || true
-        pkill -9 -f '/usr/bin/nm-applet' 2>/dev/null || true
-        sleep 0.1
-    fi
-    ! applet_running
-}
-
-# Sticky enable: remove XDG mask, enable user unit, start now
-applet_enable() {
-    mkdir -p "$AUTOSTART_DIR"
-    if [[ -f "$OVERRIDE_DESKTOP" ]]; then
-        rm -f "$OVERRIDE_DESKTOP"
-    fi
-    systemctl --user enable "$APPLETSVC" >/dev/null 2>&1 || true
-    applet_start || true
-    if applet_enabled; then
-        return 0
-    fi
-    return 1
-}
-
-# Sticky disable: XDG Hidden=true + systemctl disable + stop now (survives reboot)
-applet_disable() {
-    mkdir -p "$AUTOSTART_DIR"
-    cat >"$OVERRIDE_DESKTOP" <<'EOF'
-[Desktop Entry]
-Type=Application
-Name=NetworkManager Applet
-Comment=nm-applet (disabled by Quickshell NetworkPill)
-Exec=nm-applet --indicator
-Icon=nm-device-wireless
-Terminal=false
-Categories=
-Hidden=true
-X-GNOME-Autostart-enabled=false
-EOF
-    applet_stop || true
-    systemctl --user disable "$APPLETSVC" >/dev/null 2>&1 || true
-    systemctl --user stop --no-block "$APPLETSVC" 2>/dev/null || true
-    if applet_running; then
-        return 1
-    fi
-    if applet_enabled; then
-        return 1
-    fi
-    return 0
 }
 
 # Sum interface byte counters (skip lo)
@@ -271,6 +165,31 @@ cmd_refresh_dns() {
     fi
 }
 
+# Joined access point. Caller declares active_ap_* (bash locals are visible here).
+# WIFI.SSID is not a valid `device show` field on this NetworkManager, so the
+# SSID, frequency, rate, and signal come from the connection profile and this list.
+# --rescan no keeps status from kicking a scan.
+load_active_ap() {
+    [[ "${active_ap_loaded:-0}" == "1" ]] && return 0
+    active_ap_loaded=1
+    local line
+    line=$(nmcli -t -f IN-USE,SSID,FREQ,RATE,SIGNAL device wifi list --rescan no 2>/dev/null | grep -m1 '^\*' || true)
+    [[ -z "$line" ]] && return 0
+    # IN-USE is "*". Peel signal, rate, and freq from the right so an SSID
+    # that contains an escaped colon (\:) stays intact.
+    line="${line#\*:}"
+    active_ap_signal="${line##*:}"
+    line="${line%:*}"
+    active_ap_rate="${line##*:}"
+    line="${line%:*}"
+    active_ap_freq="${line##*:}"
+    line="${line%:*}"
+    line="${line//\\:/:}"
+    line="${line//\\\\/\\}"
+    active_ap_ssid="$line"
+    return 0
+}
+
 # ---------- status ----------
 cmd_status() {
     need_nmcli
@@ -279,8 +198,6 @@ cmd_status() {
     local wifi_radio="false"
     local wifi_hw="false"
     local connectivity="unknown"
-    local applet="false"
-    local applet_enabled_json="false"
     local rx_rate=0 tx_rate=0 rx_bytes=0 tx_bytes=0
     read -r rx_rate tx_rate rx_bytes tx_bytes <<<"$(compute_rates)"
 
@@ -298,8 +215,6 @@ cmd_status() {
 
     connectivity=$(nmcli -t networking connectivity 2>/dev/null | head -1 || echo "unknown")
     connectivity=$(printf '%s' "$connectivity" | tr '[:upper:]' '[:lower:]')
-    applet_running && applet="true"
-    applet_enabled && applet_enabled_json="true"
 
     # Build device list (skip loopback)
     local devices_json='[]'
@@ -308,6 +223,8 @@ cmd_status() {
 
     local dev_objs=()
     local line iface dtype state conn uuid
+    local active_ap_ssid="" active_ap_freq="" active_ap_rate="" active_ap_signal=""
+    local active_ap_loaded=0
     for line in "${dev_lines[@]}"; do
         [[ -z "$line" ]] && continue
         IFS=':' read -r iface dtype state conn uuid <<<"$line"
@@ -315,12 +232,16 @@ cmd_status() {
 
         # device show for details
         local show
-        show=$(nmcli -t -f GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.HWADDR,GENERAL.NM-MANAGED,CAPABILITIES.SPEED,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,IP4.ROUTE,IP6.ADDRESS,IP6.GATEWAY,IP6.DNS device show "$iface" 2>/dev/null || true)
+        # GENERAL.MTU is valid. Do not add WIFI.SSID: this NM rejects it and
+        # the whole device-show call fails.
+        show=$(nmcli -t -f GENERAL.DEVICE,GENERAL.TYPE,GENERAL.STATE,GENERAL.CONNECTION,GENERAL.CON-UUID,GENERAL.HWADDR,GENERAL.NM-MANAGED,GENERAL.MTU,CAPABILITIES.SPEED,IP4.ADDRESS,IP4.GATEWAY,IP4.DNS,IP4.ROUTE,IP6.ADDRESS,IP6.GATEWAY,IP6.DNS device show "$iface" 2>/dev/null || true)
 
         local mac="" managed="true" speed_mbps=-1
         local -a ip4=() ip6=() dns=() routes4=()
         local gateway4="" gateway6=""
         local dev_rx=0 dev_tx=0
+        local mtu="" duplex="" carrier="true" method4=""
+        local wifi_ssid="" wifi_freq="" wifi_bitrate="" wifi_signal=""
         if [[ -r "/sys/class/net/$iface/statistics/rx_bytes" ]]; then
             dev_rx=$(cat "/sys/class/net/$iface/statistics/rx_bytes" 2>/dev/null || echo 0)
             dev_tx=$(cat "/sys/class/net/$iface/statistics/tx_bytes" 2>/dev/null || echo 0)
@@ -365,8 +286,57 @@ cmd_status() {
                 IP6.DNS*)
                     dns+=("${sline#*:}")
                     ;;
+                GENERAL.MTU:*)
+                    mtu="${sline#GENERAL.MTU:}"
+                    ;;
+                WIRED-PROPERTIES.CARRIER:*)
+                    if [[ "${sline#WIRED-PROPERTIES.CARRIER:}" == "on" ]]; then
+                        carrier="true"
+                    else
+                        carrier="false"
+                    fi
+                    ;;
+                WIFI.SSID:*)
+                    wifi_ssid="${sline#WIFI.SSID:}"
+                    ;;
+                WIFI.FREQ:*)
+                    wifi_freq="${sline#WIFI.FREQ:}"
+                    ;;
+                WIFI.BITRATE:*)
+                    wifi_bitrate="${sline#WIFI.BITRATE:}"
+                    ;;
+                WIFI.SIGNAL:*)
+                    wifi_signal="${sline#WIFI.SIGNAL:}"
+                    ;;
             esac
         done <<<"$show"
+
+        # Link facts NetworkManager does not always fill in (cable, duplex, speed).
+        if [[ -r "/sys/class/net/$iface/carrier" ]]; then
+            local cs
+            cs=$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || true)
+            if [[ "$cs" == "0" ]]; then
+                carrier="false"
+            elif [[ "$cs" == "1" ]]; then
+                carrier="true"
+            fi
+        fi
+        if [[ -r "/sys/class/net/$iface/duplex" ]]; then
+            duplex=$(cat "/sys/class/net/$iface/duplex" 2>/dev/null || true)
+        fi
+        if [[ "$speed_mbps" == "-1" && -r "/sys/class/net/$iface/speed" ]]; then
+            local sps
+            sps=$(cat "/sys/class/net/$iface/speed" 2>/dev/null || true)
+            # 65535 is the sysfs "unknown" sentinel on some drivers.
+            if [[ "$sps" =~ ^[0-9]+$ && "$sps" != "0" && "$sps" != "65535" ]]; then
+                speed_mbps="$sps"
+            fi
+        fi
+        if [[ -z "$mtu" && -r "/sys/class/net/$iface/mtu" ]]; then
+            mtu=$(cat "/sys/class/net/$iface/mtu" 2>/dev/null || true)
+        fi
+        local mtu_num=0
+        [[ "$mtu" =~ ^[0-9]+$ ]] && mtu_num="$mtu"
 
         # Prefer show fields when present
         local g_conn g_uuid g_state g_type
@@ -383,6 +353,32 @@ cmd_status() {
                 state="${BASH_REMATCH[1]}"
             else
                 state="$g_state"
+            fi
+        fi
+        # auto = DHCP, manual = static. Looked up after the UUID is finalized.
+        if [[ -n "${uuid:-}" && "$uuid" != "--" ]]; then
+            method4=$(nmcli -g ipv4.method connection show "$uuid" 2>/dev/null | head -1 || true)
+        fi
+        # Joined Wi-Fi: profile SSID, plus frequency / rate / signal of the
+        # AP that is actually in use. Profile name and SSID are not always the same.
+        if [[ "$dtype" == "wifi" || "$dtype" == "802-11-wireless" ]] && [[ "${state,,}" == connected* ]]; then
+            load_active_ap
+            if [[ -n "${uuid:-}" && "$uuid" != "--" ]]; then
+                local prof_ssid
+                prof_ssid=$(nmcli -g 802-11-wireless.ssid connection show "$uuid" 2>/dev/null | head -1 || true)
+                if [[ -n "$prof_ssid" && "$prof_ssid" != "--" ]]; then
+                    wifi_ssid="$prof_ssid"
+                fi
+            fi
+            if [[ -z "$wifi_ssid" && -n "$active_ap_ssid" ]]; then
+                if [[ -z "$conn" || "$conn" == "--" || "$conn" == "$active_ap_ssid" ]]; then
+                    wifi_ssid="$active_ap_ssid"
+                fi
+            fi
+            if [[ -n "$wifi_ssid" && "$wifi_ssid" == "$active_ap_ssid" ]]; then
+                wifi_freq="$active_ap_freq"
+                wifi_bitrate="$active_ap_rate"
+                wifi_signal="$active_ap_signal"
             fi
         fi
 
@@ -410,6 +406,14 @@ cmd_status() {
                 --argjson routes4 "$routes_json" \
                 --argjson rx_bytes "$dev_rx" \
                 --argjson tx_bytes "$dev_tx" \
+                --arg duplex "$duplex" \
+                --argjson carrier "$carrier" \
+                --arg method4 "$method4" \
+                --argjson mtu "$mtu_num" \
+                --arg wifi_ssid "$wifi_ssid" \
+                --arg wifi_freq "$wifi_freq" \
+                --arg wifi_bitrate "$wifi_bitrate" \
+                --arg wifi_signal "$wifi_signal" \
                 '{
                     iface: $iface,
                     type: $type,
@@ -426,7 +430,15 @@ cmd_status() {
                     dns: $dns,
                     routes4: $routes4,
                     rx_bytes: $rx_bytes,
-                    tx_bytes: $tx_bytes
+                    tx_bytes: $tx_bytes,
+                    duplex: $duplex,
+                    carrier: $carrier,
+                    method4: $method4,
+                    mtu: $mtu,
+                    wifi_ssid: $wifi_ssid,
+                    wifi_freq: $wifi_freq,
+                    wifi_bitrate: $wifi_bitrate,
+                    wifi_signal: $wifi_signal
                 }')")
         else
             # Minimal fallback without jq
@@ -435,7 +447,7 @@ cmd_status() {
                 [[ -n "$ip4s" ]] && ip4s+=","
                 ip4s+="\"$(json_esc "$d")\""
             done
-            dev_objs+=("{\"iface\":\"$(json_esc "$iface")\",\"type\":\"$(json_esc "$dtype")\",\"state\":\"$(json_esc "$state")\",\"connection\":\"$(json_esc "${conn:-}")\",\"uuid\":\"$(json_esc "${uuid:-}")\",\"mac\":\"$(json_esc "$mac")\",\"managed\":$managed,\"speed_mbps\":$speed_mbps,\"ip4\":[${ip4s}],\"ip6\":[],\"gateway4\":\"$(json_esc "$gateway4")\",\"gateway6\":\"$(json_esc "$gateway6")\",\"dns\":[],\"routes4\":[]}")
+            dev_objs+=("{\"iface\":\"$(json_esc "$iface")\",\"type\":\"$(json_esc "$dtype")\",\"state\":\"$(json_esc "$state")\",\"connection\":\"$(json_esc "${conn:-}")\",\"uuid\":\"$(json_esc "${uuid:-}")\",\"mac\":\"$(json_esc "$mac")\",\"managed\":$managed,\"speed_mbps\":$speed_mbps,\"ip4\":[${ip4s}],\"ip6\":[],\"gateway4\":\"$(json_esc "$gateway4")\",\"gateway6\":\"$(json_esc "$gateway6")\",\"dns\":[],\"routes4\":[],\"mtu\":$mtu_num,\"wifi_ssid\":\"$(json_esc "$wifi_ssid")\",\"wifi_freq\":\"$(json_esc "$wifi_freq")\",\"wifi_bitrate\":\"$(json_esc "$wifi_bitrate")\",\"wifi_signal\":\"$(json_esc "$wifi_signal")\"}")
         fi
     done
 
@@ -483,8 +495,6 @@ cmd_status() {
             --argjson devices "$devices_json" \
             --argjson active_connections "$ac_json" \
             --argjson connections "$connections_json" \
-            --argjson applet_running "$applet" \
-            --argjson applet_enabled "$applet_enabled_json" \
             --argjson rx_rate "${rx_rate:-0}" \
             --argjson tx_rate "${tx_rate:-0}" \
             --argjson rx_bytes "${rx_bytes:-0}" \
@@ -498,8 +508,6 @@ cmd_status() {
                 devices: $devices,
                 active_connections: $active_connections,
                 connections: $connections,
-                applet_running: $applet_running,
-                applet_enabled: $applet_enabled,
                 rx_rate: $rx_rate,
                 tx_rate: $tx_rate,
                 rx_bytes: $rx_bytes,
@@ -508,10 +516,10 @@ cmd_status() {
             }'
     else
         # Extremely minimal without jq
-        printf '{"networking":%s,"wifi_radio":%s,"wifi_hw":%s,"connectivity":"%s","devices":[%s],"active_connections":[],"applet_running":%s,"timestamp":%s}\n' \
+        printf '{"networking":%s,"wifi_radio":%s,"wifi_hw":%s,"connectivity":"%s","devices":[%s],"active_connections":[],"timestamp":%s}\n' \
             "$networking" "$wifi_radio" "$wifi_hw" "$(json_esc "$connectivity")" \
             "$((${#dev_objs[@]} > 0)) && printf '%s' "$(IFS=,; echo "${dev_objs[*]}")" || true" \
-            "$applet" "$(date +%s)"
+            "$(date +%s)"
     fi
 }
 
@@ -576,57 +584,47 @@ case "$ACTION" in
                 [[ -n "$ARG2" ]] || { err_json "uuid|name required"; exit 2; }
                 nmcli connection down "$ARG2" >/dev/null 2>&1 && ok_json "connection down" || err_json "connection down failed"
                 ;;
+            delete)
+                [[ -n "$ARG2" ]] || { err_json "uuid|name required"; exit 2; }
+                nmcli connection delete "$ARG2" >/dev/null 2>&1 && ok_json "connection deleted" || err_json "connection delete failed"
+                ;;
             *) usage; exit 2 ;;
         esac
+        ;;
+    radio)
+        need_nmcli
+        case "$ARG1" in
+            all)
+                case "$ARG2" in
+                    on)  nmcli radio all on  >/dev/null 2>&1 && ok_json "radios on"  || err_json "failed to enable radios" ;;
+                    off) nmcli radio all off >/dev/null 2>&1 && ok_json "radios off" || err_json "failed to disable radios" ;;
+                    *) usage; exit 2 ;;
+                esac
+                ;;
+            *) usage; exit 2 ;;
+        esac
+        ;;
+    wifi-rescan)
+        need_nmcli
+        nmcli device wifi rescan >/dev/null 2>&1 && ok_json "scan requested" || err_json "rescan failed"
+        ;;
+    wifi-hidden)
+        need_nmcli
+        [[ -n "$ARG1" ]] || { err_json "ssid required"; exit 2; }
+        # ARG2 is the whole password (spaces stay inside one argument).
+        if [[ -n "$ARG2" ]]; then
+            msg=$(nmcli device wifi connect "$ARG1" password "$ARG2" hidden yes 2>&1) \
+                && ok_json "connecting" || err_json "${msg:-hidden connect failed}"
+        else
+            msg=$(nmcli device wifi connect "$ARG1" hidden yes 2>&1) \
+                && ok_json "connecting" || err_json "${msg:-hidden connect failed}"
+        fi
         ;;
     refresh-ip)
         cmd_refresh_ip "${ARG1:-}"
         ;;
     refresh-dns)
         cmd_refresh_dns "${ARG1:-}"
-        ;;
-    applet)
-        case "$ARG1" in
-            status)
-                en=false
-                applet_enabled && en=true
-                run=false
-                applet_running && run=true
-                printf '{"ok":true,"running":%s,"enabled":%s,"autostart_enabled":%s}\n' "$run" "$en" "$en"
-                ;;
-            start)
-                if applet_start; then ok_json "applet started"; else err_json "applet start failed"; fi
-                ;;
-            stop)
-                if applet_stop; then ok_json "applet stopped"; else err_json "applet stop failed"; fi
-                ;;
-            toggle)
-                if applet_running; then
-                    if applet_stop; then ok_json "applet stopped"; else err_json "applet stop failed"; fi
-                else
-                    if applet_start; then ok_json "applet started"; else err_json "applet start failed"; fi
-                fi
-                ;;
-            # Persist across reboots (systemctl --user enable/disable)
-            enable)
-                if applet_enable; then ok_json "nm-applet enabled (starts at login)"; else err_json "applet enable failed"; fi
-                ;;
-            disable)
-                if applet_disable; then ok_json "nm-applet disabled (stays off after reboot)"; else err_json "applet disable failed"; fi
-                ;;
-            set-autostart)
-                case "${ARG2,,}" in
-                    true|1|on|yes)
-                        if applet_enable; then ok_json "nm-applet enabled (starts at login)"; else err_json "applet enable failed"; fi
-                        ;;
-                    false|0|off|no)
-                        if applet_disable; then ok_json "nm-applet disabled (stays off after reboot)"; else err_json "applet disable failed"; fi
-                        ;;
-                    *) usage; exit 2 ;;
-                esac
-                ;;
-            *) usage; exit 2 ;;
-        esac
         ;;
     ""|-h|--help|help)
         usage

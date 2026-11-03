@@ -2035,11 +2035,11 @@ QtObject {
     readonly property int popupTailscaleWidth:  popupW(460)
     readonly property int popupTailscaleHeight: popupH(700)
     readonly property int bluetoothScanSeconds: 45   // Auto-stop discovery after this many seconds
-    // --- NetworkPill (nm-applet replacement: wired/WiFi, radios, connection info)
-    // Main column width; WiFi AP list opens as a second column of popupNetworkWifiWidth
-    readonly property int popupNetworkWidth:      popupW(520)
-    readonly property int popupNetworkWifiWidth:  popupW(340)   // right column when scanning / changing network
-    readonly property int popupNetworkHeight:     popupH(580)
+    // Network panel (widgets/network/NetworkPopup.qml). Compact single column.
+    // 384, plus 17%, plus another 17% so Wired / Wi-Fi / Airplane / VPN
+    // fit on one row (449 * 1.17 = 525).
+    readonly property int popupNetworkPanelWidth:     popupW(525)
+    readonly property int popupNetworkPanelMaxHeight: popupH(680)
     readonly property int popupHelpWidth:     popupW(1060)  // Hypr Config Inspector default width
     readonly property int popupHelpHeight:    popupH(720)   // Hypr Config Inspector default height
     readonly property int popupTrayMaxHeight:  popupH(520)   // SystemTrayPill menu max height before scroll
@@ -2070,7 +2070,7 @@ QtObject {
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
     readonly property bool showStatsPill:           true   // SysStatsPill.qml
     readonly property bool showTrayPill:             true   // SystemTrayPill.qml
-    readonly property bool showNetworkPill:          true   // NetworkPill.qml (nm-applet replacement)
+    readonly property bool showNetworkPanel:         true   // widgets/network/NetworkButton.qml
     readonly property bool showBluetoothPill:        true   // BluetoothPill.qml
     readonly property bool showAudioPill:           true   // AudioPill.qml
     readonly property bool showClockPill:           true   // ClockPill.qml
@@ -2137,7 +2137,7 @@ QtObject {
     ]
 
     // Default widget order + zone for BarControlBar layout editor / runtime reparent.
-    // Classic zone: "left" | "center" | "right". Connectivity is Network+Bluetooth+Audio as one unit.
+    // Classic zone: "left" | "center" | "right". Connectivity is Bluetooth+Audio as one unit.
     readonly property var defaultWidgetLayout: [
         { id: "launcher",      zone: "left" },
         { id: "quickLaunch",   zone: "left" },
@@ -2146,6 +2146,7 @@ QtObject {
         { id: "stats",         zone: "right" },
         { id: "tray",          zone: "right" },
         { id: "connectivity",  zone: "right" },
+        { id: "networkPanel",  zone: "right" },
         { id: "tailscale",     zone: "right" },
         { id: "clock",         zone: "right" },
         { id: "notifications", zone: "right" },
@@ -2174,6 +2175,7 @@ QtObject {
         { id: "controlBar",    zone: "bottom" },
         { id: "opacity",       zone: "bottom" },
         { id: "connectivity",  zone: "bottom" },
+        { id: "networkPanel",  zone: "bottom" },
         { id: "tailscale",     zone: "bottom" }
     ]
 
@@ -2421,6 +2423,8 @@ QtObject {
     readonly property string iconNetworkDisconnected:   "󰤮"   // No active connection
     readonly property string iconNetworkOff:            "󰲛"   // Networking disabled
     readonly property string iconNetworkPortal:         "󰖟"   // Captive portal
+    readonly property string iconNetworkVpn:            "󰖂"   // VPN / WireGuard active
+    readonly property string iconNetworkAirplane:       "󰀝"   // Airplane mode (radios off)
     // Power menu
     readonly property string iconPower:         "󰐥"
     // Material Design circle-opacity (U+F1853) in Symbols Nerd Font.

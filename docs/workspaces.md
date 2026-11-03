@@ -49,4 +49,6 @@ qs ipc call shell setWsStartupWorkspace 1
 qs ipc call shell setWsStartupCloseMagic false
 ```
 
-**Keyboard cycling (Hyprland)** — `SUPER + CTRL + Left/Right` uses `~/.config/hypr/scripts/cycle-workspace.sh` so magic space is included in the cycle (e.g. left from workspace 1 opens magic). Configured in `~/.config/hypr/config/keybindings.lua`.
+**Keyboard cycling (Hyprland)** — `SUPER + CTRL + Left/Right` runs `~/.local/bin/cycle-workspace.sh`. The special it toggles is the name from Options → **Workspaces** (`wsSpecialNameCustom`, or `magic` from `Config.qml` when that field is blank). The workspace pill scrolls the same name. The overview strip uses that name for its special card. Configured in `~/.config/hypr/config/keybindings.lua`.
+
+The fullscreen overview is [overview.md](overview.md). **Show only active workspace** also hides empty overview cards and keeps one blank drop target.

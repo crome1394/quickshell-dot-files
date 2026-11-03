@@ -313,9 +313,9 @@ Rectangle {
         root.shownWorkspaces = result
     }
 
-    // Match ~/.config/hypr/scripts/cycle-workspace.sh — cycle Hyprland workspaces
-    // directly, not the visible pill list (which shrinks with wsShowOnlyActive and
-    // breaks when magic is open: focus stayed on magic entry → only magic ↔ ws1).
+    // Same order as ~/.local/bin/cycle-workspace.sh. The special is bar.wsSpecialName
+    // (Hidden). Do not toggle magic or scratchpad. The visible pill list shrinks
+    // with wsShowOnlyActive, and focus stays on the numbered workspace underneath.
     function switchToRelative(delta) {
         const onMagic = root.specialActive;
         const focusedWs = Hyprland.focusedWorkspace;

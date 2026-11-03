@@ -2,6 +2,28 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-11 — Workspace overview
+
+- **Super+Tab** toggles a fullscreen workspace overview on the focused monitor (`qs ipc call overview toggle`). **Super+Shift+Tab** is desktop layout (`overview desktop`). **Super+Ctrl+Tab** is every workspace on that monitor (`overview all`). `next` and `prev` step the strip.
+- While it is open, that monitor takes the keyboard. **Tab** / **Shift+Tab** move between cards, arrows select a window, **Enter** focuses it, **D** closes it, **A** toggles all workspaces, a bare **Shift** flips desktop layout, **1–9** and **0** pick a strip card, and **Esc** closes. Drag a window onto a card to move it.
+- Closing focuses the workspace you were viewing. Clicking a window focuses that window and skips that step.
+- Settings → Options → **Overview**. Layout is **Rows**, **Grid**, or **Natural**. The strip can sit on any edge. Live previews are on until you turn them off. Saved in `state/bar-layout.json` (`ov*` keys) after the first change. See [docs/overview.md](docs/overview.md).
+- The special strip card is the name from Options → **Workspaces**. Any other Hyprland special stays off the strip. **Show the special workspace** is off until you turn it on.
+
+## 2026-11 — Notification popup corner
+
+- Settings → Options → **Notifications** has **Popup corner**: top left, top right, bottom left, bottom right. The choice is saved in `bar-layout.json` (`notificationCorner`) and written to SwayNC `positionX` / `positionY`.
+- Bottom corners stack a new toast at the bottom and move older ones upward. Top corners stack downward.
+- The default is **bottom right**. IPC: `qs ipc call shell setNotificationCorner bottomRight`.
+- **Message timeout** is how long a normal toast stays, from 0 to 60 seconds. 0 keeps it up until you close it. Saved as `notificationTimeout` and written to SwayNC `timeout`. IPC: `qs ipc call shell setNotificationTimeout 8`.
+
+## 2026-11 — Network panel
+
+- The bar network control is `widgets/network/`. Settings → Widgets → **Network** shows or hides it. IPC: `setShowNetworkPanel` / `toggleShowNetworkPanel`, and `networkPanel` `showPopup` / `hidePopup` / `togglePopup` / `setWifi` / `toggleWifi`.
+- The old network pill, its `networkPill` IPC, the traffic-graph switch, and the nm-applet login autostart switch are removed. The combined pill is Bluetooth · Audio.
+- Options → **Network** keeps **Full IP on bar**, **Last octet on bar**, and **Device name on bar**.
+- Removed the unused `cachyos-linux.svg` from the repo root. The inspector still asks fastfetch for its own cachyos logo.
+
 ## 2026-11 — Transparency, edge bars, text saver, and the stats popups are gone
 
 - **Transparency** is a bar pill. Click opens **Apps** and **Satty**, each 5–100%. 100% is solid. Fullscreen windows and the Settings window stay solid. Until **Apps** is moved, the Hyprland window rules you already have stay. Satty does not follow Apps. State is `~/.config/hypr/opacity.state`. Generated rules are `~/.config/hypr/opacity.lua`. IPC: `setShowOpacityPill` / `toggleShowOpacityPill`.

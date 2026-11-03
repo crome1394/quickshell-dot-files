@@ -12,7 +12,7 @@ Every bar pill can be hidden or shown. Defaults live in `Config.qml` (search for
 | `showWorkspacesPill` | `true` | `setShowWorkspacesPill` / `toggleShowWorkspacesPill` | Workspaces strip |
 | `showStatsPill` | `true` | `setShowStatsWidget` / `toggleShowStatsWidget` | System Stats |
 | `showTrayPill` | `true` | `setShowTrayPill` / `toggleShowTrayPill` | System Tray |
-| `showNetworkPill` | `true` | `setShowNetworkPill` / `toggleShowNetworkPill` | Network |
+| `showNetworkPanel` | `true` | `setShowNetworkPanel` / `toggleShowNetworkPanel` | Network |
 | `showBluetoothPill` | `true` | `setShowBluetoothPill` / `toggleShowBluetoothPill` | Bluetooth |
 | `showAudioPill` | `true` | `setShowAudioPill` / `toggleShowAudioPill` | Audio |
 | `showClockPill` | `true` | `setShowClockPill` / `toggleShowClockPill` | Clock |
@@ -61,17 +61,13 @@ Some bar widgets expose actions beyond show/hide. These work from scripts, Hyprl
 | `audioPill` | `setEchoCancel` | Enable (`true`) or disable (`false`) system echo cancel (sticky preference) |
 | `audioPill` | `enableEchoCancel` / `disableEchoCancel` | Same as `setEchoCancel true` / `false` |
 | `audioPill` | `toggleEchoCancel` | Toggle system echo cancel on/off |
-| `networkPill` | `showPopup` / `hidePopup` / `togglePopup` | Open, close, or toggle the Network menu |
-| `networkPill` | `setWifi` / `toggleWifi` / `enableWifi` / `disableWifi` | WiFi radio on/off |
-| `networkPill` | `setNetworking` / `toggleNetworking` | Global NetworkManager networking on/off |
-| `networkPill` | `startScan` / `stopScan` | WiFi network scan |
-| `networkPill` | `connectSsid` / `forgetSsid` / `disconnectDevice` / `enableDevice` | Connect (SSID), forget SSID, disconnect/enable iface |
-| `networkPill` | `disableAllAdapters` | Disconnect every adapter and turn WiFi radio off |
-| `networkPill` | `startApplet` / `stopApplet` / `toggleApplet` | nm-applet tray (session only) |
-| `networkPill` | `enableApplet` / `disableApplet` / `setAppletAutostart` | nm-applet autostart (survives reboot) |
-| `networkPill` | `openEditor` | Launch `nm-connection-editor` |
-| `networkPill` | `refreshIp` / `refreshDns` | Reapply IP / flush DNS |
-| `networkPill` | `activateConnection` / `deactivateConnection` | `uuid` or connection name |
+| `networkPanel` | `showPopup` / `hidePopup` / `togglePopup` | Open, close, or toggle the Network panel |
+| `networkPanel` | `setWifi` / `toggleWifi` | Wi-Fi radio on/off |
+| `overview` | `toggle` | Open or close the workspace overview |
+| `overview` | `open` / `close` | Open the workspace view, or close the overview |
+| `overview` | `desktop` | Desktop layout (windows in place, with close buttons). Closes when that mode is already open |
+| `overview` | `all` | Every workspace on the focused monitor. Closes when that mode is already open |
+| `overview` | `next` / `prev` | Step the strip. When the overview is closed, move to the next or previous workspace |
 | `bluetoothPill` | `showPopup` / `hidePopup` / `togglePopup` | Open, close, or toggle the Bluetooth menu |
 | `bluetoothPill` | `setPower` / `togglePower` / `enable` / `disable` | Adapter radio power on/off |
 | `bluetoothPill` | `startScan` / `stopScan` / `toggleScan` | Device discovery |
@@ -95,12 +91,13 @@ qs ipc call clockPill showCalendar
 qs ipc call audioPill setEchoCancel true
 qs ipc call audioPill disableEchoCancel
 qs ipc call audioPill toggleEchoCancel
-qs ipc call networkPill togglePopup
-qs ipc call networkPill toggleWifi
-qs ipc call networkPill enableDevice enp10s0
-qs ipc call networkPill disableAllAdapters
-qs ipc call networkPill openEditor
-qs ipc call networkPill toggleApplet
+qs ipc call networkPanel togglePopup
+qs ipc call networkPanel toggleWifi
+qs ipc call shell toggleShowNetworkPanel
+qs ipc call overview toggle
+qs ipc call overview desktop
+qs ipc call overview all
+qs ipc call overview next
 qs ipc call bluetoothPill togglePopup
 qs ipc call bluetoothPill togglePower
 qs ipc call bluetoothPill startScan
@@ -112,22 +109,29 @@ qs ipc call notificationBell toggleHistory
 qs ipc call notificationBell showHistory
 qs ipc call notificationBell hideHistory
 qs ipc call notificationBell toggleDoNotDisturb
+qs ipc call shell setNotificationCorner bottomRight
+qs ipc call shell setNotificationTimeout 8
 qs ipc call shell toggleShowOpacityPill
 qs ipc call shell setActiveWindowCorner topRight
 qs ipc call shell addActiveWindowExclude hypr-screensaver
 ```
+
+**Overview** options (layout, strip, previews) are Settings → Options → **Overview** and `bar-layout.json`. The commands above open and drive the view. See [overview.md](overview.md).
 
 **Dock** (magnify/jump/scope), **edge bars**, and **screensaver** (video or text, DDC dim) are Options UI + files (`bar-layout.json`, `~/.config/hypr/screensaver.conf`), not IPC. See [control-bar.md](control-bar.md) and [screensaver.md](screensaver.md).
 
 **Hyprland keybind examples** (in `~/.config/hypr/config/keybindings.lua`):
 
 ```
-SUPER + C   →   qs ipc call clockPill showCalendar
-SUPER + N   →   qs ipc call notificationBell toggleDoNotDisturb
+SUPER + TAB         →   qs ipc call overview toggle
+SUPER + SHIFT + TAB →   qs ipc call overview desktop
+SUPER + CTRL + TAB  →   qs ipc call overview all
+SUPER + C           →   qs ipc call clockPill showCalendar
+SUPER + N           →   qs ipc call notificationBell toggleDoNotDisturb
 # History window (bind the key yourself):
 # qs ipc call notificationBell toggleHistory
 # Optional: bind echo cancel / Bluetooth / Network
 # SUPER + ALT + E   →   qs ipc call audioPill toggleEchoCancel
 # SUPER + ALT + B   →   qs ipc call bluetoothPill togglePopup
-# SUPER + ALT + W   →   qs ipc call networkPill togglePopup
+# SUPER + ALT + W   →   qs ipc call networkPanel togglePopup
 ```

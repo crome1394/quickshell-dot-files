@@ -23,10 +23,11 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 - **Transparency** — Apps and Satty sliders, 5–100%. 100% is solid. Fullscreen and Settings stay solid
 - **Tailscale** — left click opens machines (copy IP, name, or DNS, exit node, Taildrop). Right click runs `tailscale up` or `down`
 - **Active Window** — corner overlay with the focused window’s icon, class, and title. A skip list hides chosen apps (the screensaver is skipped by default)
-- **Network** — per-adapter on/off + Enable after disconnect; Options for full IP, last octet, and device name on the bar
+- **Overview** — fullscreen workspace strip with live window previews. **Super+Tab** toggles it. **Super+Shift+Tab** is desktop layout. **Super+Ctrl+Tab** is every workspace on the monitor. Options → **Overview**
+- **Network** — wired, Wi-Fi, airplane, and VPN in one panel. Options set full IP, last octet, and device name on the bar
 - **Themes** — colors, opacity, fonts, per-metric thresholds; **Save as preset** (colors) and **Save setup** (colors + layout)
 - **Screensaver** — video (mpv) or a text style (Night watch, Rain, Orbital, Warp, Pyro, Scanner). No DPMS. Mouse/click/Esc dismiss. Tab video does not block; fullscreen does unless Always start. Optional DDC dim / exit brightness
-- Net · BT · Audio (combined pill), workspaces, tray, notifications (history window, DND, copy, per-item dismiss), power, FreshRSS
+- Bluetooth · Audio (combined pill), workspaces, tray, notifications (history window, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
 
 ## Requirements
@@ -65,18 +66,18 @@ Switch **Classic** / **Dual** in **Position** (monitor mockups, then **Apply**).
 |------|---------|
 | **Left** | Application Menu, Application Launcher, FreshRSS |
 | **Center** | Workspaces |
-| **Right** | System Stat Bars, Tray, Net·BT·Audio, Tailscale, Clock, Notifications, Config Menu Icon, Transparency, Power |
+| **Right** | System Stat Bars, Tray, Bluetooth·Audio, Network, Tailscale, Clock, Notifications, Config Menu Icon, Transparency, Power |
 
 **Dual** (top + bottom, centered; glass hugs the widget row):
 
 | Bar | Widgets |
 |------|---------|
 | **Top** | Clock, Workspaces, Tray, Notifications, Power |
-| **Bottom** | System Stat Bars, Application Menu, Application Launcher, FreshRSS, Config Menu Icon, Transparency, Net·BT·Audio, Tailscale |
+| **Bottom** | System Stat Bars, Application Menu, Application Launcher, FreshRSS, Config Menu Icon, Transparency, Bluetooth·Audio, Network, Tailscale |
 
 **Left bar** and **Right bar** are off until Options → **Bar** turns them on. Faces on a side bar rotate 90° clockwise. Popups stay upright.
 
-Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B/L/R in Dual). **Active Window** is not in those lists. It lives under **Other**, and the corner chips place it. Theme in **Themes**. Options cover stats, dock, screensaver, and screenshots. **Save setup** (Themes → Presets) snapshots colors plus this layout.
+Reorder, show/hide, and scale in **Widgets** (L/C/R in Classic, T/B/L/R in Dual). **Active Window** is not in those lists. It lives under **Other**, and the corner chips place it. Theme in **Themes**. Options cover the overview, stats, dock, screensaver, and screenshots. **Save setup** (Themes → Presets) snapshots colors plus this layout.
 
 ## IPC (cheat sheet)
 
@@ -91,7 +92,10 @@ qs ipc call shell setFlushWindowsToBar true
 qs ipc call shell setUiScale 0.85
 qs ipc call shell toggleShowOpacityPill
 qs ipc call shell setActiveWindowCorner topLeft
-qs ipc call networkPill togglePopup
+qs ipc call overview toggle
+qs ipc call overview desktop
+qs ipc call overview all
+qs ipc call networkPanel togglePopup
 qs ipc call notificationBell toggleHistory
 qs ipc call notificationBell showHistory
 qs ipc call notificationBell hideHistory
@@ -107,6 +111,7 @@ Full tables: [docs/ipc.md](docs/ipc.md)
 | [Settings](docs/control-bar.md) | Panels, Wallpaper, Themes, Display, MIME, Dock, Screensaver |
 | [Config tokens](docs/config.md) | `Config.qml` reference |
 | [IPC](docs/ipc.md) | All IPC targets |
+| [Overview](docs/overview.md) | Workspace strip, live previews, keyboard and drag |
 | [Screensaver](docs/screensaver.md) | Video or text styles, mouse dismiss, tab vs fullscreen, DDC dim |
 | [Audio](docs/audio.md) · [Network](docs/network.md) · [Bluetooth](docs/bluetooth.md) | Connectivity pills |
 | [FreshRSS](docs/freshrss.md) · [Workspaces](docs/workspaces.md) · [Inspector](docs/inspector.md) | Feature guides |

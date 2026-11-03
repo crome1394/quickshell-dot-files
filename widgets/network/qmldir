@@ -1,0 +1,4 @@
+singleton NetworkService 1.0 NetworkService.qml
+NetworkButton 1.0 NetworkButton.qml
+NetworkPopup 1.0 NetworkPopup.qml
+NetworkListItem 1.0 NetworkListItem.qml

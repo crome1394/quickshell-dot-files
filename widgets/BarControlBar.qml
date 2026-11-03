@@ -707,7 +707,7 @@ Item {
     // Dock edits hover for every icon pill. Hide it only when all of those pills are off.
     function dockSettingsVisible() {
         const ids = ["launcher", "quickLaunch", "freshRss", "workspaces", "tray",
-                     "network", "bluetooth", "notifications", "hyprInsp", "controlBar", "tailscale", "opacity", "power"]
+                     "networkPanel", "bluetooth", "notifications", "hyprInsp", "controlBar", "tailscale", "opacity", "power"]
         for (let i = 0; i < ids.length; i++) {
             if (root.widgetShown(ids[i]))
                 return true
@@ -725,7 +725,7 @@ Item {
             "appmenu": "launcher",
             "workspaces": "workspaces",
             "audio": "audio",
-            "network": "network",
+            "network": "networkPanel",
             "bluetooth": "bluetooth",
             "stats": "stats",
             "freshrss": "freshRss",
@@ -742,6 +742,7 @@ Item {
             { id: "appmenu", label: "App Menu" },
             { id: "tooltips", label: "Tooltips" },
             { id: "workspaces", label: "Workspaces" },
+            { id: "overview", label: "Overview" },
             { id: "audio", label: "Audio" },
             { id: "network", label: "Network" },
             { id: "bluetooth", label: "Bluetooth" },
@@ -809,7 +810,7 @@ Item {
     function setOptionsTab(tab) {
         const t = String(tab || "bar")
         const allowed = {
-            "bar": 1, "appmenu": 1, "tooltips": 1, "workspaces": 1, "audio": 1, "network": 1,
+            "bar": 1, "appmenu": 1, "tooltips": 1, "workspaces": 1, "overview": 1, "audio": 1, "network": 1,
             "bluetooth": 1, "notifications": 1, "stats": 1, "dock": 1, "activewindow": 1, "screensaver": 1, "screenshot": 1, "freshrss": 1
         }
         let next = allowed[t] ? t : "bar"
@@ -869,13 +870,6 @@ Item {
         return false
     }
 
-    function optNetApplet() {
-        void root.optionsTick
-        if (typeof bar.getNetworkAppletAutostart === "function")
-            return !!bar.getNetworkAppletAutostart()
-        return true
-    }
-
     function optBtApplet() {
         void root.optionsTick
         if (typeof bar.getBluetoothAppletAutostart === "function")
@@ -927,7 +921,7 @@ Item {
             { id: "quickLaunch", label: "Application Launcher" },
             { id: "freshRss", label: "FreshRSS" },
             { id: "stats", label: "System Stat Bars" },
-            { id: "network", label: "Network" },
+            { id: "networkPanel", label: "Network" },
             { id: "bluetooth", label: "Bluetooth" },
             { id: "notifications", label: "Notifications" },
             { id: "hyprInsp", label: "Hypr Inspector" },
@@ -974,10 +968,6 @@ Item {
             if (typeof bar.setEchoCancel === "function")
                 bar.setEchoCancel(on)
             break
-        case "setNetworkAppletAutostart":
-            if (typeof bar.setNetworkAppletAutostart === "function")
-                bar.setNetworkAppletAutostart(on)
-            break
         case "setBluetoothAppletAutostart":
             if (typeof bar.setBluetoothAppletAutostart === "function")
                 bar.setBluetoothAppletAutostart(on)
@@ -1011,10 +1001,6 @@ Item {
         case "setShowStatGauges":
             if (typeof bar.setShowStatGauges === "function")
                 bar.setShowStatGauges(on)
-            break
-        case "setShowNetTrafficGraph":
-            if (typeof bar.setShowNetTrafficGraph === "function")
-                bar.setShowNetTrafficGraph(on)
             break
         case "setShowNetworkFullIp":
             if (typeof bar.setShowNetworkFullIp === "function")
@@ -2347,6 +2333,49 @@ Item {
             bar.setActiveWindowCorner(corner)
         root.menuTick++
         Qt.callLater(reposition)
+    }
+
+    function notificationCorner() {
+        void root.optionsTick
+        if (bar && bar.notificationCorner !== undefined) {
+            const c = String(bar.notificationCorner || "")
+            if (c === "topLeft" || c === "topRight" || c === "bottomLeft" || c === "bottomRight")
+                return c
+        }
+        return "bottomRight"
+    }
+
+    function notificationCornerChoices() {
+        return [
+            { id: "topLeft", label: "Top left", tip: "Toasts in the top-left corner. More of them stack downward." },
+            { id: "topRight", label: "Top right", tip: "Toasts in the top-right corner. More of them stack downward." },
+            { id: "bottomLeft", label: "Bottom left", tip: "Toasts in the bottom-left corner. More of them stack upward." },
+            { id: "bottomRight", label: "Bottom right", tip: "Toasts in the bottom-right corner. More of them stack upward." }
+        ]
+    }
+
+    function setNotificationCorner(corner) {
+        if (typeof bar.setNotificationCorner === "function")
+            bar.setNotificationCorner(corner)
+        root.optionsTick++
+        root.menuTick++
+    }
+
+    function notificationTimeout() {
+        void root.optionsTick
+        const n = (bar && bar.notificationTimeout !== undefined) ? Math.round(Number(bar.notificationTimeout)) : 8
+        if (!(n >= 0))
+            return 8
+        if (n > 60)
+            return 60
+        return n
+    }
+
+    function setNotificationTimeout(seconds) {
+        if (typeof bar.setNotificationTimeout === "function")
+            bar.setNotificationTimeout(seconds)
+        root.optionsTick++
+        root.menuTick++
     }
 
     function activeWindowExcludes() {
@@ -10765,130 +10794,6 @@ Item {
                                             Layout.minimumWidth: 0
                                             spacing: 0
                                             Text {
-                                                text: "nm-applet login autostart"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Sticky · survives reboot"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (root.optNetApplet()) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (root.optNetApplet()) ? "✓" : "✕"
-                                                    color: (root.optNetApplet()) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setNetworkAppletAutostart", !root.optNetApplet())
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
-                                                text: "Traffic graph"
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                            Text {
-                                                text: "Sparkline in network details (adapters stay)"
-                                                color: bar.subtext
-                                                font.pixelSize: 10
-                                                font.family: bar.fontFamily
-                                                elide: Text.ElideRight
-                                                Layout.fillWidth: true
-                                            }
-                                        }
-                                        Item {
-                                            Layout.preferredWidth: root.optControlColW
-                                            Layout.maximumWidth: root.optControlColW
-                                            Layout.minimumWidth: root.optControlColW
-                                            Layout.fillHeight: true
-                                            Rectangle {
-                                                anchors.centerIn: parent
-                                                width: root.optToggleW
-                                                height: root.optToggleH
-                                                radius: 4
-                                                border.width: 1
-                                                border.color: (bar.showNetTrafficGraph !== false) ? root.onGreen : root.offRed
-                                                color: "transparent"
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: (bar.showNetTrafficGraph !== false) ? "✓" : "✕"
-                                                    color: (bar.showNetTrafficGraph !== false) ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setOptToggle("setShowNetTrafficGraph", !(bar.showNetTrafficGraph !== false))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 40
-                                    radius: root.chipR
-                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                    border.width: 1
-                                    border.color: bar.dividerStrong
-                                    RowLayout {
-                                        anchors.fill: parent
-                                        anchors.leftMargin: 10
-                                        anchors.rightMargin: 10
-                                        spacing: 10
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            Layout.minimumWidth: 0
-                                            spacing: 0
-                                            Text {
                                                 text: "Full IP on bar"
                                                 color: bar.text
                                                 font.pixelSize: 12
@@ -13000,6 +12905,11 @@ Item {
                                 }
 
                                 } // options tab: screenshot
+                                OverviewOptions {
+                                    visible: root.optionsTab === "overview"
+                                    Layout.fillWidth: true
+                                    bar: root.bar
+                                }
                                 ColumnLayout {
                                     visible: root.optionsTab === "notifications"
                                     Layout.fillWidth: true
@@ -13018,6 +12928,105 @@ Item {
                                     color: bar.subtext
                                     font.pixelSize: 10
                                     font.family: bar.fontFamily
+                                }
+                                Text {
+                                    text: "Popup corner"
+                                    color: bar.text
+                                    font.pixelSize: 12
+                                    font.family: bar.fontFamily
+                                }
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: root.notificationCornerChoices()
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            readonly property bool cornerOn: root.notificationCorner() === modelData.id
+                                            width: Math.max(88, notiCornerLbl.implicitWidth + 16)
+                                            height: 26
+                                            radius: root.chipR
+                                            color: root.chipBg(cornerOn, notiCornerMa.containsMouse)
+                                            border.width: 1
+                                            border.color: root.chipBorder(cornerOn, notiCornerMa.containsMouse)
+                                            Text {
+                                                id: notiCornerLbl
+                                                anchors.centerIn: parent
+                                                text: modelData.label
+                                                font.pixelSize: 11
+                                                font.family: bar.fontFamily
+                                                font.bold: cornerOn
+                                                color: root.chipText(cornerOn, notiCornerMa.containsMouse)
+                                            }
+                                            MouseArea {
+                                                id: notiCornerMa
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: root.setNotificationCorner(modelData.id)
+                                                ToolTip.visible: containsMouse
+                                                ToolTip.delay: bar.tooltipDelay
+                                                ToolTip.text: modelData.tip
+                                            }
+                                        }
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "Where notify-send toasts appear. A bottom corner stacks new ones upward. A top corner stacks them downward. The SwayNC panel uses the same corner."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                    opacity: 0.8
+                                }
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 48
+                                    radius: root.chipR
+                                    color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
+                                    border.width: 1
+                                    border.color: bar.dividerStrong
+                                    ColumnLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        anchors.topMargin: 6
+                                        anchors.bottomMargin: 6
+                                        spacing: 2
+                                        Text {
+                                            text: "Message timeout"
+                                            color: bar.text
+                                            font.pixelSize: 12
+                                            font.family: bar.fontFamily
+                                            Layout.fillWidth: true
+                                        }
+                                        OptValueSlider {
+                                            bar: bar
+                                            fieldBg: root.optFieldBg
+                                            fieldBgFocus: root.optFieldBgFocus
+                                            from: 0
+                                            to: 60
+                                            stepSize: 1
+                                            suffix: "s"
+                                            value: root.notificationTimeout()
+                                            onValueEdited: (v) => {
+                                                if (bar)
+                                                    bar.notificationTimeout = Math.round(v)
+                                                root.optionsTick++
+                                            }
+                                            onValueCommitted: (v) => root.setNotificationTimeout(v)
+                                        }
+                                    }
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.WordWrap
+                                    text: "How long a normal toast stays. 0 keeps it up until you close it."
+                                    color: bar.subtext
+                                    font.pixelSize: 10
+                                    font.family: bar.fontFamily
+                                    opacity: 0.8
                                 }
                                 Rectangle {
                                     Layout.fillWidth: true
