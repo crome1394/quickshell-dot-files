@@ -3456,6 +3456,16 @@ ShellRoot {
             void barIsTopEdge
             return exclusiveZoneFor(barIsTopEdge)
         }
+        // Bottom strip. Separate from edgeExclusiveZone so the zone binding
+        // does not also write exclusionMode (that pair loops).
+        readonly property int bottomEdgeExclusiveZone: {
+            void flushWindowsToBar
+            void barEdgeMargin
+            void barHeight
+            void barContentVMargin
+            void hyprGapsOutBottom
+            return exclusiveZoneFor(false)
+        }
         function exclusiveZoneFor(isTop) {
             var h = cfg.barHeight
             var edge = cfg.barEdgeMargin || 0
@@ -4908,15 +4918,7 @@ ShellRoot {
         color: "transparent"
         implicitHeight: bar.panelBarHeight()
         screen: bar.screen
-        exclusionMode: root.barLayoutMode === "dual" ? ExclusionMode.Normal : ExclusionMode.Ignore
-        exclusiveZone: {
-            void (bar.flushWindowsToBar)
-            void (bar.barEdgeMargin)
-            void (bar.barHeight)
-            void (bar.barContentVMargin)
-            void (bar.hyprGapsOutBottom)
-            return bar.exclusiveZoneFor(false)
-        }
+        exclusiveZone: root.barLayoutMode === "dual" ? bar.bottomEdgeExclusiveZone : 0
         mask: Region { item: bottomBarBg }
         anchors.left: true
         anchors.right: true
