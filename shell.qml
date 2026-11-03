@@ -4811,7 +4811,7 @@ ShellRoot {
             }
 
             // ─ Power Menu ─
-            PowerMenu {
+            PowerPill {
                 id: powerMenu
                 parent: widgetPool
                 visible: root.showPowerPill

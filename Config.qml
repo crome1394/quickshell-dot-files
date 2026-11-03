@@ -2011,7 +2011,7 @@ QtObject {
     // AudioPill: streams summary, device + profile, volume, L/R, VU, echo cancel, tools.
     readonly property int popupAudioWidth:     popupW(520)   // AudioPill device/volume popup
     readonly property int popupAudioHeight:    popupH(620)
-    readonly property int popupPowerWidth:     popupW(560)   // PowerMenu full grid (left-click)
+    readonly property int popupPowerWidth:     popupW(560)   // PowerPill full grid (left-click)
     readonly property int popupPowerHeight:    popupH(192)
     readonly property int popupContextMenuWidth:  popupW(220)   // Compact right-click menus (bell, power)
     readonly property int popupContextMenuRowHeight: sp(34)  // Height of one row in those menus
@@ -2063,7 +2063,7 @@ QtObject {
     readonly property bool showAudioPill:           true   // AudioPill.qml
     readonly property bool showClockPill:           true   // ClockPill.qml
     readonly property bool showNotificationPill:     true   // NotificationBell.qml
-    readonly property bool showPowerPill:           true   // PowerMenu.qml
+    readonly property bool showPowerPill:           true   // PowerPill.qml
     readonly property bool showOpacityPill:        true   // OpacityPill.qml
     readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
@@ -2237,7 +2237,7 @@ QtObject {
     readonly property color notificationDndAccent: muted  // Warning red pill border + bell when DND is on
 
     // =========================================================================
-    // POWER MENU (widgets/PowerMenu.qml — session actions)
+    // POWER MENU (widgets/PowerPill.qml — session actions)
     // =========================================================================
     // Commands for lock, logout, reboot, shutdown, and Enter BIOS. Each is a list
     // (preferred): ["hyprlock"] or ["sh", "-c", "your shell pipeline"] — or a shell
@@ -2385,7 +2385,7 @@ QtObject {
     readonly property string iconShutdown:      "󰐥"
     readonly property string iconBios:          "󰛳"
 
-    // Menu rows for PowerMenu.qml (grid + right-click). Reorder or rename freely.
+    // Menu rows for PowerPill.qml (grid + right-click). Reorder or rename freely.
     readonly property var powerMenuActions: [
         { icon: iconLock,     label: "Lock",       action: "lock" },
         { icon: iconLogout,   label: "Logout",     action: "logout" },
@@ -2933,7 +2933,7 @@ QtObject {
         return cmd && cmd.length !== undefined && cmd.length > 0
     }
 
-    // --- PowerMenu command resolver (used by shell.qml + PowerMenu.qml)
+    // --- PowerPill command resolver (used by shell.qml + PowerPill.qml)
     function powerCommand(action) {
         if (action === "lock") return powerLockCommand
         if (action === "logout") return powerLogoutCommand
