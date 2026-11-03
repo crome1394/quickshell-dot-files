@@ -637,7 +637,7 @@ disks=$(
 # PSD (profile-sync-daemon) - parse `psd p` output for real profile + overlayfs usage
 psd_profile_total_mb=0
 psd_overlay_used_mb=0
-psd_profiles_list=()
+psd_profiles_list=""
 
 if command -v psd >/dev/null 2>&1; then
     psd_out=$(psd p 2>/dev/null || echo "")
