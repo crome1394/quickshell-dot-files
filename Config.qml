@@ -1938,10 +1938,6 @@ QtObject {
     // dockRadius: px influence for neighbor magnification (QL / tray / workspaces)
     // dockJumpPx: bounce height on click
     // Stats gauges and the volume meter stay still.
-    readonly property string dockEffectDefault: "both"
-    readonly property real   dockMaxScaleDefault: 1.28
-    readonly property int    dockRadiusDefault: 72
-    readonly property int    dockJumpPxDefault: 8
 
     // =========================================================================
     // QUICK LAUNCH (widgets/QuickLaunchPill.qml — pinned app icon row)
