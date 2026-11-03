@@ -6,8 +6,8 @@
 //   - widgets/*.qml      (self-contained pills and menus)
 //   - components/*.qml   (reusable pieces like VolumeBar)
 //   - Config.qml      (colors, spacing, metrics, workspace behavior)
-//   - widgets/HyprConfigInsp.qml (Hyprland Config Inspector overlay)
-//   - widgets/ActiveWindowBar.qml (focused-window pill, top-left overlay)
+//   - widgets/HyprlandInspectorPanel.qml (Hyprland Config Inspector overlay)
+//   - widgets/ActiveWindowPill.qml (focused-window pill, top-left overlay)
 //
 // IPC:
 //   - qs ipc call hyprConfigInsp toggle
@@ -49,7 +49,7 @@
 // Bar position (Config.qml):
 //   - barLayoutMode: "classic" (one bar, L/C/R) or "dual" (top + bottom, centered)
 //   - barPosition: "top" or "bottom" (classic only; Config default; runtime toggle + IPC)
-//   - Right-click empty bar chrome → BarControlBar (layout + top/bottom live there)
+//   - Right-click empty bar chrome → SettingsPanel (layout + top/bottom live there)
 //   - qs ipc call shell setBarLayoutMode classic|dual / toggleBarLayoutMode
 //   - qs ipc call shell setBarPosition top|bottom / toggleBarPosition
 //   - qs ipc call shell toggleBarControlBar / showBarControlBar / hideBarControlBar
@@ -73,8 +73,8 @@
 //   TOP ZONE    →  centered cluster on the top edge
 //   BOTTOM ZONE →  centered cluster on the bottom edge
 //
-// Switch layouts from BarControlBar → Position. Reorder / show / hide / scale
-// from BarControlBar → Widgets (L/C/R in classic, T/B in dual). Persisted in
+// Switch layouts from SettingsPanel → Position. Reorder / show / hide / scale
+// from SettingsPanel → Widgets (L/C/R in classic, T/B in dual). Persisted in
 // state/bar-layout.json (each mode keeps its own widget order).
 //
 // Classic default:
@@ -98,7 +98,7 @@ import Quickshell.Hyprland
 import Quickshell.Io as Io
 import "components"
 import "widgets"
-import "widgets/network"   // NetworkButton, NetworkPopup, NetworkService
+import "widgets/network"   // NetworkPill, NetworkPopup, NetworkService
 
 ShellRoot {
     id: root
@@ -200,10 +200,10 @@ ShellRoot {
     // dual: top|bottom|left|right (edge bars)
     property var widgetLayout: []
 
-    // Runtime Quick Launch pins (Config default, editable from BarControlBar, persisted)
+    // Runtime Quick Launch pins (Config default, editable from SettingsPanel, persisted)
     property var quickLaunchApps: []
 
-    // Wallpaper directory (Config default; editable from BarControlBar, persisted)
+    // Wallpaper directory (Config default; editable from SettingsPanel, persisted)
     property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
     property string wallpaperCurrent: ""
     // Preferred wallpaper thumbnail width (px); grid stretches tiles to fill the panel.
@@ -273,7 +273,7 @@ ShellRoot {
     readonly property bool effBluetooth: showBluetoothPill && !densityHideConnectivity
     readonly property bool effConnectivity: effBluetooth
 
-    // Catalog for BarControlBar menus (id → label + visibility property name)
+    // Catalog for SettingsPanel menus (id → label + visibility property name)
     readonly property var widgetCatalog: [
         { id: "launcher",      label: "Application Menu",      vis: "showLauncherPill" },
         { id: "quickLaunch",   label: "Application Launcher",  vis: "showQuickLaunchPill" },
@@ -3671,7 +3671,7 @@ ShellRoot {
         readonly property alias uiDesignWidth: cfg.uiDesignWidth
         function sp(n) { return cfg.sp(n) }
 
-        // Widget catalog + layout helpers for BarControlBar
+        // Widget catalog + layout helpers for SettingsPanel
         readonly property alias widgetCatalog: root.widgetCatalog
         readonly property alias widgetLayout: root.widgetLayout
         readonly property alias barLayoutMode: root.barLayoutMode
@@ -3875,7 +3875,7 @@ ShellRoot {
         readonly property alias quickLaunchIcon: cfg.quickLaunchIcon
         readonly property alias quickLaunchSpacing: cfg.quickLaunchSpacing
         readonly property alias quickLaunchPaddingH: cfg.quickLaunchPaddingH
-        // Runtime list (editable from BarControlBar); falls back to Config via clone on start
+        // Runtime list (editable from SettingsPanel); falls back to Config via clone on start
         property alias quickLaunchApps: root.quickLaunchApps
         property alias wallpaperDir: root.wallpaperDir
         property alias wallpaperCurrent: root.wallpaperCurrent
@@ -4343,7 +4343,7 @@ ShellRoot {
                 bottomRightRadius: 0
             }
 
-            // Right-click empty bar chrome → open/close the control mini-bar
+            // Right-click empty bar chrome → open/close the Settings window.
             // (top/bottom toggle; room for display controls later).
             // Lives under the widget row (z: 0) so pill MouseAreas still own left-clicks.
             MouseArea {
@@ -4359,7 +4359,7 @@ ShellRoot {
             }
 
             // Host for the control strip (FloatingWindow; zero-size Item).
-            BarControlBar {
+            SettingsPanel {
                 id: barControlBar
                 bar: bar
             }
@@ -4654,7 +4654,7 @@ ShellRoot {
             }
 
             // Network panel. Import is `import "widgets/network"` at the top of this file.
-            NetworkButton {
+            NetworkPill {
                 id: networkPanel
                 parent: widgetPool
                 visible: root.showNetworkPanel
@@ -4811,7 +4811,7 @@ ShellRoot {
             }
 
             // ─ Power Menu ─
-            PowerMenu {
+            PowerPill {
                 id: powerMenu
                 parent: widgetPool
                 visible: root.showPowerPill
@@ -4829,7 +4829,7 @@ ShellRoot {
         }
 
         // --- Background services (do not move to zones) ---
-        HyprConfigInsp { id: hyprConfigInsp; bar: bar }
+        HyprlandInspectorPanel { id: hyprConfigInsp; bar: bar }
 
         Io.IpcHandler {
             target: "hyprConfigInsp"
@@ -5188,7 +5188,7 @@ ShellRoot {
 
     // Focused-window pill. Screen-corner overlay, vertically centered on the
     // matching bar strip when there is one. Overlay keeps it above windows.
-    ActiveWindowBar {
+    ActiveWindowPill {
         hostBar: bar
         shown: root.showActiveWindowPill
         corner: root.activeWindowPillCorner

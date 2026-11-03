@@ -4,7 +4,7 @@ Where to look in the three largest QML files. Names and section comments are the
 
 ## shell.qml
 
-Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprConfigInsp.qml`, and `widgets/ActiveWindowBar.qml`, and lists the IPC calls. The full set is `qs ipc show`.
+Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprlandInspectorPanel.qml`, and `widgets/ActiveWindowPill.qml`, and lists the IPC calls. The full set is `qs ipc show`.
 
 Section comment "BAR LAYOUT — classic (left / center / right) or dual (top / bottom, centered)":
 
@@ -19,21 +19,21 @@ Windows and hosts:
 | Name | What it is |
 |------|------------|
 | `PanelWindow` id `bar` | The classic bar. In dual mode this same window is the top bar. Right-click empty chrome is `MouseArea` id `barBgContext`, which toggles `barControlBar`. |
-| `BarControlBar` id `barControlBar` | The settings window. Comment: "Host for the control strip". |
+| `SettingsPanel` id `barControlBar` | The settings window. Comment: "Host for the control strip". |
 | `Item` id `widgetPool` | Holding pen for widgets the layout editor moves between zones. Parked off-screen, kept visible so children are not force-hidden. |
 | `Rectangle` id `controlBarPill` | Comment: "Settings / config menu". The config-menu pill. It starts in `widgetPool`. |
 | `PanelWindow` id `bottomBar` | Comment: "Dual-mode bottom bar". Hidden in classic, so it takes no exclusive zone. |
 | `PanelWindow` id `leftEdgeBar` | Comment: "Left edge bar. Dual only, and off until Show left bar." Text rotates 90° clockwise. `EdgeBarFace` id `leftEdgeFace`. |
 | `PanelWindow` id `rightEdgeBar` | Comment: "Right edge bar." `EdgeBarFace` id `rightEdgeFace`. |
-| `ActiveWindowBar` | Comment: "Focused-window pill". Screen-corner overlay. |
+| `ActiveWindowPill` | Comment: "Focused-window pill". Screen-corner overlay. |
 | `Overview` id `overviewLayer` | Comment: "Fullscreen workspace overview". |
 | `ShellIpc` | Comment: "Shell and overview IPC live in components/ShellIpc.qml." |
 
-## widgets/BarControlBar.qml
+## widgets/SettingsPanel.qml
 
-Header: "Temporary mini-bar opened from empty main-bar chrome". Right-click on blank main-bar chrome opens it. One `FloatingWindow`, an expandable panel on top, toolbar along the bottom. Window height follows the content.
+Header: "Settings window". Right-click on blank main-bar chrome or the gear pill opens it. One `FloatingWindow` titled "Settings", an expandable panel on top, toolbar along the bottom. Window height follows the content.
 
-The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, Themes, App Launcher, Autostart, MIME, Services, Audio, Keybinds, and Clock. It also says what those words mean: Widgets is layout, Options is behavior, Themes is the bar and widget theme, MIME is `MimeAppsView`, Services is systemd, Audio is `AudioMonitorView`, Keybinds is chord / category / description, Display is monitor resolution / refresh / bit depth, and Clock is Region & Clock.
+The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, Themes, App Launcher, Autostart, MIME, Services, Audio, Keybinds, and Clock. It also says what those words mean: Widgets is layout, Options is behavior, Themes is the bar and widget theme, MIME is `MimeAppsTab`, Services is systemd, Audio is `AudioMonitorView`, Keybinds is chord / category / description, Display is monitor resolution / refresh / bit depth, and Clock is Region & Clock.
 
 `controlTabModel` is the button row that is built:
 

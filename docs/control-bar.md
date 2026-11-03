@@ -1,6 +1,6 @@
 <!-- Extracted from README for reference. See ../README.md for overview. -->
 
-# Settings (`BarControlBar.qml`)
+# Settings (`SettingsPanel.qml`)
 
 Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Closing Settings with **Super+C** or Hyprland’s window ✕ used to leave it unable to open again; the gear icon clears that and maps the window. The in-panel ✕ and Esc still close it. It is a movable Hyprland window (title **Settings**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Settings)$"` and `class = ^(org.quickshell)$`; size and placement are compositor-owned.
 
@@ -22,7 +22,7 @@ Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Clos
 
 ## MIME panel (Preferred applications)
 
-Set which program opens a given file type or link scheme. Opens from the control-strip **MIME** tab (after Autostart). UI: `components/MimeAppsView.qml`. Scripts: `scripts/mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh` (app picker reuses `desktop-apps-json.sh`).
+Set which program opens a given file type or link scheme. Opens from the control-strip **MIME** tab (after Autostart). UI: `components/MimeAppsTab.qml`. Scripts: `scripts/mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh` (app picker reuses `desktop-apps-json.sh`).
 
 Dual-pane layout fills the panel height; lists scroll inside each pane.
 

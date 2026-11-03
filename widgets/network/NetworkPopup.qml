@@ -5,7 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 
 // =============================================================================
-// NetworkPopup.qml — compact network panel anchored to NetworkButton
+// NetworkPopup.qml — compact network panel anchored to NetworkPill
 // =============================================================================
 //
 // Layout (top to bottom):

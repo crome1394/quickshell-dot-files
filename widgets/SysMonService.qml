@@ -9,7 +9,7 @@ import Quickshell
 // Purpose:
 //   Owns all live data for system monitoring: parsed JSON from poller,
 //   rolling history arrays for sparklines, pollInterval, refresh state, and
-//   the Process/Timer machinery. HyprConfigInsp (and future consumers like
+//   the Process/Timer machinery. HyprlandInspectorPanel (and future consumers like
 //   SysStatsPill) read properties directly and write ONLY via explicit
 //   assignments in event handlers.
 //
@@ -35,7 +35,7 @@ import Quickshell
 //     so the new rate takes effect immediately.
 //   - Histories are simple JS arrays; service does slice+push+assign to trigger
 //     QML bindings.
-//   - System Information (fastfetch) lives in HyprConfigInsp (view-specific);
+//   - System Information (fastfetch) lives in HyprlandInspectorPanel (view-specific);
 //     this service is focused on the periodic monitor metrics.
 //   - Uses the poller.sh (evaluated: bash+ jq+ native tools is the clean reuse
 //     of mature collection logic; native QML reimpl would duplicate ~450 LOC

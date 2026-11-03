@@ -5,7 +5,7 @@ import QtQuick.Controls
 import Quickshell
 
 // =============================================================================
-// PowerMenu.qml — Power / Session menu
+// PowerPill.qml — Power / Session menu
 // =============================================================================
 //
 // Purpose:

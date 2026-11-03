@@ -9,7 +9,7 @@ import "../Config.qml" as ConfigModule
 //
 // Purpose:
 //   Dashboard-style circular gauge (270° bottom-open arc) with threshold-based
-//   3-stop color ramp. Used by HyprConfigInsp *MonitorView tabs (CPU/GPU/memory/temp).
+//   3-stop color ramp. Used by HyprlandInspectorPanel *MonitorView tabs (CPU/GPU/memory/temp).
 //
 // Theme Properties Consumed (via fallback):
 //   - Theme.gaugeLow / Theme.gaugeMid / Theme.gaugeHigh  (color ramp)

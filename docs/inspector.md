@@ -37,7 +37,7 @@ Typical layout:
 - **Key Bindings** and **Environment** tabs — Read `keybindings.lua` and `environment-variables.lua` directly and show parsed tables (easier to scan than raw source). See [Custom description comments](#custom-description-comments) below.
 - **Runtime Options** tab — Shows values Hyprland is running with now via `hyprctl getoption` (useful after editing; reload Hyprland to apply file changes).
 
-The file list is defined in `widgets/HyprConfigInsp.qml` (`configFileEntries`). Add an entry there if you create a new config module.
+The file list is defined in `widgets/HyprlandInspectorPanel.qml` (`configFileEntries`). Add an entry there if you create a new config module.
 
 ## Custom description comments
 
@@ -53,7 +53,7 @@ hl.env("TERMINAL", terminal)                         --# Default terminal for ke
 | `keybindings.lua` | **Action** column (the bind’s description). Only `hl.bind(...)` lines that include `--#` are listed. |
 | `environment-variables.lua` | **Comment** shown under the variable name. Plain `--` comments are also recognized as a fallback. |
 
-Use `--#` to keep Hyprland directives on the left and your notes on the right. Commented-out binds (`--hl.bind(...)`) are ignored. If you adopt this layout in your own config, match the parser expectations in `widgets/HyprConfigInsp.qml` (`parseKeybinds`, `parseEnvVars`).
+Use `--#` to keep Hyprland directives on the left and your notes on the right. Commented-out binds (`--hl.bind(...)`) are ignored. If you adopt this layout in your own config, match the parser expectations in `widgets/HyprlandInspectorPanel.qml` (`parseKeybinds`, `parseEnvVars`).
 
 ## New to split configs?
 
@@ -123,7 +123,7 @@ hl.window_rule({
 })
 ```
 
-The rule matches the window title set in `widgets/HyprConfigInsp.qml`. If you change the title there, update `match` accordingly.
+The rule matches the window title set in `widgets/HyprlandInspectorPanel.qml`. If you change the title there, update `match` accordingly.
 
 ## Keyboard shortcuts
 
@@ -141,7 +141,7 @@ Shortcuts apply while the inspector window is focused (search field captures typ
 
 ## Important notes
 
-**Config paths** — See [Split Hyprland configuration](#split-hyprland-configuration) above. Paths are hard-coded in `widgets/HyprConfigInsp.qml`; change `configDir`, `hyprDir`, or `configFileEntries` if your install differs.
+**Config paths** — See [Split Hyprland configuration](#split-hyprland-configuration) above. Paths are hard-coded in `widgets/HyprlandInspectorPanel.qml`; change `configDir`, `hyprDir`, or `configFileEntries` if your install differs.
 
 **`--#` descriptions** — Key Bindings and Environment tabs depend on the `--#` comment convention in `keybindings.lua` and `environment-variables.lua`. Entries without `--#` (for binds) or without a recognized comment (for env) may not appear as expected in those parsed views.
 

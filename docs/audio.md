@@ -124,7 +124,7 @@ Persisted in `state/bar-layout.json`: show AEC section, show Summary / device pr
 | Path | Role |
 |------|------|
 | `widgets/AudioPill.qml` | Bar pill + popup + IPC |
-| `widgets/BarControlBar.qml` | Control-bar **Audio** panel host |
+| `widgets/SettingsPanel.qml` | Control-bar **Audio** panel host |
 | `components/AudioMonitorView.qml` | Multi-device manager (Inspector + control bar) |
 | `components/AudioLevelMeter.qml` | VU / peak meter visuals |
 | `components/VolumeBar.qml` / `MiniVolumeBar.qml` | Volume sliders |

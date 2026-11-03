@@ -355,7 +355,7 @@ Notable changes for people upgrading this config. Day-to-day usage is in [README
   - Keyboard nav on File types (↑↓, → apps, Enter set default, A associate).
   - Dual panes fill the tall panel height; lists scroll internally.
   - Set via `xdg-mime default`; clear only your `~/.config/mimeapps.list` `[Default Applications]` entry.
-  - Scripts: `mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh`; UI: `components/MimeAppsView.qml`.
+  - Scripts: `mime-catalog-json.sh`, `mime-apps-json.sh`, `mime-file-probe.sh`, `mime-set-default.sh`; UI: `components/MimeAppsTab.qml`.
 - **Colors panel** (control strip → **Colors**):
   - Live theme editor: **Colors** + **Opacity** columns, full-width **Text** row (left/right split), optional **Presets** at the bottom.
   - Picker opens on the **opposite** Colors/Opacity column (mouse SV + hue, hex / RGB); compact so the panel Flickable does not steal drag.

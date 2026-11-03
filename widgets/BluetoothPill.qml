@@ -60,7 +60,7 @@ Rectangle {
     // When true, this widget is a section inside a shared connectivity pill
     // (no own background/border; hover uses iconHoverBg like SysStats sections).
     property bool embedded: false
-    // Horizontal scale only (BarControlBar Sizes). Height stays bar.pillHeight.
+    // Horizontal scale only (SettingsPanel Sizes). Height stays bar.pillHeight.
     property real pillScale: 1.0
     readonly property real _s: (pillScale > 0 ? pillScale : 1)
     readonly property real _h: bar.pillHeight

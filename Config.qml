@@ -2011,7 +2011,7 @@ QtObject {
     // AudioPill: streams summary, device + profile, volume, L/R, VU, echo cancel, tools.
     readonly property int popupAudioWidth:     popupW(520)   // AudioPill device/volume popup
     readonly property int popupAudioHeight:    popupH(620)
-    readonly property int popupPowerWidth:     popupW(560)   // PowerMenu full grid (left-click)
+    readonly property int popupPowerWidth:     popupW(560)   // PowerPill full grid (left-click)
     readonly property int popupPowerHeight:    popupH(192)
     readonly property int popupContextMenuWidth:  popupW(220)   // Compact right-click menus (bell, power)
     readonly property int popupContextMenuRowHeight: sp(34)  // Height of one row in those menus
@@ -2058,31 +2058,31 @@ QtObject {
     readonly property bool showWorkspacesPill:      true   // WorkspacesPill.qml (numbered pills)
     readonly property bool showStatsPill:           true   // SysStatsPill.qml
     readonly property bool showTrayPill:             true   // SystemTrayPill.qml
-    readonly property bool showNetworkPanel:         true   // widgets/network/NetworkButton.qml
+    readonly property bool showNetworkPanel:         true   // widgets/network/NetworkPill.qml
     readonly property bool showBluetoothPill:        true   // BluetoothPill.qml
     readonly property bool showAudioPill:           true   // AudioPill.qml
     readonly property bool showClockPill:           true   // ClockPill.qml
     readonly property bool showNotificationPill:     true   // NotificationBell.qml
-    readonly property bool showPowerPill:           true   // PowerMenu.qml
+    readonly property bool showPowerPill:           true   // PowerPill.qml
     readonly property bool showOpacityPill:        true   // OpacityPill.qml
     readonly property bool showTailscalePill:      true   // TailscalePill.qml
     readonly property bool showFreshRssPill:       true   // FreshRssPill.qml (FreshRSS reader)
-    readonly property bool showHyprInspPill:       false  // Opens HyprConfigInsp from the bar (shell.qml)
-    readonly property bool showControlBarPill:     true   // Opens BarControlBar (config strip) from the bar
+    readonly property bool showHyprInspPill:       false  // Opens HyprlandInspectorPanel from the bar (shell.qml)
+    readonly property bool showControlBarPill:     true   // Opens SettingsPanel (config strip) from the bar
 
-    // Glyphs for bar position toggle in BarControlBar (right-click empty bar chrome)
+    // Glyphs for bar position toggle in SettingsPanel (right-click empty bar chrome)
     readonly property string barPositionIconTop:    "󰁝"  // shown when bar is on bottom (click → move to top)
     readonly property string barPositionIconBottom: "󰁅"  // shown when bar is on top (click → move to bottom)
     readonly property string iconHyprInsp:          "󰓙"  // Hyprland Config Inspector (spotlight, not cog)
     readonly property string iconControlBar:        "󰢻"  // Settings / config menu pill
 
-    // Display (BarControlBar → Display panel; hyprctl modes + bitdepth)
+    // Display (SettingsPanel → Display panel; hyprctl modes + bitdepth)
     // CLI/rofi: hypr-resolution (on PATH). Script: list/status/apply for the control strip.
     readonly property string hyprResolutionBin: "hypr-resolution"
     readonly property string monitorModeScript: Quickshell.shellPath("scripts/monitor-mode.sh")
     readonly property string monitorName: ""  // empty: focused Hyprland output
 
-    // Wallpaper (BarControlBar → Wallpaper panel; hyprpaper apply)
+    // Wallpaper (SettingsPanel → Wallpaper panel; hyprpaper apply)
     readonly property string wallpaperDir: (Quickshell.env("HOME") + "/Pictures/wallpapers")
     readonly property string wallpaperMonitor: ""  // empty: focused Hyprland output
     readonly property int wallpaperTileSize: 148  // preferred thumb width; grid stretches to fill
@@ -2093,14 +2093,14 @@ QtObject {
     readonly property string wallpaperDeleteScript: Quickshell.shellPath("scripts/wallpaper-delete.sh")
     readonly property string wallpaperPickDirScript: Quickshell.shellPath("scripts/wallpaper-pick-dir.sh")
 
-    // XDG Autostart (BarControlBar → Autostart panel; ~/.config/autostart)
+    // XDG Autostart (SettingsPanel → Autostart panel; ~/.config/autostart)
     readonly property string autostartListScript: Quickshell.shellPath("scripts/autostart-list-json.sh")
     readonly property string autostartSetScript:  Quickshell.shellPath("scripts/autostart-set.sh")
     readonly property string autostartAddScript:  Quickshell.shellPath("scripts/autostart-add.sh")
     readonly property string autostartRunScript:  Quickshell.shellPath("scripts/autostart-run.sh")
     readonly property string opacityApplyScript: Quickshell.shellPath("scripts/opacity-apply.sh")
 
-    // Clock format (Qt.formatDateTime) — editable from BarControlBar; persisted in bar-layout.json.
+    // Clock format (Qt.formatDateTime) — editable from SettingsPanel; persisted in bar-layout.json.
     // Region/timezone map: scripts/timezone-control.sh (timedatectl) + assets/world-land.json.
     readonly property string clockFormat: "dddd, MM·dd·yyyy | HH:mm:ss"
     // Clock face family (empty = inherit bar widget text). Scale is independent of fontBarScale.
@@ -2122,7 +2122,7 @@ QtObject {
         { label: "US",     format: "ddd M/d/yyyy  h:mm AP",       tip: "US-style date + 12h" }
     ]
 
-    // Default widget order + zone for BarControlBar layout editor / runtime reparent.
+    // Default widget order + zone for SettingsPanel layout editor / runtime reparent.
     // Classic zone: "left" | "center" | "right". Connectivity is Bluetooth+Audio as one unit.
     readonly property var defaultWidgetLayout: [
         { id: "launcher",      zone: "left" },
@@ -2237,7 +2237,7 @@ QtObject {
     readonly property color notificationDndAccent: muted  // Warning red pill border + bell when DND is on
 
     // =========================================================================
-    // POWER MENU (widgets/PowerMenu.qml — session actions)
+    // POWER MENU (widgets/PowerPill.qml — session actions)
     // =========================================================================
     // Commands for lock, logout, reboot, shutdown, and Enter BIOS. Each is a list
     // (preferred): ["hyprlock"] or ["sh", "-c", "your shell pipeline"] — or a shell
@@ -2385,7 +2385,7 @@ QtObject {
     readonly property string iconShutdown:      "󰐥"
     readonly property string iconBios:          "󰛳"
 
-    // Menu rows for PowerMenu.qml (grid + right-click). Reorder or rename freely.
+    // Menu rows for PowerPill.qml (grid + right-click). Reorder or rename freely.
     readonly property var powerMenuActions: [
         { icon: iconLock,     label: "Lock",       action: "lock" },
         { icon: iconLogout,   label: "Logout",     action: "logout" },
@@ -2667,25 +2667,25 @@ QtObject {
     }
 
     // =========================================================================
-    // SYSTEM MONITORING (SysMonService + HyprConfigInsp sysmon tabs)
+    // SYSTEM MONITORING (SysMonService + HyprlandInspectorPanel sysmon tabs)
     // =========================================================================
-    // Shared tokens for live metrics in HyprConfigInsp (CPU/GPU/Memory/Temperature tabs)
+    // Shared tokens for live metrics in HyprlandInspectorPanel (CPU/GPU/Memory/Temperature tabs)
     // and reusable gauge/sparkline components.
     //
     // Consumed by:
     //   - widgets/SysMonService.qml (pollInterval default kept in sync by convention)
-    //   - widgets/HyprConfigInsp.qml + components/*MonitorView.qml
+    //   - widgets/HyprlandInspectorPanel.qml + components/*MonitorView.qml
     //   - components/CircularGauge.qml, Sparkline.qml
     //
     // Notes:
     //   - pollInterval is owned by SysMonService at runtime (default 1500 ms).
-    //   - panelTabActive* is reused by HyprConfigInsp tab chips (inspTabActive* aliases).
+    //   - panelTabActive* is reused by HyprlandInspectorPanel tab chips (inspTabActive* aliases).
     // =========================================================================
 
     // Poll rate default (ms). SysMonService hardcodes 1500 to match; change both if tuning.
     readonly property int sysmonDefaultPollInterval: 1500
 
-    // Shared active-tab chip style (HyprConfigInsp tab bar)
+    // Shared active-tab chip style (HyprlandInspectorPanel tab bar)
     readonly property color panelTabActiveBg:   Qt.rgba(0.0, 0.85, 0.80, 0.25)  // teal glass chip
     readonly property color panelTabActiveBorder: accent
 
@@ -2695,16 +2695,16 @@ QtObject {
     readonly property color gaugeHigh: muted
 
     // =========================================================================
-    // HYPR CONFIG INSPECTOR (HyprConfigInsp.qml floating overlay)
+    // HYPR CONFIG INSPECTOR (HyprlandInspectorPanel.qml floating overlay)
     // =========================================================================
     // Visual tokens for the tabbed Hyprland config / sysmon inspector window.
     // Reuses popupHelpWidth/Height for default size; panelTabActive* for tab chips.
     //
     // Consumed by:
-    //   - widgets/HyprConfigInsp.qml (primary)
+    //   - widgets/HyprlandInspectorPanel.qml (primary)
     //
     // How to extend:
-    //   - Add a property here, alias it in HyprConfigInsp via `th.xxx`, use in UI.
+    //   - Add a property here, alias it in HyprlandInspectorPanel via `th.xxx`, use in UI.
     //   - Semantic color helpers (envValueColor) live in config so other tools can reuse.
     // =========================================================================
 
@@ -2933,7 +2933,7 @@ QtObject {
         return cmd && cmd.length !== undefined && cmd.length > 0
     }
 
-    // --- PowerMenu command resolver (used by shell.qml + PowerMenu.qml)
+    // --- PowerPill command resolver (used by shell.qml + PowerPill.qml)
     function powerCommand(action) {
         if (action === "lock") return powerLockCommand
         if (action === "logout") return powerLogoutCommand

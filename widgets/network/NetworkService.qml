@@ -9,7 +9,7 @@ import Quickshell.Io as Io
 // NetworkService.qml — one NetworkManager backend for the network panel
 // =============================================================================
 //
-// Singleton (see qmldir). NetworkButton and NetworkPopup both read this.
+// Singleton (see qmldir). NetworkPill and NetworkPopup both read this.
 // Do not instantiate it. Import the folder and use NetworkService.
 //
 // Backend:
