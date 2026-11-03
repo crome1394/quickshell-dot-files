@@ -154,4 +154,4 @@ Full tables: [docs/ipc.md](docs/ipc.md)
 
 ## License
 
-Personal configuration — take what you need.
+[MIT](LICENSE). Copyright 2026 crome1394.
