@@ -1816,7 +1816,7 @@ QtObject {
     //   1) Quick Launch
     //   2) Sys stats (CPU / Memory / GPU)
     //   3) Secondary: FreshRSS
-    //   4) Connectivity: Network + Bluetooth capsule
+    //   4) Bluetooth, inside the Bluetooth + Audio pill. Network is its own widget.
     //
     // Thresholds are logical screen width (px). Tune if a machine feels too aggressive.
 

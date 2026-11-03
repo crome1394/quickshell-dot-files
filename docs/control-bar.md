@@ -235,7 +235,7 @@ To change a command without replacing the file, use **Edit** on the row, or:
 Login helper in Hyprland `autostarts.lua`:
 
 ```lua
-hl.exec_cmd("/home/crome/.config/quickshell/scripts/xdg-autostart-run.sh")
+hl.exec_cmd("~/.config/quickshell/scripts/xdg-autostart-run.sh")
 ```
 
 `X-systemd-skip=true` tells the systemd user xdg-autostart generator to ignore these files so only this helper starts them (avoids double-start / D-Bus activation quirks).

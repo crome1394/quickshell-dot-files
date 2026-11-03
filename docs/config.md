@@ -9,7 +9,7 @@ Edit `Config.qml` to change:
 - Colors, fonts (UI / mono / Main / Secondary / Bar roles + scales), spacing, radii, icons
 - **Theme editor API** (`themeUiRows`, `themeEditableKeys`, `getThemeColor` / `setThemeColor`, font role setters) — control strip **Themes** panel
 - Bar position and size (`barPosition`, `barLayoutMode` classic/dual, `barHeight`, `barEdgeMargin`, `flushWindowsToBar`)
-- Bar pill visibility defaults (`showLauncherPill`, `showAudioPill`, etc.) and launcher command (`launcherCommand`)
+- Bar pill visibility defaults (`showLauncherPill`, `showAudioPill`, etc.) and launcher command (`launcherCommand`, default `scripts/app-drawer.sh`; a saved `launcherCommandCustom` overrides it)
 - **Quick Launch** apps (`quickLaunchApps`) and dock hover defaults (`dockEffect`, `dockScope`, `qlRunningDot`)
 - Sys Stats per-metric load colors (`statCpuTier*`, `statMemTier*`, `statGpuTier*`, `statVramTier*`)
 - **Notification bell** daemon commands (`notification*`)

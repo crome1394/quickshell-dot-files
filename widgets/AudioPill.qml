@@ -45,7 +45,7 @@ import "../components"
 // Dependencies:
 //   - required property var bar
 //   - required property Item barBg (for popup positioning)
-//   - property bool embedded — when true, omit outer chrome (grouped Net/BT/Audio pill)
+//   - property bool embedded — when true, omit outer chrome (grouped Bluetooth + Audio pill). Network is separate.
 //   - property real pillScale — multiplies horizontal content width (BarControlBar Sizes)
 //   - Quickshell.Services.Pipewire (volume, channels, PwNodePeakMonitor)
 //   - scripts/audio-control.sh (card profile list/set; L/R pactl fallback)

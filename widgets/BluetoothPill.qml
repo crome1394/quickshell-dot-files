@@ -36,7 +36,8 @@ import Quickshell.Io as Io
 //   - required property var bar
 //   - required property Item barBg (for popup positioning)
 //   - property bool embedded (optional) — when true, omit pill chrome so a
-//     parent shell (shell.qml connectivityPill) can group Network + Bluetooth
+//     parent shell (shell.qml connectivityPill) can group Bluetooth + Audio.
+//     Network is its own widget.
 //   - Quickshell.Bluetooth (adapter + devices)
 //   - scripts/audio-control.sh (list-card-profiles / set-card-profile)
 //

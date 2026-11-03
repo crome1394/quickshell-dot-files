@@ -7,7 +7,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 | `shell.qml` | Bar entry |
 | `Config.qml` | Theme, fonts, defaults |
 | `widgets/` | Pills, control strip, inspector |
-| `scripts/` | Pollers & helpers |
+| `scripts/` | Pollers and helpers. `window-at-point.sh` is a manual helper and is not called by the bar. |
 | `docs/` | Full guides |
 | `state/` | Runtime prefs (gitignored) |
 
@@ -27,12 +27,47 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 - **Network** — wired, Wi-Fi, airplane, and VPN in one panel. Options set full IP, last octet, and device name on the bar
 - **Themes** — colors, opacity, fonts, per-metric thresholds; **Save as preset** (colors) and **Save setup** (colors + layout)
 - **Screensaver** — video (mpv) or a text style (Night watch, Rain, Orbital, Warp, Pyro, Scanner). No DPMS. Mouse/click/Esc dismiss. Tab video does not block; fullscreen does unless Always start. Optional DDC dim / exit brightness
-- Bluetooth · Audio (combined pill), workspaces, tray, notifications (history window, DND, copy, per-item dismiss), power, FreshRSS
+- **Bluetooth · Audio** is one pill. **Network** is its own pill. Also workspaces, tray, notifications (history window, DND, copy, per-item dismiss), power, FreshRSS
 - Hyprland Config Inspector (metrics, logs, services, Lua configs)
 
 ## Requirements
 
-Quickshell (`qs`), Hyprland, and helpers used by scripts (`jq`, `nmcli`, PipeWire/`pactl`, optional `curl`, `btop`, `nvtop`). Text screensaver needs `kitty`. Transparency writes Hyprland window rules through `hyprctl`. Tailscale needs the `tailscale` CLI. Screensaver DDC dim needs `ddcutil` and DDC/CI on the monitor.
+The bar starts with Quickshell (`qs`) on Hyprland. Everything else degrades when the binary is missing.
+
+| Needed for the default pills | If it is missing |
+|---|---|
+| `jq` | Pollers and FreshRSS exit or return an error. The bar stays up. The audio poller needs `jq` even to report a missing `pactl`. |
+| `python3` | Helpers that need it fail. The QML shell still loads. |
+| `nmcli` | The Network pill stays empty. No dialog. |
+| PipeWire `pactl` | Audio control and the inspector poller report the error in JSON. |
+
+| Optional | If it is missing |
+|---|---|
+| `nvidia-smi` | GPU and VRAM show N/A. The Display page says stats are unavailable. |
+| `wpctl` | Pill volume clicks do nothing visible. |
+| `curl` | FreshRSS reports a missing command. |
+| `btop`, `nvtop` | The Sys Stats click does nothing visible. |
+| `kitty` | The text screensaver logs that it is not on `PATH` and does not start. A stats click that targets kitty is silent. |
+| `mpv` | The video screensaver fails at exec. FreshRSS play returns an error. |
+| `ddcutil` | Screensaver dim is skipped and logged. The saver still runs. |
+| `tailscale` | The pill says Not installed. |
+| `hypridle` | Not used by the bar. Screensaver install starts it only after writing config. |
+| `swaync` / `swaync-client` | History sync returns count 0 and DND false. |
+| `rofi`, `wofi`, or `fuzzel` | The default menu script shows an error if none of them exist. A saved launcher command is used instead of that script. |
+| `zenity` | Folder pickers print `zenity not found`. |
+| `wl-copy` | Some copy buttons fall back to `xclip`. Tailscale and the network monitor do not, so those copies fail silently. |
+| `hyprpaper` | Apply prints that the wallpaper command failed. |
+| `fastfetch` | The inspector system tab shows a failure string. |
+| `notify-send` | The default menu falls through to `zenity`, then a Hyprland notification. |
+
+`playerctl` and `pw-cli` are not used. Satty is not launched by the bar. The opacity rule matches its window class and does nothing when that app is absent.
+
+## Known limitations
+
+- GPU and VRAM numbers come from `nvidia-smi` only. Intel and AMD GPUs show N/A.
+- CPU temperature follows a `k10temp` sensor (`temp1_input`). Other chips are not mapped.
+- Disks are `/` plus other mounted NVMe partitions. Extra mounts are opt-in through `SYSMON_EXTRA_MOUNTS` (colon-separated). The default list is empty.
+- The Application Menu highlight tracks `rofi` when the saved command contains `rofi`. `scripts/app-drawer.sh` does not, so that highlight stays off on the default command.
 
 ## Quick start
 

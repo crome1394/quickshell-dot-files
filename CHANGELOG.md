@@ -2,6 +2,16 @@
 
 Notable changes for people upgrading this config. Day-to-day usage is in [README.md](README.md) and [docs/](docs/).
 
+## 2026-11 — Paths, app menu, and missing tools
+
+- Config and script paths use the home directory. The focused monitor is detected instead of a fixed output name. CPU temperature follows the `k10temp` sensor. Extra disk mounts stay empty unless `SYSMON_EXTRA_MOUNTS` is set. Mounted NVMe partitions are still listed.
+- The default Application Menu command is `scripts/app-drawer.sh`. It tries rofi, then wofi, then fuzzel, and shows an error if none of them is installed. A saved custom command still wins.
+- Without `nvidia-smi`, GPU and VRAM show N/A. Intel and AMD GPUs are not read.
+- Bluetooth · Audio is one pill. Network is its own pill. `scripts/window-at-point.sh` is a manual helper and is not called by the bar.
+- Hyprland, hyprpaper, hypridle, screensaver, and FreshRSS writes go through a temporary file in the target directory. A symlink stays a symlink, and the real file is replaced.
+- FreshRSS does not call a built-in server when its env file is missing.
+- The bottom bar and the side bars no longer log an exclusive-zone binding loop.
+
 ## 2026-11 — Workspace overview
 
 - **Super+Tab** toggles a fullscreen workspace overview on the focused monitor (`qs ipc call overview toggle`). **Super+Shift+Tab** is desktop layout (`overview desktop`). **Super+Ctrl+Tab** is every workspace on that monitor (`overview all`). `next` and `prev` step the strip.
