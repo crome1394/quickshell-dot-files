@@ -91,6 +91,8 @@ Rectangle {
     property real memUsedGib: 0
     property real gpuUtil: 0
     property int  gpuTemp: 0
+    property bool gpuKnown: false
+    property bool vramKnown: false
     property bool sysStatsReady: false
 
     function updateSysStats(d) {
@@ -99,16 +101,22 @@ Rectangle {
             cpuTemp = Math.round(Number(d.cpu.temp) || 0)
         }
         if (d.vram) {
-            vramUtil = Number(d.vram.util) || 0
-            vramUsedGib = Number(d.vram.used_gib) || 0
+            vramKnown = d.vram.util !== null && d.vram.util !== undefined
+            if (vramKnown) {
+                vramUtil = Number(d.vram.util) || 0
+                vramUsedGib = Number(d.vram.used_gib) || 0
+            }
         }
         if (d.mem) {
             memUtil = Number(d.mem.util) || 0
             memUsedGib = Number(d.mem.used_gib) || 0
         }
         if (d.gpu) {
-            gpuUtil = Number(d.gpu.util) || 0
-            gpuTemp = Math.round(Number(d.gpu.temp) || 0)
+            gpuKnown = d.gpu.util !== null && d.gpu.util !== undefined
+            if (gpuKnown) {
+                gpuUtil = Number(d.gpu.util) || 0
+                gpuTemp = Math.round(Number(d.gpu.temp) || 0)
+            }
         }
         sysStatsReady = true
     }
@@ -501,7 +509,7 @@ Rectangle {
                     Rectangle {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(2, Math.min(parent.width, parent.width * (root.gpuUtil / 100)))
+                        width: root.gpuKnown ? Math.max(2, Math.min(parent.width, parent.width * (root.gpuUtil / 100))) : 0
                         height: root._gaugeH
                         radius: bar.statGaugeRadius
                         color: bar.statUtilColor(root.gpuUtil, "gpu")
@@ -517,7 +525,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
-                        text: Math.round(root.gpuUtil) + "%"
+                        text: root.gpuKnown ? (Math.round(root.gpuUtil) + "%") : "N/A"
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
@@ -530,7 +538,7 @@ Rectangle {
                         color: bar.statValueSeparator
                     }
                     Text {
-                        text: root.gpuTemp + "°"
+                        text: root.gpuKnown ? (root.gpuTemp + "°") : "N/A"
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
@@ -617,7 +625,7 @@ Rectangle {
                     Rectangle {
                         anchors.left: parent.left
                         anchors.verticalCenter: parent.verticalCenter
-                        width: Math.max(2, Math.min(parent.width, parent.width * (root.vramUtil / 100)))
+                        width: root.vramKnown ? Math.max(2, Math.min(parent.width, parent.width * (root.vramUtil / 100))) : 0
                         height: root._gaugeH
                         radius: bar.statGaugeRadius
                         color: bar.statUtilColor(root.vramUtil, "vram")
@@ -633,7 +641,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
 
                     Text {
-                        text: Math.round(root.vramUtil) + "%"
+                        text: root.vramKnown ? (Math.round(root.vramUtil) + "%") : "N/A"
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont
@@ -646,7 +654,7 @@ Rectangle {
                         color: bar.statValueSeparator
                     }
                     Text {
-                        text: root.vramUsedGib.toFixed(1) + "G"
+                        text: root.vramKnown ? (root.vramUsedGib.toFixed(1) + "G") : "N/A"
                         font.pixelSize: root._font
                         font.bold: true
                         font.family: root._faceFont

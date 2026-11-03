@@ -87,8 +87,12 @@ proc_running=$(awk '{split($4,a,"/"); print a[1]+0}' /proc/loadavg 2>/dev/null |
 proc_total=$(awk '{split($4,a,"/"); print a[2]+0}' /proc/loadavg 2>/dev/null || echo 0)
 uptime_s=$(awk '{print int($1)}' /proc/uptime)
 
-# ---------- NVIDIA GPU (RTX 5080) ----------
-nvidia_raw=$(nvidia-smi --query-gpu=\
+# ---------- NVIDIA GPU ----------
+# No Intel or AMD path. Missing nvidia-smi stays unavailable instead of 0.
+gpu_available=0
+if command -v nvidia-smi >/dev/null 2>&1; then
+  gpu_available=1
+  nvidia_raw=$(nvidia-smi --query-gpu=\
 utilization.gpu,\
 utilization.memory,\
 memory.used,\
@@ -98,6 +102,9 @@ power.draw,\
 power.limit,\
 fan.speed \
 --format=csv,noheader,nounits 2>/dev/null || echo "0,0,0,0,0,0,0,0")
+else
+  nvidia_raw="0,0,0,0,0,0,0,0"
+fi
 
 IFS=',' read -r gpu_util gpu_mem_util gpu_vram_used gpu_vram_total gpu_temp gpu_power gpu_power_limit gpu_fan <<<"$nvidia_raw"
 
@@ -124,8 +131,12 @@ cpu_model=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2- | xargs)
 cpu_vendor=$(grep -m1 "vendor_id" /proc/cpuinfo | cut -d: -f2- | xargs)
 cpu_arch=$(uname -m)
 cpu_cores=$(nproc 2>/dev/null || echo 0)
-gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | xargs)
-gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | xargs)
+gpu_name=""
+gpu_driver=""
+if (( gpu_available == 1 )); then
+  gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 | xargs)
+  gpu_driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | xargs)
+fi
 
 # ---------- Sensors via lm-sensors ----------
 sensors_json=$(sensors -j 2>/dev/null || echo '{}')
@@ -819,13 +830,20 @@ jq -cn \
   --argjson cpu_cores "$cpu_cores" \
   --arg gpu_name "$gpu_name" \
   --arg gpu_driver "$gpu_driver" \
+  --argjson gpu_available "$gpu_available" \
   '{
     timestamp: $ts,
     cpu: { util: $cpu_util, temp: $cpu_temp, tccd1: $cpu_tccd1, tccd2: $cpu_tccd2 },
     gpu: {
-      util: $gpu_util, vram_used: $gpu_vram_used, vram_total: $gpu_vram_total,
-      vram_pct: $gpu_vram_pct, temp: $gpu_temp, power: $gpu_power,
-      power_limit: $gpu_power_limit, fan: $gpu_fan,
+      available: ($gpu_available == 1),
+      util: (if $gpu_available == 1 then $gpu_util else null end),
+      vram_used: (if $gpu_available == 1 then $gpu_vram_used else null end),
+      vram_total: (if $gpu_available == 1 then $gpu_vram_total else null end),
+      vram_pct: (if $gpu_available == 1 then $gpu_vram_pct else null end),
+      temp: (if $gpu_available == 1 then $gpu_temp else null end),
+      power: (if $gpu_available == 1 then $gpu_power else null end),
+      power_limit: (if $gpu_available == 1 then $gpu_power_limit else null end),
+      fan: (if $gpu_available == 1 then $gpu_fan else null end),
       name: $gpu_name, driver: $gpu_driver
     },
     cpu_info: { model: $cpu_model, vendor: $cpu_vendor, arch: $cpu_arch, cores: $cpu_cores },

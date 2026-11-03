@@ -596,10 +596,14 @@ Item {
             return util + "% CPU  ·  " + cores + " cores  ·  live (" + (sysMonService.pollInterval / 1000).toFixed(1) + "s)" + filterNote
         }
         if (tab.view === "gpu") {
-            const util = sysMonService.data.gpu ? (sysMonService.data.gpu.util || 0).toFixed(0) : "0"
-            const vramUsed = sysMonService.data.gpu ? Math.round((sysMonService.data.gpu.vram_used || 0) / 1024) : 0
-            const vramTotal = sysMonService.data.gpu ? Math.round((sysMonService.data.gpu.vram_total || 0) / 1024) : 0
+            const g = sysMonService.data.gpu
             const name = sysMonService.data.gpu_info && sysMonService.data.gpu_info.name ? sysMonService.data.gpu_info.name : "GPU"
+            const known = g && g.available !== false && g.util !== null && g.util !== undefined
+            if (!known)
+                return "N/A GPU  ·  N/A VRAM  ·  " + name + filterNote
+            const util = (g.util || 0).toFixed(0)
+            const vramUsed = Math.round((g.vram_used || 0) / 1024)
+            const vramTotal = Math.round((g.vram_total || 0) / 1024)
             return util + "% GPU  ·  " + vramUsed + "/" + vramTotal + " GB VRAM  ·  " + name + filterNote
         }
         if (tab.view === "memory") {
@@ -611,8 +615,10 @@ Item {
         }
         if (tab.view === "temperature") {
             const cpuT = sysMonService.data.cpu ? (sysMonService.data.cpu.temp || 0).toFixed(0) : "0"
-            const gpuT = sysMonService.data.gpu ? (sysMonService.data.gpu.temp || 0).toFixed(0) : "0"
-            return "CPU " + cpuT + "°C  ·  GPU " + gpuT + "°C  ·  live (" + (sysMonService.pollInterval / 1000).toFixed(1) + "s)" + filterNote
+            const g = sysMonService.data.gpu
+            const gpuKnown = g && g.available !== false && g.temp !== null && g.temp !== undefined
+            const gpuT = gpuKnown ? ((g.temp || 0).toFixed(0) + "°C") : "N/A"
+            return "CPU " + cpuT + "°C  ·  GPU " + gpuT + "  ·  live (" + (sysMonService.pollInterval / 1000).toFixed(1) + "s)" + filterNote
         }
         if (tab.view === "network") {
             const net = sysMonService.data.network || {}

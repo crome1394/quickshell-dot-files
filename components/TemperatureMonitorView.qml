@@ -161,7 +161,11 @@ Item {
     }
 
     readonly property real cpuTemp: service && service.data && service.data.cpu ? Number(service.data.cpu.temp || 0) : 0
-    readonly property real gpuTemp: service && service.data && service.data.gpu ? Number(service.data.gpu.temp || 0) : 0
+    readonly property bool gpuTempKnown: {
+        const g = service && service.data ? service.data.gpu : null
+        return !!(g && g.available !== false && g.temp !== null && g.temp !== undefined)
+    }
+    readonly property real gpuTemp: root.gpuTempKnown ? (Number(root.service.data.gpu.temp) || 0) : 0
     readonly property real maxTemp: {
         const temps = collectTemps()
         if (!temps.length) return 0
@@ -252,7 +256,7 @@ Item {
                             font.family: "monospace"
                         }
                         Text {
-                            text: "GPU: " + root.formatTemp(root.gpuTemp)
+                            text: "GPU: " + (root.gpuTempKnown ? root.formatTemp(root.gpuTemp) : "N/A")
                             color: root.tempColor(root.gpuTemp)
                             font.pixelSize: 11
                             font.family: "monospace"
@@ -367,7 +371,8 @@ Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 size: root.gaugeSize
                                 strokeWidth: Math.max(4, root.gaugeSize / 13)
-                                value: root.gpuTemp
+                                value: root.gpuTempKnown ? root.gpuTemp : 0
+                                valueText: root.gpuTempKnown ? "" : "N/A"
                                 unitLabel: "°C"
                                 label: ""
                                 subValue: ""

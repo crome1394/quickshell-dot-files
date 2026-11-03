@@ -34,6 +34,13 @@ Item {
         return service.data.top_gpu
     }
 
+    function gpuMetricKnown(field) {
+        const g = service && service.data ? service.data.gpu : null
+        if (!g || g.available === false) return false
+        const v = g[field]
+        return v !== null && v !== undefined
+    }
+
     function resetScroll() {}
 
     function pageScroll(direction) {}
@@ -105,7 +112,9 @@ Item {
                     Item { Layout.fillWidth: true }
 
                     Text {
-                        text: (service.data.gpu ? (service.data.gpu.util || 0).toFixed(0) : "0") + "%"
+                        text: root.gpuMetricKnown("util")
+                            ? ((service.data.gpu.util || 0).toFixed(0) + "%")
+                            : "N/A"
                         color: root.textColor
                         font.pixelSize: 25
                         font.bold: true
@@ -154,8 +163,11 @@ Item {
                             anchors.centerIn: parent
                             size: parent.gaugeSz
                             strokeWidth: Math.max(6, parent.gaugeSz / 10)
-                            value: service.data.gpu ? service.data.gpu.util : 0
-                            subValue: service.data.gpu ? (service.data.gpu.temp || 0).toFixed(0) + "°C" : ""
+                            value: root.gpuMetricKnown("util") ? (service.data.gpu.util || 0) : 0
+                            valueText: root.gpuMetricKnown("util") ? "" : "N/A"
+                            subValue: root.gpuMetricKnown("temp")
+                                ? ((service.data.gpu.temp || 0).toFixed(0) + "°C")
+                                : "N/A"
                             lowColor: root.gaugeLowColor
                             midColor: root.gaugeMidColor
                             highColor: root.gaugeHighColor
