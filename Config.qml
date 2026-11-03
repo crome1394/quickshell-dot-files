@@ -2770,7 +2770,6 @@ QtObject {
     readonly property int inspStatusFontSize:     Math.max(9, sp(12))
     readonly property int inspFooterButtonHeight:       sp(22)
     readonly property int inspFooterButtonRadius:       sp(5)
-    readonly property int inspFooterButtonSpacing:       sp(6)
 
     // --- Scrollbars (tab bar + content Flickables)
     readonly property int inspScrollBarWidth:       sp(6)
@@ -2782,7 +2781,6 @@ QtObject {
     readonly property color inspRowHoverBgStrong: Qt.rgba(1, 1, 1, 0.06)  // system info values
     readonly property int inspRowRadius:       sp(4)
     readonly property int inspBindRowHeight:       sp(26)
-    readonly property int inspEnvRowHeight:       sp(28)
     readonly property int inspEnvHeaderHeight:       sp(28)
 
     // --- Environment variable table layout
