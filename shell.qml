@@ -5000,8 +5000,6 @@ ShellRoot {
         color: "transparent"
         implicitWidth: bar.barHeight
         screen: bar.screen
-        exclusionMode: (root.barLayoutMode === "dual" && root.showLeftBar)
-                       ? ExclusionMode.Normal : ExclusionMode.Ignore
         exclusiveZone: {
             void (root.showLeftBar)
             void (root.barLayoutMode)
@@ -5110,8 +5108,6 @@ ShellRoot {
         color: "transparent"
         implicitWidth: bar.barHeight
         screen: bar.screen
-        exclusionMode: (root.barLayoutMode === "dual" && root.showRightBar)
-                       ? ExclusionMode.Normal : ExclusionMode.Ignore
         exclusiveZone: {
             void (root.showRightBar)
             void (root.barLayoutMode)
