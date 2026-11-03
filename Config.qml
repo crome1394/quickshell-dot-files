@@ -2484,17 +2484,11 @@ QtObject {
     readonly property int  wsStartupWorkspace: 0       // 0 = preserve focus on start/reload. IPC: setWsStartupWorkspace
     readonly property bool wsStartupCloseMagic: false  // Close magic on qs start (only if wsStartupWorkspace > 0). IPC: setWsStartupCloseMagic
 
-    // Legacy workspace hover (unused by WorkspacesPill — uses iconHoverBg now).
-    readonly property color wsHoverYellow: "#b8fff8"           // Soft teal hover reference
     // Writable so Colors panel can edit live (also in themeEditableKeys).
     property color wsActiveBg:    Qt.rgba(0.0, 0.85, 0.80, 0.28)  // Active workspace — teal glass
     readonly property color wsActiveBorder: accent     // Vivid teal-cyan (tracks accent)
     property color wsActiveText:  "#e6fffc"
     property color wsInactiveText: "#ffffff"           // Inactive workspace number / icon
-
-    // Legacy names some older code paths may still reference
-    readonly property color wsText:        "#8a92b0"
-    readonly property color wsActiveTextLegacy: wsActiveText   // (the alias in shell.qml maps wsActiveText → this)
 
     readonly property int  wsButtonWidth:   sp(42)   // Width of each workspace pill button
     readonly property int  wsButtonHeight:  sp(32)   // Height of each workspace pill button

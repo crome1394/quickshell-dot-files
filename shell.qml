@@ -3971,7 +3971,6 @@ ShellRoot {
         function audioMicUtilColor(percent) { return cfg.audioMicUtilColor(percent) }
 
         // --- Workspaces
-        readonly property alias wsHoverYellow: cfg.wsHoverYellow
         property alias wsActiveBg: cfg.wsActiveBg
         readonly property alias wsActiveBorder: cfg.wsActiveBorder
         property alias wsActiveText: cfg.wsActiveText
@@ -3981,7 +3980,6 @@ ShellRoot {
         readonly property alias wsIconSize: cfg.wsIconSize
         readonly property alias wsNumberSize: cfg.wsNumberSize
         readonly property alias wsSpacing: cfg.wsSpacing
-        readonly property alias wsText: cfg.wsText
         readonly property alias wsIcon1: cfg.wsIcon1
         readonly property alias wsIcon2: cfg.wsIcon2
         readonly property alias wsIcon3: cfg.wsIcon3
