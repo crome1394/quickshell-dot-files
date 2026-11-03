@@ -75,3 +75,16 @@ hardcoded in widgets.
 Never commit tokens, keys, emails, hostnames, IPs, usernames, or
 personal paths. `secrets/` holds placeholders only. The config must
 start cleanly when `state/` and `secrets/` are empty.
+
+## Optional later refactors
+
+Not approved. Do not start these. ShellIpc and the shared edge-bar
+face are already done. Leave the Config alias wall on `bar`. Widgets
+bind those names directly. A new QML file that `qmllint` warns about
+is a regression, and `PanelWindow` cannot be a component root.
+
+3. **popupAnchor.js** — popup placement math, if the copies match. No save path and no exclusive-zone binding.
+4. **widgetLayout.js** — `applyWidgetLayout` and the clone helpers. Reparenting is the risk. The functions are already one block.
+5. **ThemeStore** — `themeColorsFile` plus `persistThemeColors`. A bad move changes live colors.
+6. **BarLayoutStore** — the layout `FileView`, adapter, and `persistBarLayout`. Every setter writes through it, and the write guard is there to stop a reload loop.
+7. **Launcher, Hyprland inspector, control bar, and connectivity hosts** — moving the inline hosts changes the ids popups and IPC already use.
