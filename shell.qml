@@ -7,7 +7,7 @@
 //   - components/*.qml   (reusable pieces like VolumeBar)
 //   - Config.qml      (colors, spacing, metrics, workspace behavior)
 //   - widgets/HyprConfigInsp.qml (Hyprland Config Inspector overlay)
-//   - widgets/ActiveWindowBar.qml (focused-window pill, top-left overlay)
+//   - widgets/ActiveWindowPill.qml (focused-window pill, top-left overlay)
 //
 // IPC:
 //   - qs ipc call hyprConfigInsp toggle
@@ -5188,7 +5188,7 @@ ShellRoot {
 
     // Focused-window pill. Screen-corner overlay, vertically centered on the
     // matching bar strip when there is one. Overlay keeps it above windows.
-    ActiveWindowBar {
+    ActiveWindowPill {
         hostBar: bar
         shown: root.showActiveWindowPill
         corner: root.activeWindowPillCorner

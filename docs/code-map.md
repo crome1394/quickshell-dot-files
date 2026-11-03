@@ -4,7 +4,7 @@ Where to look in the three largest QML files. Names and section comments are the
 
 ## shell.qml
 
-Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprConfigInsp.qml`, and `widgets/ActiveWindowBar.qml`, and lists the IPC calls. The full set is `qs ipc show`.
+Header: "Main Quickshell entry point for the Hyprland status bar". It points at `widgets/`, `components/`, `Config.qml`, `widgets/HyprConfigInsp.qml`, and `widgets/ActiveWindowPill.qml`, and lists the IPC calls. The full set is `qs ipc show`.
 
 Section comment "BAR LAYOUT — classic (left / center / right) or dual (top / bottom, centered)":
 
@@ -25,7 +25,7 @@ Windows and hosts:
 | `PanelWindow` id `bottomBar` | Comment: "Dual-mode bottom bar". Hidden in classic, so it takes no exclusive zone. |
 | `PanelWindow` id `leftEdgeBar` | Comment: "Left edge bar. Dual only, and off until Show left bar." Text rotates 90° clockwise. `EdgeBarFace` id `leftEdgeFace`. |
 | `PanelWindow` id `rightEdgeBar` | Comment: "Right edge bar." `EdgeBarFace` id `rightEdgeFace`. |
-| `ActiveWindowBar` | Comment: "Focused-window pill". Screen-corner overlay. |
+| `ActiveWindowPill` | Comment: "Focused-window pill". Screen-corner overlay. |
 | `Overview` id `overviewLayer` | Comment: "Fullscreen workspace overview". |
 | `ShellIpc` | Comment: "Shell and overview IPC live in components/ShellIpc.qml." |
 
