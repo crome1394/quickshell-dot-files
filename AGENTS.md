@@ -58,6 +58,11 @@ hardcoded in widgets.
   `hyprctl monitors -j | jq '.[].reserved'` with the value from before
   the change. Then restore the saved layout and confirm the state file
   is byte-identical.
+- In a file over about 2,000 lines (`shell.qml`,
+  `widgets/BarControlBar.qml`, `widgets/AudioPill.qml`, and similar),
+  use `grep` and a line range. Never read or rewrite the whole file.
+  Make each edit a small targeted replacement. The sections are named
+  in `docs/code-map.md`.
 
 ## Intentional behavior (not bugs)
 - Sysstats polls on a timer by design. Flag it only for very short
