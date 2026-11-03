@@ -3677,6 +3677,12 @@ ShellRoot {
         readonly property alias barLayoutMode: root.barLayoutMode
         property int layoutEpoch: 0
         readonly property var bottomBarWindow: bottomBar
+        readonly property var leftEdgeZone: leftEdgeFace.zone
+        readonly property var leftEdgeBg: leftEdgeFace
+        readonly property var leftEdgeStack: leftEdgeFace.stack
+        readonly property var rightEdgeZone: rightEdgeFace.zone
+        readonly property var rightEdgeBg: rightEdgeFace
+        readonly property var rightEdgeStack: rightEdgeFace.stack
         readonly property var controlBarItem: controlBarPill
         readonly property var topBarChrome: barBg
         readonly property var bottomBarChrome: bottomBarBg
@@ -5117,7 +5123,7 @@ ShellRoot {
                 return 0
             return bar.sideExclusiveZoneFor(true)
         }
-        mask: Region { item: leftEdgeBg }
+        mask: Region { item: leftEdgeFace }
         anchors.top: true
         anchors.bottom: true
         anchors.left: true
@@ -5125,80 +5131,13 @@ ShellRoot {
         margins.top: bar.sideTopInset()
         margins.bottom: bar.sideBottomInset()
 
-        Rectangle {
-            id: leftEdgeBg
-            readonly property bool spanHeight: !!root.leftBarSpanFull
-            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
-                              leftEdgeStack.height + 2 * bar.barContentHMargin))
-            property int hugH: 80
-            onHugMeasuredChanged: {
-                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
-                    hugH = hugMeasured
-            }
-            onSpanHeightChanged: hugH = hugMeasured
-            Component.onCompleted: hugH = hugMeasured
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: 0
-            anchors.rightMargin: bar.barContentVMargin
-            y: spanHeight ? 0 : bar.alignY(root.leftBarAlign, parent.height, hugH, bar.barContentHMargin)
-            height: spanHeight ? parent.height : hugH
-            radius: bar.barRadius
-            topLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            bottomLeftRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            topRightRadius: bar.barRadius
-            bottomRightRadius: bar.barRadius
-            color: bar.glassBg
-            border.width: Math.max(1, bar.controlBorderWidth)
-            border.color: bar.glassBorder
-            clip: true
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: bar.popupHeaderHighlightHeight
-                color: bar.glassHighlight
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                z: 0
-                acceptedButtons: Qt.RightButton
-                hoverEnabled: false
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton)
-                        barControlBar.toggle()
-                }
-            }
-
-            // Unrotated box is swapped so a 90° clockwise row lands inside it.
-            // Left alignment is the top of the screen, where that text starts.
-            Item {
-                id: leftEdgeStack
-                z: 1
-                width: Math.max(1, leftEdgeZone.implicitHeight)
-                height: Math.max(1, leftEdgeZone.implicitWidth)
-                x: Math.max(0, (parent.width - width) / 2)
-                y: leftEdgeBg.spanHeight
-                   ? bar.alignY(root.leftBarAlign, parent.height, height, bar.barContentHMargin)
-                   : Math.max(0, (parent.height - height) / 2)
-
-                RowLayout {
-                    id: leftEdgeZone
-                    rotation: 90
-                    transformOrigin: Item.Center
-                    spacing: bar.widgetSpacing
-                    x: (leftEdgeStack.width - implicitWidth) / 2
-                    y: (leftEdgeStack.height - implicitHeight) / 2
-                    onImplicitWidthChanged: width = implicitWidth
-                    onImplicitHeightChanged: height = implicitHeight
-                    Component.onCompleted: {
-                        width = implicitWidth
-                        height = implicitHeight
-                    }
-                }
-            }
+        EdgeBarFace {
+            id: leftEdgeFace
+            hostBar: bar
+            controlBar: barControlBar
+            leading: true
+            barAlign: root.leftBarAlign
+            spanFull: root.leftBarSpanFull
         }
 
         Component.onCompleted: {
@@ -5225,7 +5164,7 @@ ShellRoot {
                 return 0
             return bar.sideExclusiveZoneFor(false)
         }
-        mask: Region { item: rightEdgeBg }
+        mask: Region { item: rightEdgeFace }
         anchors.top: true
         anchors.bottom: true
         anchors.right: true
@@ -5233,78 +5172,13 @@ ShellRoot {
         margins.top: bar.sideTopInset()
         margins.bottom: bar.sideBottomInset()
 
-        Rectangle {
-            id: rightEdgeBg
-            readonly property bool spanHeight: !!root.rightBarSpanFull
-            readonly property int hugMeasured: Math.max(bar.sp(80), Math.min(parent.height,
-                              rightEdgeStack.height + 2 * bar.barContentHMargin))
-            property int hugH: 80
-            onHugMeasuredChanged: {
-                if (!spanHeight && Math.abs(hugMeasured - hugH) >= 16)
-                    hugH = hugMeasured
-            }
-            onSpanHeightChanged: hugH = hugMeasured
-            Component.onCompleted: hugH = hugMeasured
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.leftMargin: bar.barContentVMargin
-            anchors.rightMargin: 0
-            y: spanHeight ? 0 : bar.alignY(root.rightBarAlign, parent.height, hugH, bar.barContentHMargin)
-            height: spanHeight ? parent.height : hugH
-            radius: bar.barRadius
-            topLeftRadius: bar.barRadius
-            bottomLeftRadius: bar.barRadius
-            topRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            bottomRightRadius: bar.barGlassFlush ? 0 : bar.barRadius
-            color: bar.glassBg
-            border.width: Math.max(1, bar.controlBorderWidth)
-            border.color: bar.glassBorder
-            clip: true
-
-            Rectangle {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: bar.popupHeaderHighlightHeight
-                color: bar.glassHighlight
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                z: 0
-                acceptedButtons: Qt.RightButton
-                hoverEnabled: false
-                onClicked: (mouse) => {
-                    if (mouse.button === Qt.RightButton)
-                        barControlBar.toggle()
-                }
-            }
-
-            Item {
-                id: rightEdgeStack
-                z: 1
-                width: Math.max(1, rightEdgeZone.implicitHeight)
-                height: Math.max(1, rightEdgeZone.implicitWidth)
-                x: Math.max(0, (parent.width - width) / 2)
-                y: rightEdgeBg.spanHeight
-                   ? bar.alignY(root.rightBarAlign, parent.height, height, bar.barContentHMargin)
-                   : Math.max(0, (parent.height - height) / 2)
-
-                RowLayout {
-                    id: rightEdgeZone
-                    rotation: 90
-                    transformOrigin: Item.Center
-                    spacing: bar.widgetSpacing
-                    x: (rightEdgeStack.width - implicitWidth) / 2
-                    y: (rightEdgeStack.height - implicitHeight) / 2
-                    onImplicitWidthChanged: width = implicitWidth
-                    onImplicitHeightChanged: height = implicitHeight
-                    Component.onCompleted: {
-                        width = implicitWidth
-                        height = implicitHeight
-                    }
-                }
-            }
+        EdgeBarFace {
+            id: rightEdgeFace
+            hostBar: bar
+            controlBar: barControlBar
+            leading: false
+            barAlign: root.rightBarAlign
+            spanFull: root.rightBarSpanFull
         }
 
         Component.onCompleted: {
