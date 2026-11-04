@@ -340,3 +340,7 @@ Browse and lightly edit Hyprland binds without opening the full Inspector. Sourc
 - Loop / dynamic keys (e.g. workspace `for` loop with `.. key`) are listed as **read-only**
 - Scripts: `scripts/keybinds-list-json.sh`, `scripts/keybinds-set.sh`
 - **Save** writes the file in place (timestamped `.bak.*` backup first). **Reload Hypr** runs `hyprctl reload` when you want the change live
+
+## Later bug fixes
+
+- Settings → Widgets, click **Add |** (divider), then remove that divider. A divider then shows on the bar just before the App menu, and it disappears after **Reset layout**.
