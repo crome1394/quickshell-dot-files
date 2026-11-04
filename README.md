@@ -7,7 +7,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 | `shell.qml` | Bar entry |
 | `Config.qml` | Theme, fonts, defaults |
 | `widgets/` | Pills, control strip, inspector |
-| `widgets/settings/` | Settings window. Widgets page is `WidgetsTab.qml` |
+| `widgets/settings/` | Settings window. Widgets page is `WidgetsTab.qml`. Display page is `DisplayTab.qml` |
 | `scripts/` | Pollers and helpers. `window-at-point.sh` is a manual helper and is not called by the bar. |
 | `docs/` | Full guides |
 | `state/` | Runtime prefs (gitignored) |
