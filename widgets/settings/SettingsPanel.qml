@@ -56,10 +56,6 @@ Item {
     // ("sizes" accepted as alias of "widgets" for any leftover callers)
     property string activeMenu: ""
     property int menuTick: 0
-    // Clock panel: draft Qt.formatDateTime string for the custom field
-    property string clockFormatDraft: ""
-    // Clock panel sub-tab: "region" | "clock" (default Region, like MIME's File types)
-    property string clockTab: "region"
     // Options panel live reads (refreshed on open / toggle)
     property int optionsTick: 0
     // Installed terminal emulators (scripts/list-terminals.sh) for the
@@ -635,7 +631,11 @@ Item {
             if (typeof displayTab !== "undefined" && displayTab)
                 displayTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [wpBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick, themesBodyFlick, clockBodyFlick]
+        try {
+            if (typeof clockTab !== "undefined" && clockTab)
+                clockTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [wpBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick, themesBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -666,10 +666,8 @@ Item {
                 root.refreshOptions()
             root.ensureWidgetSurfaces()
         }
-        if (root.activeMenu === "clock") {
-            root.clockTab = "region"
-            root.clockFormatDraft = root.currentClockFormat()
-        }
+        if (root.activeMenu === "clock")
+            clockTab.prepareOpen()
         if (root.activeMenu === "colors") {
             root.colorsPickerKey = ""
             root.colorsShowImport = false
@@ -797,8 +795,7 @@ Item {
             root.activeMenu = "widgets"
         if (root.activeMenu === "audio" && !root.widgetShown("audio"))
             root.activeMenu = "widgets"
-        if (root.clockTab === "clock" && !root.widgetShown("clock"))
-            root.clockTab = "region"
+        clockTab.coerceTab()
         if (root.colorsTab === "thresholds"
                 && !root.widgetShown("audio") && !root.widgetShown("stats"))
             root.colorsTab = "theming"
@@ -2400,88 +2397,6 @@ Item {
         root.optionsTick++
         root.menuTick++
         Qt.callLater(reposition)
-    }
-
-    function currentClockFormat() {
-        void root.menuTick
-        return (bar.clockFormat && String(bar.clockFormat).length)
-            ? String(bar.clockFormat)
-            : "dddd, MM·dd·yyyy | HH:mm:ss"
-    }
-
-    function setClockFormat(fmt) {
-        if (typeof bar.setClockFormat === "function")
-            bar.setClockFormat(fmt)
-        root.clockFormatDraft = String(fmt || "")
-        root.menuTick++
-        Qt.callLater(reposition)
-    }
-
-    function clockFormatIsPreset(fmt) {
-        const want = String(fmt || "")
-        const presets = root.clockPresets()
-        for (let i = 0; i < presets.length; i++) {
-            if (presets[i] && presets[i].format === want)
-                return true
-        }
-        return false
-    }
-
-    function applyClockFormatDraft() {
-        const fmt = String(root.clockFormatDraft || "").trim()
-        if (!fmt.length)
-            return
-        root.setClockFormat(fmt)
-    }
-
-    function currentClockFontName() {
-        void root.menuTick
-        return (bar && bar.clockFont) ? String(bar.clockFont).trim() : ""
-    }
-
-    function clockFontComboModel() {
-        void root.menuTick
-        const list = root.systemFontFamilies || []
-        return ["Bar default"].concat(list)
-    }
-
-    function clockFontComboIndex() {
-        void root.menuTick
-        void root.systemFontFamilies
-        const s = root.currentClockFontName()
-        if (!s.length)
-            return 0
-        const i = root.fontIndexFor(s)
-        return i < 0 ? 0 : i + 1
-    }
-
-    function applyClockFontFromCombo(index) {
-        if (!(index > 0)) {
-            if (typeof bar.setClockFont === "function")
-                bar.setClockFont("")
-            root.menuTick++
-            return
-        }
-        const list = root.systemFontFamilies || []
-        const name = list[index - 1]
-        if (name && typeof bar.setClockFont === "function")
-            bar.setClockFont(name)
-        root.menuTick++
-    }
-
-    function currentClockFontScalePct() {
-        void root.menuTick
-        const s = (bar && bar.clockFontScale !== undefined) ? Number(bar.clockFontScale) : 1
-        if (!(s > 0))
-            return 100
-        return Math.round(Math.max(0.70, Math.min(1.50, s)) * 100)
-    }
-
-
-
-
-    function clockPresets() {
-        return bar.clockFormatPresets || []
     }
 
     function quickLaunchEntries() {
@@ -14763,411 +14678,28 @@ Item {
                             } // themesPanel
 
                             // ===== CLOCK / REGION =====
-                            ColumnLayout {
-                                id: clockPanel
+                            ClockTab {
+                                id: clockTab
                                 visible: root.activeMenu === "clock"
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 8
-
-                                Text {
-                                    text: "Region & Clock"
-                                    color: bar.text
-                                    font.pixelSize: bar.popupTitleSize
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Repeater {
-                                        model: {
-                                            if (bar)
-                                                void bar.widgetVisTick
-                                            const tabs = [{ id: "region", label: "Region" }]
-                                            if (root.widgetShown("clock"))
-                                                tabs.push({ id: "clock", label: "Clock" })
-                                            return tabs
-                                        }
-                                        delegate: Rectangle {
-                                            required property var modelData
-                                            readonly property bool on: root.clockTab === modelData.id
-                                            Layout.preferredHeight: root.chipH
-                                            Layout.preferredWidth: clockTabLbl.implicitWidth + 16
-                                            radius: 6
-                                            color: on ? Qt.rgba(bar.accent.r, bar.accent.g, bar.accent.b, 0.22)
-                                                      : (clockTabMa.containsMouse ? Qt.rgba(1, 1, 1, 0.06) : "transparent")
-                                            border.width: 1
-                                            border.color: on ? bar.accent : bar.pillBorder
-                                            Text {
-                                                id: clockTabLbl
-                                                anchors.centerIn: parent
-                                                text: modelData.label
-                                                color: on ? bar.accent : bar.subtext
-                                                font.pixelSize: 11
-                                                font.bold: on
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: clockTabMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    root.clockTab = modelData.id
-                                                    if (modelData.id === "clock")
-                                                        root.refreshSystemFonts()
-                                                    root.menuTick++
-                                                    Qt.callLater(root.reposition)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Item { Layout.fillWidth: true }
-                                }
-
-                                TimezoneMapView {
-                                    id: clockTzMap
-                                    visible: root.clockTab === "region"
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: visible
-                                    Layout.minimumHeight: visible ? 200 : 0
-                                    active: visible && clockPanel.visible && controlPopup.visible
-                                    keyboardGrab: function() { root.ensureControlFocusGrab() }
-                                    beforeApply: function() { root.hide() }
-                                    textColor: bar.text
-                                    subtextColor: bar.subtext
-                                    accentColor: bar.accent
-                                    surfaceColor: bar.surface !== undefined ? bar.surface : Qt.rgba(0.10, 0.12, 0.18, 0.9)
-                                    oceanColor: "#8aa0b5"
-                                    landColor: "#e7e2d6"
-                                    highlightColor: "#6fbf3a"
-                                    gridColor: Qt.rgba(1, 1, 1, 0.16)
-                                    fieldBg: root.optFieldBg
-                                    fieldBgFocus: root.optFieldBgFocus
-                                    pillBorder: bar.pillBorder
-                                    okColor: root.onGreen
-                                    errorColor: root.offRed
-                                    fontFamily: bar.fontFamily
-                                    fontMono: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                    chipR: root.chipR
-                                }
-
-                                Flickable {
-                                    id: clockBodyFlick
-                                    visible: root.clockTab === "clock"
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: visible
-                                    clip: true
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    flickableDirection: Flickable.VerticalFlick
-                                    contentWidth: width
-                                    contentHeight: clockBodyCol.implicitHeight
-                                    interactive: contentHeight > height + 4
-                                    ScrollBar.vertical: ScrollBar {
-                                        policy: clockBodyFlick.contentHeight > clockBodyFlick.height + 4
-                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: 8
-                                        contentItem: Rectangle {
-                                            implicitWidth: 6
-                                            radius: 3
-                                            color: bar.accent
-                                            opacity: 0.5
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        id: clockBodyCol
-                                        width: clockBodyFlick.width
-                                        spacing: 8
-
-                                        Text {
-                                            Layout.fillWidth: true
-                                            wrapMode: Text.WordWrap
-                                            text: "Clock face font"
-                                            color: bar.text
-                                            font.pixelSize: 12
-                                            font.bold: true
-                                            font.family: bar.fontFamily
-                                        }
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 10
-                                            ComboBox {
-                                                id: clockFaceFontCombo
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: 34
-                                                Layout.minimumWidth: 120
-                                                model: root.clockFontComboModel()
-                                                currentIndex: root.clockFontComboIndex()
-                                                onActivated: function(index) { root.applyClockFontFromCombo(index) }
-                                                contentItem: Text {
-                                                    leftPadding: 10
-                                                    rightPadding: clockFaceFontCombo.indicator.width + 12
-                                                    text: clockFaceFontCombo.displayText
-                                                    color: (bar.barText !== undefined) ? bar.barText : bar.text
-                                                    verticalAlignment: Text.AlignVCenter
-                                                    elide: Text.ElideRight
-                                                    font.family: root.currentClockFontName().length
-                                                                 ? root.currentClockFontName()
-                                                                 : ((bar.fontBarResolved !== undefined) ? bar.fontBarResolved : bar.fontFamily)
-                                                }
-                                                background: Rectangle {
-                                                    radius: 6
-                                                    color: root.optFieldBg
-                                                    border.width: 1
-                                                    border.color: clockFaceFontCombo.popup.visible ? bar.accent : bar.pillBorder
-                                                }
-                                                indicator: Text {
-                                                    x: clockFaceFontCombo.width - width - 10
-                                                    y: (clockFaceFontCombo.height - height) / 2
-                                                    text: clockFaceFontCombo.popup.visible ? "▴" : "▾"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                }
-                                                popup: Popup {
-                                                    y: clockFaceFontCombo.height + 2
-                                                    width: clockFaceFontCombo.width
-                                                    implicitHeight: Math.min(260, contentItem.implicitHeight + 4)
-                                                    padding: 2
-                                                    contentItem: ListView {
-                                                        clip: true
-                                                        implicitHeight: contentHeight
-                                                        model: clockFaceFontCombo.popup.visible ? clockFaceFontCombo.delegateModel : null
-                                                        currentIndex: clockFaceFontCombo.highlightedIndex
-                                                        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-                                                    }
-                                                    background: Rectangle {
-                                                        radius: 8
-                                                        color: bar.glassPopupBg !== undefined ? bar.glassPopupBg : Qt.rgba(0.06, 0.08, 0.12, 0.96)
-                                                        border.width: 1
-                                                        border.color: bar.glassPopupBorder !== undefined ? bar.glassPopupBorder : bar.pillBorder
-                                                    }
-                                                }
-                                                delegate: ItemDelegate {
-                                                    width: clockFaceFontCombo.width
-                                                    height: 30
-                                                    required property int index
-                                                    required property string modelData
-                                                    highlighted: clockFaceFontCombo.highlightedIndex === index
-                                                    contentItem: Text {
-                                                        text: modelData
-                                                        color: (bar.barText !== undefined) ? bar.barText : bar.text
-                                                        font.family: index === 0 ? bar.fontFamily : modelData
-                                                        font.pixelSize: 12
-                                                        elide: Text.ElideRight
-                                                        verticalAlignment: Text.AlignVCenter
-                                                    }
-                                                    background: Rectangle {
-                                                        color: parent.highlighted
-                                                               ? (bar.controlActiveBg !== undefined ? bar.controlActiveBg : Qt.rgba(0, 0.7, 0.75, 0.35))
-                                                               : "transparent"
-                                                        radius: 4
-                                                    }
-                                                }
-                                            }
-                                            Rectangle {
-                                                Layout.preferredWidth: root.fontSizeChipWidth()
-                                                Layout.maximumWidth: root.fontSizeChipWidth()
-                                                Layout.preferredHeight: 34
-                                                radius: root.chipR
-                                                color: Qt.rgba(0.08, 0.10, 0.14, 0.55)
-                                                border.width: 1
-                                                border.color: bar.dividerStrong
-                                                RowLayout {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 8
-                                                    anchors.rightMargin: 8
-                                                    spacing: 4
-                                                    OptValueSlider {
-                                                        bar: bar
-                                                        fieldBg: root.optFieldBg
-                                                        fieldBgFocus: root.optFieldBgFocus
-                                                        from: 70
-                                                        to: 150
-                                                        stepSize: 1
-                                                        suffix: "%"
-                                                        value: root.currentClockFontScalePct()
-                                                        onValueEdited: (v) => {
-                                                            if (typeof bar.setClockFontScale === "function")
-                                                                bar.setClockFontScale(Math.round(v) / 100)
-                                                            root.menuTick++
-                                                        }
-                                                        onValueCommitted: (v) => {
-                                                            if (typeof bar.setClockFontScale === "function")
-                                                                bar.setClockFontScale(Math.round(v) / 100)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Text {
-                                            Layout.fillWidth: true
-                                            wrapMode: Text.WordWrap
-                                            text: "Presets stay as they are. Custom uses Qt format tokens (HH:mm:ss, dddd, MMM d yyyy, AP)."
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-
-                                        Repeater {
-                                            model: root.clockPresets()
-                                            delegate: Rectangle {
-                                                required property var modelData
-                                                readonly property bool active: root.currentClockFormat() === modelData.format
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: 36
-                                                radius: root.chipR
-                                                color: cRowMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                                border.width: bar.controlBorderWidth
-                                                border.color: active ? root.activeLabelColor() : bar.dividerStrong
-
-                                                ColumnLayout {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 10
-                                                    anchors.rightMargin: 10
-                                                    anchors.topMargin: 4
-                                                    anchors.bottomMargin: 4
-                                                    spacing: 0
-                                                    Text {
-                                                        text: modelData.label + (active ? "  · active" : "")
-                                                        color: active ? root.activeLabelColor() : bar.text
-                                                        font.pixelSize: 12
-                                                        font.bold: active
-                                                        font.family: bar.fontFamily
-                                                    }
-                                                    Text {
-                                                        text: modelData.tip || modelData.format
-                                                        color: bar.subtext
-                                                        font.pixelSize: 10
-                                                        font.family: bar.fontFamily
-                                                        elide: Text.ElideRight
-                                                        Layout.fillWidth: true
-                                                    }
-                                                }
-                                                MouseArea {
-                                                    id: cRowMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setClockFormat(modelData.format)
-                                                }
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: customFmtCol.implicitHeight + 14
-                                            radius: root.chipR
-                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                            border.width: bar.controlBorderWidth
-                                            border.color: root.clockFormatIsPreset(root.currentClockFormat())
-                                                          ? bar.dividerStrong
-                                                          : root.activeLabelColor()
-                                            ColumnLayout {
-                                                id: customFmtCol
-                                                anchors.left: parent.left
-                                                anchors.right: parent.right
-                                                anchors.top: parent.top
-                                                anchors.margins: 8
-                                                spacing: 6
-                                                Text {
-                                                    text: "Custom" + (root.clockFormatIsPreset(root.currentClockFormat()) ? "" : "  · active")
-                                                    color: root.clockFormatIsPreset(root.currentClockFormat())
-                                                           ? bar.text
-                                                           : root.activeLabelColor()
-                                                    font.pixelSize: 12
-                                                    font.bold: !root.clockFormatIsPreset(root.currentClockFormat())
-                                                    font.family: bar.fontFamily
-                                                }
-                                                RowLayout {
-                                                    Layout.fillWidth: true
-                                                    spacing: 6
-                                                    TextField {
-                                                        topPadding: 1
-                                                        bottomPadding: 1
-                                                        verticalAlignment: Text.AlignVCenter
-                                                        id: clockFmtField
-                                                        Layout.fillWidth: true
-                                                        Layout.preferredHeight: 30
-                                                        text: root.clockFormatDraft
-                                                        placeholderText: "e.g. ddd HH:mm"
-                                                        color: bar.text
-                                                        placeholderTextColor: bar.subtext
-                                                        font.pixelSize: 14
-                                                        font.family: root.entryMonoFont()
-                                                        background: Rectangle {
-                                                            radius: root.chipR
-                                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                            border.width: 1
-                                                            border.color: clockFmtField.activeFocus ? bar.accent : bar.pillBorder
-                                                        }
-                                                        onPressed: root.armControlFocusGrab()
-                                                        onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                                        onTextChanged: root.clockFormatDraft = text
-                                                        Keys.onReturnPressed: root.applyClockFormatDraft()
-                                                        Keys.onEnterPressed: root.applyClockFormatDraft()
-                                                    }
-                                                    Rectangle {
-                                                        Layout.preferredHeight: 30
-                                                        Layout.preferredWidth: setFmtLbl.implicitWidth + 14
-                                                        radius: root.chipR
-                                                        color: setFmtMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                        border.width: 1
-                                                        border.color: setFmtMa.containsMouse ? bar.accent : bar.pillBorder
-                                                        Text {
-                                                            id: setFmtLbl
-                                                            anchors.centerIn: parent
-                                                            text: "Set"
-                                                            color: bar.text
-                                                            font.pixelSize: 12
-                                                            font.family: bar.fontFamily
-                                                        }
-                                                        MouseArea {
-                                                            id: setFmtMa
-                                                            anchors.fill: parent
-                                                            hoverEnabled: true
-                                                            cursorShape: Qt.PointingHandCursor
-                                                            onClicked: root.applyClockFormatDraft()
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: clockPreviewCol.implicitHeight + 20
-                                            radius: root.chipR
-                                            color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                            border.width: 1
-                                            border.color: bar.accent
-                                            ColumnLayout {
-                                                id: clockPreviewCol
-                                                anchors.left: parent.left
-                                                anchors.right: parent.right
-                                                anchors.top: parent.top
-                                                anchors.margins: 12
-                                                spacing: 4
-                                                Text {
-                                                    text: "Preview"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontFamily
-                                                }
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    wrapMode: Text.WordWrap
-                                                    text: Qt.formatDateTime(new Date(), String(root.clockFormatDraft || root.currentClockFormat() || "ddd HH:mm"))
-                                                    color: bar.text
-                                                    font.pixelSize: 28
-                                                    font.bold: true
-                                                    font.family: bar.fontFamily
-                                                }
-                                            }
-                                        }
-                                }
-                                }
+                                bar: root.bar
+                                popupOpen: controlPopup.visible
+                                menuTick: root.menuTick
+                                systemFontFamilies: root.systemFontFamilies
+                                chipR: root.chipR
+                                chipH: root.chipH
+                                optFieldBg: root.optFieldBg
+                                optFieldBgFocus: root.optFieldBgFocus
+                                onGreen: root.onGreen
+                                offRed: root.offRed
+                                entryMonoFont: root.entryMonoFont()
+                                fontChipWidth: root.fontSizeChipWidth()
+                                clockWidgetOn: root.widgetShown("clock")
+                                activeLabel: root.activeLabelColor()
+                                refreshFonts: function() { root.refreshSystemFonts() }
+                                fontIndexFor: function(name) { return root.fontIndexFor(name) }
+                                onMenuBumped: root.menuTick++
+                                onFocusRequested: root.ensureControlFocusGrab()
+                                onCloseRequested: root.hide()
                             }
                         }
                     }

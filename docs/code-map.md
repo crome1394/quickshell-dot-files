@@ -50,7 +50,7 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 | `services` | Services | |
 | `audio` | Audio | Shown only when the Audio widget is on. |
 | `keybinds` | Keybinds | |
-| `clock` | Region & Clock | Tabs are region and clock. If the Clock widget is off, the clock tab falls back to region. |
+| `clock` | Region & Clock | `ClockTab.qml`. Preset rows are `ClockPresetRow.qml`. Font rows are `ClockFontRow.qml`. If the Clock widget is off, the clock tab falls back to region. |
 
 `toggleMenu("position")` opens Options on the Bar tab. It is not its own page.
 
