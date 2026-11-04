@@ -153,13 +153,6 @@ Item {
         return Math.max(100, Math.min(260, Math.round(n)))
     }
 
-    // Autostart panel (XDG ~/.config/autostart)
-    property var autostartEntries: []
-    property bool autostartLoading: false
-    property string autostartStatus: ""
-    property string autostartSearch: ""
-    property string autostartEditId: ""
-    property string autostartEditExec: ""
 
     // Services panel (reuse components/ServicesView.qml)
     property string servicesFilter: ""
@@ -384,7 +377,11 @@ Item {
             if (typeof wallpaperTab !== "undefined" && wallpaperTab)
                 wallpaperTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [launchBodyFlick, autostartBodyFlick, optionsBodyFlick]
+        try {
+            if (typeof autostartTab !== "undefined" && autostartTab)
+                autostartTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [launchBodyFlick, optionsBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -630,7 +627,11 @@ Item {
             if (typeof wallpaperTab !== "undefined" && wallpaperTab)
                 wallpaperTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [launchBodyFlick, autostartBodyFlick, optionsBodyFlick, themesBodyFlick]
+        try {
+            if (typeof autostartTab !== "undefined" && autostartTab)
+                autostartTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [launchBodyFlick, optionsBodyFlick, themesBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -2441,6 +2442,11 @@ Item {
         desktopAppsProcess.exec(args)
     }
 
+    function scheduleDesktopSearch(text) {
+        root.desktopAppsQuery = text
+        desktopSearchDebounce.restart()
+    }
+
     function addDesktopApp(app) {
         if (!app)
             return
@@ -2528,120 +2534,6 @@ Item {
     function onControlGrabCleared() {}
 
 
-    function refreshAutostart() {
-        if (autostartListProcess.running)
-            return
-        root.autostartLoading = true
-        root.autostartStatus = "Loading…"
-        const script = bar.autostartListScript || ""
-        if (!script.length) {
-            root.autostartLoading = false
-            root.autostartStatus = "list script missing"
-            return
-        }
-        autostartListProcess.exec([script])
-    }
-
-    function autostartRows() {
-        void root.menuTick
-        const list = root.autostartEntries || []
-        const q = (root.autostartSearch || "").trim().toLowerCase()
-        const out = []
-        for (let i = 0; i < list.length; i++) {
-            const e = list[i]
-            if (q) {
-                const blob = ((e.name || "") + " " + (e.id || "") + " " + (e.exec || "")).toLowerCase()
-                if (blob.indexOf(q) < 0)
-                    continue
-            }
-            out.push(e)
-        }
-        return out
-    }
-
-    function setAutostartEnabled(id, enabled) {
-        const script = bar.autostartSetScript || ""
-        if (!script.length || !id)
-            return
-        autostartSetProcess.exec([script, enabled ? "enable" : "disable", id])
-    }
-
-    function removeAutostart(id) {
-        const script = bar.autostartSetScript || ""
-        if (!script.length || !id)
-            return
-        if (root.autostartEditId === id)
-            root.cancelAutostartEdit()
-        autostartSetProcess.exec([script, "remove", id])
-    }
-
-    function beginAutostartEdit(entry) {
-        if (!entry || !entry.id)
-            return
-        root.autostartEditId = String(entry.id)
-        root.autostartEditExec = String(entry.execRaw || entry.exec || "")
-    }
-
-    function cancelAutostartEdit() {
-        root.autostartEditId = ""
-        root.autostartEditExec = ""
-    }
-
-    function saveAutostartExec() {
-        const id = root.autostartEditId
-        const exec = String(root.autostartEditExec || "").trim()
-        const script = bar.autostartSetScript || ""
-        if (!script.length || !id || !exec.length)
-            return
-        root.autostartStatus = "Saving command…"
-        autostartSetProcess.exec([script, "exec", id, exec])
-    }
-
-    function runAutostartNow(id) {
-        const script = bar.autostartRunScript || ""
-        if (!script.length)
-            return
-        if (id)
-            Quickshell.execDetached([script, id])
-        else
-            Quickshell.execDetached([script])
-        root.autostartStatus = id ? ("Started " + id) : "Started enabled apps"
-    }
-
-    function addAutostartFromApp(app) {
-        if (!app)
-            return
-        const script = bar.autostartAddScript || ""
-        if (!script.length)
-            return
-        const args = [script]
-        if (app.id) {
-            args.push("--desktop-id", String(app.id))
-        } else {
-            args.push("--name", String(app.name || app.tooltip || "App"))
-            const cmd = app.command
-            let execStr = ""
-            if (typeof cmd === "string")
-                execStr = cmd
-            else if (cmd && cmd.length !== undefined) {
-                const parts = []
-                for (let i = 0; i < cmd.length; i++)
-                    parts.push(String(cmd[i]))
-                execStr = parts.join(" ")
-            }
-            if (!execStr.length)
-                return
-            args.push("--exec", execStr)
-            if (app.icon)
-                args.push("--icon", String(app.icon))
-        }
-        root.autostartStatus = "Adding…"
-        autostartAddProcess.exec(args)
-    }
-
-    function openAutostartDir() {
-        Quickshell.execDetached(["xdg-open", (Quickshell.env("HOME") + "/.config/autostart")])
-    }
 
     Connections {
         target: bar
@@ -2747,78 +2639,6 @@ Item {
     }
 
 
-    Io.Process {
-        id: autostartListProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: autostartListStdout
-            onStreamFinished: {
-                root.autostartLoading = false
-                const text = (autostartListStdout.text || "").trim()
-                if (!text.startsWith("{")) {
-                    root.autostartEntries = []
-                    root.autostartStatus = "No entries"
-                    return
-                }
-                try {
-                    const j = JSON.parse(text)
-                    root.autostartEntries = j.entries || []
-                    root.autostartStatus = (j.count || 0) + " entry(ies)"
-                } catch (e) {
-                    root.autostartEntries = []
-                    root.autostartStatus = "Parse error"
-                }
-                root.menuTick++
-                if (controlPopup.visible)
-                    root.scheduleReposition()
-            }
-        }
-        onExited: (code) => {
-            root.autostartLoading = false
-            if (code !== 0 && !(autostartListStdout.text || "").trim()) {
-                root.autostartEntries = []
-                root.autostartStatus = "Failed to list"
-            }
-        }
-    }
-
-    Io.Process {
-        id: autostartSetProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: autostartSetStdout
-            onStreamFinished: {
-                const line = (autostartSetStdout.text || "").trim()
-                if (line.indexOf("ok exec") === 0)
-                    root.cancelAutostartEdit()
-                root.autostartStatus = line.length ? line : "Updated"
-                root.refreshAutostart()
-            }
-        }
-        onExited: (code) => {
-            if (code !== 0)
-                root.autostartStatus = "Update failed"
-            root.refreshAutostart()
-        }
-    }
-
-    Io.Process {
-        id: autostartAddProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: autostartAddStdout
-            onStreamFinished: {
-                const line = (autostartAddStdout.text || "").trim()
-                root.autostartStatus = line.length ? line : "Added"
-                root.refreshAutostart()
-            }
-        }
-        onExited: (code) => {
-            if (code !== 0)
-                root.autostartStatus = "Add failed"
-            root.refreshAutostart()
-        }
-    }
 
     Io.Process {
         id: frSecretsReadProcess
@@ -3769,572 +3589,27 @@ Item {
                             }
 
                             // ===== AUTOSTART (XDG) =====
-                            ColumnLayout {
+                            AutostartTab {
+                                id: autostartTab
                                 visible: root.activeMenu === "autostart"
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 6
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Autostart"
-                                        color: bar.text
-                                        font.pixelSize: bar.popupTitleSize
-                                        font.bold: true
-                                        font.family: bar.fontFamily
-                                    }
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "XDG apps in ~/.config/autostart (session login). Core Hyprland services stay in autostarts.lua."
-                                    color: bar.subtext
-                                    font.pixelSize: bar.popupHintSize
-                                    font.family: bar.fontFamily
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    elide: Text.ElideRight
-                                    text: root.autostartStatus.length ? root.autostartStatus : "Toggle ✓/✕ · Edit changes the command · add from apps below"
-                                    color: bar.subtext
-                                    font.pixelSize: 11
-                                    font.family: bar.fontFamily
-                                }
-
-                                Flickable {
-                                    id: autostartBodyFlick
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    clip: true
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    flickableDirection: Flickable.VerticalFlick
-                                    contentWidth: width
-                                    // Stretch short content so the app picker can fill the viewport.
-                                    contentHeight: Math.max(autostartBodyCol.implicitHeight, height)
-                                    interactive: contentHeight > height + 4
-                                    ScrollBar.vertical: ScrollBar {
-                                        policy: autostartBodyFlick.contentHeight > autostartBodyFlick.height + 4
-                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: root.bodyScrollBarW
-                                        padding: 2
-                                        contentItem: Rectangle {
-                                            implicitWidth: 6
-                                            radius: 3
-                                            color: bar.accent
-                                            opacity: 0.5
-                                        }
-                                        background: Rectangle {
-                                            implicitWidth: root.bodyScrollBarW
-                                            radius: 4
-                                            color: Qt.rgba(1, 1, 1, 0.06)
-                                        }
-                                    }
-                                    ColumnLayout {
-                                        id: autostartBodyCol
-                                        width: Math.max(1, autostartBodyFlick.width - root.bodyScrollGutter)
-                                        height: Math.max(implicitHeight, autostartBodyFlick.height)
-                                        spacing: 6
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Rectangle {
-                                        Layout.preferredHeight: 28
-                                        Layout.preferredWidth: openAsLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: openAsMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: openAsLbl
-                                            anchors.centerIn: parent
-                                            text: "Open folder"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: openAsMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.openAutostartDir()
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 28
-                                        Layout.preferredWidth: runAllLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: runAllMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: runAllMa.containsMouse ? bar.accent : bar.pillBorder
-                                        Text {
-                                            id: runAllLbl
-                                            anchors.centerIn: parent
-                                            text: "Run enabled now"
-                                            color: runAllMa.containsMouse ? bar.accent : bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: runAllMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.runAutostartNow("")
-                                        }
-                                    }
-                                }
-
-                                // Current autostart entries
-                                Repeater {
-                                    model: root.autostartRows()
-                                    delegate: Rectangle {
-                                        id: asRow
-                                        required property var modelData
-                                        readonly property bool on: !!modelData.enabled
-                                        readonly property bool editing: root.autostartEditId === (modelData.id || "")
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: asRowCol.implicitHeight + 12
-                                        radius: root.chipR
-                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                        border.width: 1
-                                        border.color: asRow.editing ? bar.accent : (asRow.on ? root.onGreen : bar.dividerStrong)
-                                        opacity: asRow.on ? 1.0 : 0.78
-
-                                        ColumnLayout {
-                                            id: asRowCol
-                                            x: 6
-                                            y: 6
-                                            width: Math.max(1, parent.width - 12)
-                                            spacing: 6
-
-                                        RowLayout {
-                                            Layout.fillWidth: true
-                                            Layout.preferredHeight: 28
-                                            spacing: 6
-
-                                            // Enable toggle
-                                            Rectangle {
-                                                Layout.preferredWidth: 28
-                                                Layout.preferredHeight: 26
-                                                radius: 4
-                                                color: asToggleMa.containsMouse
-                                                       ? (asRow.on ? Qt.rgba(0.29, 0.87, 0.50, 0.18) : Qt.rgba(0.97, 0.44, 0.44, 0.18))
-                                                       : "transparent"
-                                                border.width: 1
-                                                border.color: asRow.on ? root.onGreen : root.offRed
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: asRow.on ? "✓" : "✕"
-                                                    color: asRow.on ? root.onGreen : root.offRed
-                                                    font.pixelSize: 14
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    id: asToggleMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.setAutostartEnabled(modelData.id, !asRow.on)
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: asRow.on ? "Disable at login" : "Enable at login"
-                                                }
-                                            }
-
-                                            Image {
-                                                visible: (modelData.icon || "").length > 0
-                                                Layout.preferredWidth: 22
-                                                Layout.preferredHeight: 22
-                                                source: modelData.icon ? ("file://" + modelData.icon) : ""
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Text {
-                                                visible: !(modelData.icon || "").length
-                                                Layout.preferredWidth: 22
-                                                horizontalAlignment: Text.AlignHCenter
-                                                text: "󰣆"
-                                                font.pixelSize: 16
-                                                font.family: bar.fontFamily
-                                                color: bar.subtext
-                                            }
-
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                spacing: 0
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    elide: Text.ElideRight
-                                                    text: modelData.name || modelData.id
-                                                    color: bar.text
-                                                    font.pixelSize: 12
-                                                    font.family: bar.fontFamily
-                                                }
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    elide: Text.ElideRight
-                                                    text: modelData.exec || modelData.id
-                                                    color: bar.subtext
-                                                    font.pixelSize: 10
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                }
-                                            }
-
-                                            Rectangle {
-                                                Layout.preferredWidth: asEditLbl.implicitWidth + 12
-                                                Layout.preferredHeight: 26
-                                                radius: 4
-                                                color: asEditMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: asRow.editing || asEditMa.containsMouse ? bar.accent : bar.pillBorder
-                                                Text {
-                                                    id: asEditLbl
-                                                    anchors.centerIn: parent
-                                                    text: asRow.editing ? "Close" : "Edit"
-                                                    color: asRow.editing || asEditMa.containsMouse ? bar.accent : bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontFamily
-                                                }
-                                                MouseArea {
-                                                    id: asEditMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        if (asRow.editing) {
-                                                            root.cancelAutostartEdit()
-                                                            return
-                                                        }
-                                                        root.beginAutostartEdit(modelData)
-                                                        Qt.callLater(function() {
-                                                            if (asEditField)
-                                                                asEditField.forceActiveFocus()
-                                                        })
-                                                    }
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: "Edit the command"
-                                                }
-                                            }
-
-                                            // Run now
-                                            Rectangle {
-                                                Layout.preferredWidth: 28
-                                                Layout.preferredHeight: 26
-                                                radius: 4
-                                                color: runOneMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: bar.pillBorder
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "▶"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                }
-                                                MouseArea {
-                                                    id: runOneMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.runAutostartNow(modelData.id)
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: "Run now"
-                                                }
-                                            }
-
-                                            // Remove
-                                            Rectangle {
-                                                Layout.preferredWidth: 28
-                                                Layout.preferredHeight: 26
-                                                radius: 4
-                                                color: rmAsMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.18) : "transparent"
-                                                border.width: 1
-                                                border.color: root.offRed
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "✕"
-                                                    color: root.offRed
-                                                    font.pixelSize: 13
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    id: rmAsMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.removeAutostart(modelData.id)
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: "Remove from autostart"
-                                                }
-                                            }
-                                        }
-
-                                        RowLayout {
-                                            visible: asRow.editing
-                                            Layout.fillWidth: true
-                                            spacing: 6
-                                            TextField {
-                                                topPadding: 1
-                                                bottomPadding: 1
-                                                verticalAlignment: Text.AlignVCenter
-                                                id: asEditField
-                                                Layout.fillWidth: true
-                                                Layout.preferredHeight: 28
-                                                placeholderText: "Command (Exec=)"
-                                                color: bar.text
-                                                placeholderTextColor: bar.subtext
-                                                font.pixelSize: 14
-                                                font.family: root.entryMonoFont()
-                                                text: root.autostartEditExec
-                                                selectByMouse: true
-                                                onTextChanged: root.autostartEditExec = text
-                                                onAccepted: root.saveAutostartExec()
-                                                background: Rectangle {
-                                                    radius: root.chipR
-                                                    color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                                    border.width: 1
-                                                    border.color: parent.activeFocus ? bar.accent : bar.pillBorder
-                                                }
-                                            }
-                                            Rectangle {
-                                                Layout.preferredHeight: 28
-                                                Layout.preferredWidth: asExecSaveLbl.implicitWidth + 14
-                                                radius: root.chipR
-                                                opacity: root.autostartEditExec.trim().length ? 1 : 0.5
-                                                color: asExecSaveMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: asExecSaveMa.containsMouse ? bar.accent : bar.pillBorder
-                                                Text {
-                                                    id: asExecSaveLbl
-                                                    anchors.centerIn: parent
-                                                    text: "Save"
-                                                    color: asExecSaveMa.containsMouse ? bar.accent : bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontFamily
-                                                }
-                                                MouseArea {
-                                                    id: asExecSaveMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    enabled: root.autostartEditExec.trim().length > 0
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.saveAutostartExec()
-                                                }
-                                            }
-                                            Rectangle {
-                                                Layout.preferredHeight: 28
-                                                Layout.preferredWidth: asExecCancelLbl.implicitWidth + 14
-                                                radius: root.chipR
-                                                color: asExecCancelMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: bar.pillBorder
-                                                Text {
-                                                    id: asExecCancelLbl
-                                                    anchors.centerIn: parent
-                                                    text: "Cancel"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 11
-                                                    font.family: bar.fontFamily
-                                                }
-                                                MouseArea {
-                                                    id: asExecCancelMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.cancelAutostartEdit()
-                                                }
-                                            }
-                                        }
-                                    }
-                                    }
-                                }
-
-                                Text {
-                                    visible: !root.autostartLoading && root.autostartRows().length === 0
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "No XDG autostart entries yet. Add one from installed apps below."
-                                    color: bar.subtext
-                                    font.pixelSize: 11
-                                    font.family: bar.fontFamily
-                                }
-
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 1
-                                    color: bar.dividerStrong
-                                }
-                                Text {
-                                    text: "Add installed app to autostart"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    TextField {
-                                        topPadding: 1
-                                        bottomPadding: 1
-                                        verticalAlignment: Text.AlignVCenter
-                                        id: asSearchField
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 30
-                                        placeholderText: "Search apps…"
-                                        color: bar.text
-                                        placeholderTextColor: bar.subtext
-                                        font.pixelSize: 14
-                                        font.family: root.entryFont()
-                                        background: Rectangle {
-                                            radius: root.chipR
-                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                            border.width: 1
-                                            border.color: parent.activeFocus ? bar.accent : bar.pillBorder
-                                        }
-                                        onPressed: root.armControlFocusGrab()
-                                        onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                        onTextChanged: {
-                                            root.desktopAppsQuery = text
-                                            root.autostartSearch = ""
-                                            desktopSearchDebounce.restart()
-                                        }
-                                    }
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    visible: root.filteredDesktopApps().length > 0
-                                    wrapMode: Text.WordWrap
-                                    text: root.desktopAppsTruncated()
-                                          ? ("Showing " + root.filteredDesktopApps().length
-                                             + " · scroll for more · type to filter")
-                                          : ("Scroll if the list is longer than the panel")
-                                    color: bar.subtext
-                                    font.pixelSize: 10
-                                    font.family: bar.fontFamily
-                                }
-
-                                // Fills whatever space is left under the search field. Scrolls inside
-                                // when there are more apps than fit; stays at least two rows tall
-                                // when the entries above already fill the panel.
-                                Flickable {
-                                    id: asAppFlick
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    Layout.minimumHeight: 72
-                                    Layout.preferredHeight: 220
-                                    contentWidth: width
-                                    contentHeight: asAppCol.implicitHeight
-                                    clip: true
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    flickableDirection: Flickable.VerticalFlick
-                                    interactive: contentHeight > height + 2
-
-                                    ScrollBar.vertical: ScrollBar {
-                                        policy: asAppFlick.contentHeight > asAppFlick.height + 2
-                                                ? ScrollBar.AsNeeded
-                                                : ScrollBar.AlwaysOff
-                                        width: 6
-                                    }
-
-                                    Column {
-                                        id: asAppCol
-                                        width: Math.max(1, asAppFlick.width - 14)
-                                        spacing: 2
-
-                                        Repeater {
-                                            model: root.filteredDesktopApps()
-                                            delegate: Rectangle {
-                                                required property var modelData
-                                                width: asAppCol.width
-                                                height: 34
-                                                radius: root.chipR
-                                                color: addAsMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.45)
-                                                border.width: 1
-                                                border.color: bar.dividerStrong
-
-                                                RowLayout {
-                                                    anchors.fill: parent
-                                                    anchors.leftMargin: 8
-                                                    anchors.rightMargin: 8
-                                                    spacing: 8
-                                                    Image {
-                                                        visible: (modelData.icon || "").length > 0
-                                                        Layout.preferredWidth: 20
-                                                        Layout.preferredHeight: 20
-                                                        source: modelData.icon ? (String(modelData.icon).indexOf("file:") === 0 ? modelData.icon : ("file://" + modelData.icon)) : ""
-                                                        fillMode: Image.PreserveAspectFit
-                                                        smooth: true
-                                                    }
-                                                    Text {
-                                                        Layout.fillWidth: true
-                                                        elide: Text.ElideRight
-                                                        text: modelData.name || modelData.id
-                                                        color: bar.text
-                                                        font.pixelSize: 12
-                                                        font.family: bar.fontFamily
-                                                    }
-                                                    Text {
-                                                        text: "+"
-                                                        color: root.onGreen
-                                                        font.pixelSize: 16
-                                                        font.bold: true
-                                                    }
-                                                }
-                                                MouseArea {
-                                                    id: addAsMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    // Don't steal vertical drag from asAppFlick
-                                                    preventStealing: false
-                                                    onClicked: root.addAutostartFromApp(modelData)
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: "Add " + (modelData.name || "") + " to login autostart"
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                    } // autostartBodyCol
-                                } // autostartBodyFlick
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Item { Layout.fillWidth: true }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: refreshAsLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: refreshAsMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: refreshAsLbl
-                                            anchors.centerIn: parent
-                                            text: root.autostartLoading ? "…" : "Refresh"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: refreshAsMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshAutostart()
-                                        }
-                                    }
-                                }
+                                bar: root.bar
+                                controlPopup: controlPopup
+                                menuTick: root.menuTick
+                                chipR: root.chipR
+                                onGreen: root.onGreen
+                                offRed: root.offRed
+                                optFieldBg: root.optFieldBg
+                                optFieldBgFocus: root.optFieldBgFocus
+                                bodyScrollBarW: root.bodyScrollBarW
+                                bodyScrollGutter: root.bodyScrollGutter
+                                entryFont: root.entryFont()
+                                entryMonoFont: root.entryMonoFont()
+                                desktopAppsQuery: root.desktopAppsQuery
+                                scheduleSearch: function(text) { root.scheduleDesktopSearch(text) }
+                                filteredApps: function() { return root.filteredDesktopApps() }
+                                appsTruncated: function() { return root.desktopAppsTruncated() }
+                                onMenuBumped: root.menuTick++
+                                onRepositionRequested: root.scheduleReposition()
                             }
 
                             // ===== OPTIONS (behavior prefs — not layout) =====
@@ -14424,7 +13699,7 @@ Item {
                                 if (modelData.id === "launch")
                                     root.refreshDesktopApps()
                                 if (modelData.id === "autostart") {
-                                    root.refreshAutostart()
+                                    autostartTab.refresh()
                                     root.refreshDesktopApps()
                                 }
                                 if (modelData.id === "options")

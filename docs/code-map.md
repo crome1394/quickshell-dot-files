@@ -45,7 +45,7 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 | `options` | Options | Sub-tabs from `optionsTabModel`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
 | `launch` | App Launcher | Shown only when the Quick Launch widget is on. |
-| `autostart` | Autostart | |
+| `autostart` | Autostart | `AutostartTab.qml`. Entry rows are `AutostartEntryRow.qml`. Picker rows are `AutostartAppRow.qml`. The installed-app list and the 280 ms search timer stay in this panel. |
 | `mime` | MIME | |
 | `services` | Services | |
 | `audio` | Audio | Shown only when the Audio widget is on. |
