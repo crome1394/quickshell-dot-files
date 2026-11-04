@@ -7,6 +7,7 @@ Personal [Hyprland](https://hyprland.org) bar + floating Config Inspector ([Quic
 | `shell.qml` | Bar entry |
 | `Config.qml` | Theme, fonts, defaults |
 | `widgets/` | Pills, control strip, inspector |
+| `widgets/settings/` | Settings window. Widgets page is `WidgetsTab.qml`. Display page is `DisplayTab.qml` (`DisplayMenuRow.qml` is the menu row, `DisplayModeChip.qml` is one resolution chip, `DisplayModeGroup.qml` is a refresh-rate group of those chips). Region & Clock page is `ClockTab.qml` (`ClockPresetRow.qml` is one format preset, `ClockFontRow.qml` is one clock-font face). Wallpaper page is `WallpaperTab.qml` (`WallpaperThumb.qml` is one wallpaper tile). App Launcher page is `LaunchTab.qml` (`LaunchPinRow.qml` is one pinned entry, `LaunchAppRow.qml` is one installed app). Autostart page is `AutostartTab.qml` (`AutostartEntryRow.qml` is one login entry, `AutostartAppRow.qml` is one installed app). Options overview sub-tab is `OverviewOptionsTab.qml` |
 | `scripts/` | Pollers and helpers. `window-at-point.sh` is a manual helper and is not called by the bar. |
 | `docs/` | Full guides |
 | `state/` | Runtime prefs (gitignored) |

@@ -29,7 +29,7 @@ Windows and hosts:
 | `Overview` id `overviewLayer` | Comment: "Fullscreen workspace overview". |
 | `ShellIpc` | Comment: "Shell and overview IPC live in components/ShellIpc.qml." |
 
-## widgets/SettingsPanel.qml
+## widgets/settings/SettingsPanel.qml
 
 Header: "Settings window". Right-click on blank main-bar chrome or the gear pill opens it. One `FloatingWindow` titled "Settings", an expandable panel on top, toolbar along the bottom. Window height follows the content.
 
@@ -39,18 +39,18 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 
 | id | Label | Notes |
 |----|-------|-------|
-| `display` | Display | |
-| `wallpaper` | Wallpaper | Rename, delete, and drag-drop live in this panel. |
-| `widgets` | Widgets | `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
-| `options` | Options | Sub-tabs from `optionsTabModel`. |
+| `display` | Display | `DisplayTab.qml`. `DisplayMenuRow.qml` is the menu row. `DisplayModeChip.qml` is one resolution chip. `DisplayModeGroup.qml` is a refresh-rate group of those chips. |
+| `wallpaper` | Wallpaper | `WallpaperTab.qml`. Thumbs are `WallpaperThumb.qml`. Rename, delete, and the drop scrim stay in this panel. |
+| `widgets` | Widgets | `WidgetsTab.qml`. `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
+| `options` | Options | Sub-tabs from `optionsTabModel`. The Overview sub-tab is `OverviewOptionsTab.qml`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
-| `launch` | App Launcher | Shown only when the Quick Launch widget is on. |
-| `autostart` | Autostart | |
+| `launch` | App Launcher | `LaunchTab.qml`. Pin rows are `LaunchPinRow.qml`. Picker rows are `LaunchAppRow.qml`. Shown only when the Quick Launch widget is on. The installed-app list and the 280 ms search timer stay in this panel. |
+| `autostart` | Autostart | `AutostartTab.qml`. Entry rows are `AutostartEntryRow.qml`. Picker rows are `AutostartAppRow.qml`. The installed-app list and the 280 ms search timer stay in this panel. |
 | `mime` | MIME | |
 | `services` | Services | |
 | `audio` | Audio | Shown only when the Audio widget is on. |
 | `keybinds` | Keybinds | |
-| `clock` | Region & Clock | Tabs are region and clock. If the Clock widget is off, the clock tab falls back to region. |
+| `clock` | Region & Clock | `ClockTab.qml`. Preset rows are `ClockPresetRow.qml`. Font rows are `ClockFontRow.qml`. If the Clock widget is off, the clock tab falls back to region. |
 
 `toggleMenu("position")` opens Options on the Bar tab. It is not its own page.
 

@@ -99,6 +99,7 @@ import Quickshell.Io as Io
 import "components"
 import "widgets"
 import "widgets/network"   // NetworkPill, NetworkPopup, NetworkService
+import "widgets/settings"  // SettingsPanel, OverviewOptionsTab
 
 ShellRoot {
     id: root

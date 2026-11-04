@@ -66,4 +66,4 @@ The strip sits on the **Top**, **Bottom**, **Left**, or **Right** edge. Top or b
 
 Options → **Overview** is two columns for **Workspace strip**, **Previews**, **Workspaces**, and **Input**. **Layout** and **Motion** sit full width. The first change writes `state/bar-layout.json` (`hasOverviewPrefs` and the `ov*` keys). Until then the defaults in `shell.qml` apply. Colors follow the bar theme. There is no IPC setter for these options. `bar.setOverview(key, value)` is what the Options form calls.
 
-Files: `widgets/Overview.qml`, `widgets/OverviewOptionsTab.qml`. Wired from `shell.qml`.
+Files: `widgets/Overview.qml`, `widgets/settings/OverviewOptionsTab.qml`. Wired from `shell.qml`.

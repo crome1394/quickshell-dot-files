@@ -1,6 +1,6 @@
 <!-- Extracted from README for reference. See ../README.md for overview. -->
 
-# Settings (`SettingsPanel.qml`)
+# Settings (`widgets/settings/SettingsPanel.qml`)
 
 Open via the **Config Menu Icon** gear or **right-click empty bar chrome**. Closing Settings with **Super+C** or Hyprland’s window ✕ used to leave it unable to open again; the gear icon clears that and maps the window. The in-panel ✕ and Esc still close it. It is a movable Hyprland window (title **Settings**); it opens on **Position**. Drag the top strip; close with **✕** or Esc. The tab bar stays at the **bottom** of the window. Each tab fills the window; footer actions (Refresh, Apply, Reset, …) sit **bottom-right**. Numeric sliders are track + **‹ ›** + a typed field. Hyprland window rule should match `title = "^(Settings)$"` and `class = ^(org.quickshell)$`; size and placement are compositor-owned.
 
@@ -340,3 +340,7 @@ Browse and lightly edit Hyprland binds without opening the full Inspector. Sourc
 - Loop / dynamic keys (e.g. workspace `for` loop with `.. key`) are listed as **read-only**
 - Scripts: `scripts/keybinds-list-json.sh`, `scripts/keybinds-set.sh`
 - **Save** writes the file in place (timestamped `.bak.*` backup first). **Reload Hypr** runs `hyprctl reload` when you want the change live
+
+## Later bug fixes
+
+- Settings → Widgets, click **Add |** (divider), then remove that divider. A divider then shows on the bar just before the App menu, and it disappears after **Reset layout**.

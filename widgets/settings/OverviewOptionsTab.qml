@@ -1,7 +1,7 @@
 // Settings → Options → Overview. Writes through bar.setOverview into bar-layout.json.
 import QtQuick
 import QtQuick.Layouts
-import "../components"
+import "../../components"
 
 ColumnLayout {
     id: root
