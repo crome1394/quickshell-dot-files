@@ -44,7 +44,7 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 | `widgets` | Widgets | `WidgetsTab.qml`. `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
 | `options` | Options | Sub-tabs from `optionsTabModel`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
-| `launch` | App Launcher | Shown only when the Quick Launch widget is on. |
+| `launch` | App Launcher | `LaunchTab.qml`. Pin rows are `LaunchPinRow.qml`. Picker rows are `LaunchAppRow.qml`. Shown only when the Quick Launch widget is on. The installed-app list and the 280 ms search timer stay in this panel. |
 | `autostart` | Autostart | `AutostartTab.qml`. Entry rows are `AutostartEntryRow.qml`. Picker rows are `AutostartAppRow.qml`. The installed-app list and the 280 ms search timer stay in this panel. |
 | `mime` | MIME | |
 | `services` | Services | |

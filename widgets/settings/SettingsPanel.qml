@@ -140,9 +140,6 @@ Item {
     property var desktopApps: []
     property string desktopAppsQuery: ""
     property bool desktopAppsLoading: false
-    property string customName: ""
-    property string customCommand: ""
-    property string customIcon: ""
 
     // Wallpaper panel
     readonly property int wallpaperTilePref: {
@@ -381,7 +378,11 @@ Item {
             if (typeof autostartTab !== "undefined" && autostartTab)
                 autostartTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [launchBodyFlick, optionsBodyFlick]
+        try {
+            if (typeof launchTab !== "undefined" && launchTab)
+                launchTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [optionsBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -631,7 +632,11 @@ Item {
             if (typeof autostartTab !== "undefined" && autostartTab)
                 autostartTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [launchBodyFlick, optionsBodyFlick, themesBodyFlick]
+        try {
+            if (typeof launchTab !== "undefined" && launchTab)
+                launchTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [optionsBodyFlick, themesBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -2395,38 +2400,6 @@ Item {
         Qt.callLater(reposition)
     }
 
-    function quickLaunchEntries() {
-        void root.menuTick
-        const apps = bar.quickLaunchApps || []
-        const out = []
-        for (let i = 0; i < apps.length; i++) {
-            const e = apps[i]
-            out.push({
-                index: i,
-                icon: e.icon || "",
-                glyph: e.glyph || "",
-                tooltip: e.tooltip || "",
-                command: e.command,
-                commandText: root.commandToText(e.command)
-            })
-        }
-        return out
-    }
-
-    function commandToText(cmd) {
-        if (cmd === undefined || cmd === null)
-            return ""
-        if (typeof cmd === "string")
-            return cmd
-        const parts = []
-        const len = cmd.length
-        if (len === undefined)
-            return String(cmd)
-        for (let i = 0; i < len; i++)
-            parts.push(String(cmd[i]))
-        return parts.join(" ")
-    }
-
     function refreshDesktopApps() {
         if (desktopAppsProcess.running)
             return
@@ -2445,56 +2418,6 @@ Item {
     function scheduleDesktopSearch(text) {
         root.desktopAppsQuery = text
         desktopSearchDebounce.restart()
-    }
-
-    function addDesktopApp(app) {
-        if (!app)
-            return
-        const entry = {
-            icon: app.icon || "",
-            glyph: "",
-            command: app.command || ["gtk-launch", String(app.id || "").replace(/\.desktop$/, "")],
-            tooltip: app.name || app.tooltip || ""
-        }
-        if (typeof bar.addQuickLaunchApp === "function")
-            bar.addQuickLaunchApp(entry)
-        root.menuTick++
-        Qt.callLater(reposition)
-    }
-
-    function addCustomApp() {
-        const name = String(root.customName || "").trim()
-        const cmd = String(root.customCommand || "").trim()
-        const icon = String(root.customIcon || "").trim()
-        if (!cmd.length)
-            return
-        const entry = {
-            icon: icon,
-            glyph: icon.length ? "" : "󰣆",
-            command: cmd,
-            tooltip: name || cmd
-        }
-        if (typeof bar.addQuickLaunchApp === "function")
-            bar.addQuickLaunchApp(entry)
-        root.customName = ""
-        root.customCommand = ""
-        root.customIcon = ""
-        root.menuTick++
-        Qt.callLater(reposition)
-    }
-
-    function removeLaunchApp(index) {
-        if (typeof bar.removeQuickLaunchApp === "function")
-            bar.removeQuickLaunchApp(index)
-        root.menuTick++
-        Qt.callLater(reposition)
-    }
-
-    function moveLaunchApp(index, delta) {
-        if (typeof bar.moveQuickLaunchApp === "function")
-            bar.moveQuickLaunchApp(index, delta)
-        root.menuTick++
-        Qt.callLater(reposition)
     }
 
     function filteredDesktopApps() {
@@ -3135,457 +3058,25 @@ Item {
                             }
 
                             // ===== QUICK LAUNCH =====
-                            ColumnLayout {
+                            LaunchTab {
+                                id: launchTab
                                 visible: root.activeMenu === "launch" && root.widgetShown("quickLaunch")
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 6
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: "Application Launcher"
-                                        color: bar.text
-                                        font.pixelSize: bar.popupTitleSize
-                                        font.bold: true
-                                        font.family: bar.fontFamily
-                                    }
-                                }
-                                Text {
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WordWrap
-                                    text: "Pinned icons on the bar · ✕ remove · ↑↓ reorder · add from installed apps or custom"
-                                    color: bar.subtext
-                                    font.pixelSize: bar.popupHintSize
-                                    font.family: bar.fontFamily
-                                }
-
-                                Flickable {
-                                    id: launchBodyFlick
-                                    Layout.fillWidth: true
-                                    Layout.fillHeight: true
-                                    clip: true
-                                    boundsBehavior: Flickable.StopAtBounds
-                                    flickableDirection: Flickable.VerticalFlick
-                                    contentWidth: width
-                                    contentHeight: launchBodyCol.implicitHeight
-                                    interactive: contentHeight > height + 4
-                                    ScrollBar.vertical: ScrollBar {
-                                        policy: launchBodyFlick.contentHeight > launchBodyFlick.height + 4
-                                                ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                        width: root.bodyScrollBarW
-                                        padding: 2
-                                        contentItem: Rectangle {
-                                            implicitWidth: 6
-                                            radius: 3
-                                            color: bar.accent
-                                            opacity: 0.5
-                                        }
-                                        background: Rectangle {
-                                            implicitWidth: root.bodyScrollBarW
-                                            radius: 4
-                                            color: Qt.rgba(1, 1, 1, 0.06)
-                                        }
-                                    }
-                                    ColumnLayout {
-                                        id: launchBodyCol
-                                        width: Math.max(1, launchBodyFlick.width - root.bodyScrollGutter)
-                                        spacing: 6
-
-                                // Current pins
-                                Repeater {
-                                    model: root.quickLaunchEntries()
-                                    delegate: Rectangle {
-                                        id: launchRow
-                                        required property var modelData
-                                        readonly property int appIndex: modelData.index
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 40
-                                        radius: root.chipR
-                                        color: Qt.rgba(0.10, 0.10, 0.12, 0.55)
-                                        border.width: bar.controlBorderWidth
-                                        border.color: bar.dividerStrong
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 6
-                                            spacing: 6
-
-                                            // Remove
-                                            Rectangle {
-                                                Layout.preferredWidth: 28
-                                                Layout.preferredHeight: 26
-                                                radius: 4
-                                                color: rmMa.containsMouse ? Qt.rgba(0.97, 0.44, 0.44, 0.18) : "transparent"
-                                                border.width: 1
-                                                border.color: root.offRed
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "✕"
-                                                    color: root.offRed
-                                                    font.pixelSize: 13
-                                                    font.bold: true
-                                                }
-                                                MouseArea {
-                                                    id: rmMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.removeLaunchApp(launchRow.appIndex)
-                                                    ToolTip.visible: containsMouse
-                                                    ToolTip.delay: bar.tooltipDelay
-                                                    ToolTip.text: "Remove"
-                                                }
-                                            }
-
-                                            Image {
-                                                visible: (modelData.icon || "").length > 0
-                                                Layout.preferredWidth: 22
-                                                Layout.preferredHeight: 22
-                                                source: modelData.icon || ""
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                                mipmap: true
-                                            }
-                                            Text {
-                                                visible: !(modelData.icon || "").length
-                                                Layout.preferredWidth: 22
-                                                horizontalAlignment: Text.AlignHCenter
-                                                text: modelData.glyph || "󰣆"
-                                                font.pixelSize: 16
-                                                font.family: bar.fontFamily
-                                                color: bar.subtext
-                                            }
-
-                                            ColumnLayout {
-                                                Layout.fillWidth: true
-                                                spacing: 0
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    elide: Text.ElideRight
-                                                    text: modelData.tooltip || "(unnamed)"
-                                                    color: bar.text
-                                                    font.pixelSize: 12
-                                                    font.family: bar.fontFamily
-                                                }
-                                                Text {
-                                                    Layout.fillWidth: true
-                                                    elide: Text.ElideRight
-                                                    text: modelData.commandText
-                                                    color: bar.subtext
-                                                    font.pixelSize: 10
-                                                    font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                                }
-                                            }
-
-                                            Rectangle {
-                                                Layout.preferredWidth: 24
-                                                Layout.preferredHeight: 24
-                                                radius: 4
-                                                color: upLMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: bar.pillBorder
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "↑"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 12
-                                                }
-                                                MouseArea {
-                                                    id: upLMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.moveLaunchApp(launchRow.appIndex, -1)
-                                                }
-                                            }
-                                            Rectangle {
-                                                Layout.preferredWidth: 24
-                                                Layout.preferredHeight: 24
-                                                radius: 4
-                                                color: dnLMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                                border.width: 1
-                                                border.color: bar.pillBorder
-                                                Text {
-                                                    anchors.centerIn: parent
-                                                    text: "↓"
-                                                    color: bar.subtext
-                                                    font.pixelSize: 12
-                                                }
-                                                MouseArea {
-                                                    id: dnLMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: root.moveLaunchApp(launchRow.appIndex, 1)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Add from installed apps
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 1
-                                    color: bar.dividerStrong
-                                }
-                                Text {
-                                    text: "Add installed app"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    TextField {
-                                        topPadding: 1
-                                        bottomPadding: 1
-                                        verticalAlignment: Text.AlignVCenter
-                                        id: appSearchField
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 30
-                                        placeholderText: "Search apps…"
-                                        color: bar.text
-                                        placeholderTextColor: bar.subtext
-                                        font.pixelSize: 14
-                                        font.family: root.entryFont()
-                                        background: Rectangle {
-                                            radius: root.chipR
-                                            color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                            border.width: 1
-                                            border.color: appSearchField.activeFocus ? bar.accent : bar.pillBorder
-                                        }
-                                        onPressed: root.armControlFocusGrab()
-                                        onActiveFocusChanged: if (activeFocus) root.armControlFocusGrab()
-                                        onTextChanged: {
-                                            root.desktopAppsQuery = text
-                                            desktopSearchDebounce.restart()
-                                        }
-                                    }
-                                    Rectangle {
-                                        Layout.preferredHeight: 30
-                                        Layout.preferredWidth: searchBtnLbl.implicitWidth + 14
-                                        radius: root.chipR
-                                        color: searchBtnMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: searchBtnLbl
-                                            anchors.centerIn: parent
-                                            text: root.desktopAppsLoading ? "…" : "Search"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: searchBtnMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.refreshDesktopApps()
-                                        }
-                                    }
-                                }
-
-                                Repeater {
-                                    model: root.filteredDesktopApps()
-                                    delegate: Rectangle {
-                                        required property var modelData
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: 34
-                                        radius: root.chipR
-                                        color: addAppMa.containsMouse ? bar.popupButtonHoverBg : Qt.rgba(0.10, 0.10, 0.12, 0.45)
-                                        border.width: 1
-                                        border.color: bar.dividerStrong
-
-                                        RowLayout {
-                                            anchors.fill: parent
-                                            anchors.leftMargin: 8
-                                            anchors.rightMargin: 8
-                                            spacing: 8
-                                            Image {
-                                                visible: (modelData.icon || "").length > 0
-                                                Layout.preferredWidth: 20
-                                                Layout.preferredHeight: 20
-                                                source: modelData.icon || ""
-                                                fillMode: Image.PreserveAspectFit
-                                                smooth: true
-                                            }
-                                            Text {
-                                                visible: !(modelData.icon || "").length
-                                                text: "󰣆"
-                                                font.pixelSize: 14
-                                                font.family: bar.fontFamily
-                                                color: bar.subtext
-                                            }
-                                            Text {
-                                                Layout.fillWidth: true
-                                                elide: Text.ElideRight
-                                                text: modelData.name || modelData.id
-                                                color: bar.text
-                                                font.pixelSize: 12
-                                                font.family: bar.fontFamily
-                                            }
-                                            Text {
-                                                text: "+"
-                                                color: root.onGreen
-                                                font.pixelSize: 16
-                                                font.bold: true
-                                            }
-                                        }
-                                        MouseArea {
-                                            id: addAppMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.addDesktopApp(modelData)
-                                            ToolTip.visible: containsMouse
-                                            ToolTip.delay: bar.tooltipDelay
-                                            ToolTip.text: "Add " + (modelData.name || "")
-                                        }
-                                    }
-                                }
-
-                                // Custom add
-                                Rectangle {
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 1
-                                    color: bar.dividerStrong
-                                }
-                                Text {
-                                    text: "Add custom"
-                                    color: bar.text
-                                    font.pixelSize: 12
-                                    font.bold: true
-                                    font.family: bar.fontFamily
-                                }
-                                TextField {
-                                    font.family: root.entryFont()
-                                    topPadding: 1
-                                    bottomPadding: 1
-                                    verticalAlignment: Text.AlignVCenter
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 28
-                                    placeholderText: "Name (tooltip)"
-                                    color: bar.text
-                                    placeholderTextColor: bar.subtext
-                                    font.pixelSize: 14
-                                    text: root.customName
-                                    onTextChanged: root.customName = text
-                                    background: Rectangle {
-                                        radius: root.chipR
-                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                    }
-                                }
-                                TextField {
-                                    font.family: root.entryFont()
-                                    topPadding: 1
-                                    bottomPadding: 1
-                                    verticalAlignment: Text.AlignVCenter
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 28
-                                    placeholderText: "Command (e.g. gtk-launch firefox or /usr/bin/app)"
-                                    color: bar.text
-                                    placeholderTextColor: bar.subtext
-                                    font.pixelSize: 14
-                                    text: root.customCommand
-                                    onTextChanged: root.customCommand = text
-                                    background: Rectangle {
-                                        radius: root.chipR
-                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                    }
-                                }
-                                TextField {
-                                    font.family: root.entryFont()
-                                    topPadding: 1
-                                    bottomPadding: 1
-                                    verticalAlignment: Text.AlignVCenter
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 28
-                                    placeholderText: "Icon path (optional, e.g. /home/…/icons/app.svg)"
-                                    color: bar.text
-                                    placeholderTextColor: bar.subtext
-                                    font.pixelSize: 14
-                                    text: root.customIcon
-                                    onTextChanged: root.customIcon = text
-                                    background: Rectangle {
-                                        radius: root.chipR
-                                        color: parent.activeFocus ? root.optFieldBgFocus : root.optFieldBg
-                                        border.width: 1
-                                        border.color: bar.pillBorder
-                                    }
-                                }
-                                Rectangle {
-                                    Layout.preferredHeight: 32
-                                    Layout.preferredWidth: addCustomLbl.implicitWidth + 18
-                                    radius: root.chipR
-                                    color: addCustomMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                    border.width: 1
-                                    border.color: addCustomMa.containsMouse ? bar.accent : bar.pillBorder
-                                    opacity: root.customCommand.trim().length ? 1 : 0.5
-                                    Text {
-                                        id: addCustomLbl
-                                        anchors.centerIn: parent
-                                        text: "Add custom app"
-                                        color: addCustomMa.containsMouse ? bar.accent : bar.subtext
-                                        font.pixelSize: 12
-                                        font.family: bar.fontFamily
-                                    }
-                                    MouseArea {
-                                        id: addCustomMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        enabled: root.customCommand.trim().length > 0
-                                        onClicked: root.addCustomApp()
-                                    }
-                                }
-
-                                    } // launchBodyCol
-                                } // launchBodyFlick
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 6
-                                    Item { Layout.fillWidth: true }
-                                    Rectangle {
-                                        Layout.preferredHeight: 24
-                                        Layout.preferredWidth: resetLaunchLbl.implicitWidth + 12
-                                        radius: root.chipR
-                                        color: resetLaunchMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                        border.width: bar.controlBorderWidth
-                                        border.color: bar.pillBorder
-                                        Text {
-                                            id: resetLaunchLbl
-                                            anchors.centerIn: parent
-                                            text: "Reset"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        MouseArea {
-                                            id: resetLaunchMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (typeof bar.resetQuickLaunchApps === "function")
-                                                    bar.resetQuickLaunchApps()
-                                                root.menuTick++
-                                                Qt.callLater(root.reposition)
-                                            }
-                                        }
-                                    }
-                                }
+                                bar: root.bar
+                                menuTick: root.menuTick
+                                chipR: root.chipR
+                                onGreen: root.onGreen
+                                offRed: root.offRed
+                                optFieldBg: root.optFieldBg
+                                optFieldBgFocus: root.optFieldBgFocus
+                                bodyScrollBarW: root.bodyScrollBarW
+                                bodyScrollGutter: root.bodyScrollGutter
+                                entryFont: root.entryFont()
+                                desktopAppsQuery: root.desktopAppsQuery
+                                desktopAppsLoading: root.desktopAppsLoading
+                                scheduleSearch: function(text) { root.scheduleDesktopSearch(text) }
+                                refreshApps: function() { root.refreshDesktopApps() }
+                                filteredApps: function() { return root.filteredDesktopApps() }
+                                onMenuBumped: root.menuTick++
                             }
 
                             // ===== AUTOSTART (XDG) =====
