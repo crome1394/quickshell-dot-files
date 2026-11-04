@@ -41,7 +41,7 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 |----|-------|-------|
 | `display` | Display | |
 | `wallpaper` | Wallpaper | Rename, delete, and drag-drop live in this panel. |
-| `widgets` | Widgets | `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
+| `widgets` | Widgets | `WidgetsTab.qml`. `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
 | `options` | Options | Sub-tabs from `optionsTabModel`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
 | `launch` | App Launcher | Shown only when the Quick Launch widget is on. |
