@@ -39,10 +39,10 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 
 | id | Label | Notes |
 |----|-------|-------|
-| `display` | Display | `DisplayTab.qml`. Menus are `DisplayMenuRow.qml`, `DisplayModeGroup.qml`, and `DisplayModeChip.qml`. |
+| `display` | Display | `DisplayTab.qml`. `DisplayMenuRow.qml` is the menu row. `DisplayModeChip.qml` is one resolution chip. `DisplayModeGroup.qml` is a refresh-rate group of those chips. |
 | `wallpaper` | Wallpaper | `WallpaperTab.qml`. Thumbs are `WallpaperThumb.qml`. Rename, delete, and the drop scrim stay in this panel. |
 | `widgets` | Widgets | `WidgetsTab.qml`. `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
-| `options` | Options | Sub-tabs from `optionsTabModel`. |
+| `options` | Options | Sub-tabs from `optionsTabModel`. The Overview sub-tab is `OverviewOptionsTab.qml`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
 | `launch` | App Launcher | `LaunchTab.qml`. Pin rows are `LaunchPinRow.qml`. Picker rows are `LaunchAppRow.qml`. Shown only when the Quick Launch widget is on. The installed-app list and the 280 ms search timer stay in this panel. |
 | `autostart` | Autostart | `AutostartTab.qml`. Entry rows are `AutostartEntryRow.qml`. Picker rows are `AutostartAppRow.qml`. The installed-app list and the 280 ms search timer stay in this panel. |
