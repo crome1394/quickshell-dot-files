@@ -145,19 +145,6 @@ Item {
     property string customIcon: ""
 
     // Wallpaper panel
-    property var wallpaperImages: []
-    property string wallpaperDirDisplay: ""
-    property bool wallpaperLoading: false
-    property string wallpaperBusyPath: ""
-    property string wallpaperStatus: ""
-    property string wallpaperMenuPath: ""
-    property string wallpaperMenuName: ""
-    property real wallpaperMenuX: 0
-    property real wallpaperMenuY: 0
-    property string wallpaperDialog: ""      // "" | "rename" | "delete"
-    property string wallpaperDialogPath: ""
-    property string wallpaperDialogName: ""
-    property string wallpaperRenameDraft: ""
     readonly property int wallpaperTilePref: {
         void root.menuTick
         const n = (bar && bar.wallpaperTileSize !== undefined) ? Number(bar.wallpaperTileSize) : 148
@@ -393,7 +380,11 @@ Item {
             if (typeof displayTab !== "undefined" && displayTab)
                 displayTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [wpBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick]
+        try {
+            if (typeof wallpaperTab !== "undefined" && wallpaperTab)
+                wallpaperTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [launchBodyFlick, autostartBodyFlick, optionsBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -471,7 +462,7 @@ Item {
         // itself open for that drop.
         if (typeof wpDropArea !== "undefined" && wpDropArea && wpDropArea.containsDrag)
             return
-        root.closeWallpaperUi()
+        wallpaperTab.closeWallpaperUi()
         root.activeMenu = ""
         if (!controlPopup.visible)
             return
@@ -635,7 +626,11 @@ Item {
             if (typeof clockTab !== "undefined" && clockTab)
                 clockTab.resetInnerScroll()
         } catch (e) {}
-        const inner = [wpBodyFlick, launchBodyFlick, autostartBodyFlick, optionsBodyFlick, themesBodyFlick]
+        try {
+            if (typeof wallpaperTab !== "undefined" && wallpaperTab)
+                wallpaperTab.resetInnerScroll()
+        } catch (e) {}
+        const inner = [launchBodyFlick, autostartBodyFlick, optionsBodyFlick, themesBodyFlick]
         for (let i = 0; i < inner.length; i++) {
             try {
                 if (inner[i])
@@ -652,7 +647,7 @@ Item {
             name = "options"
             root.setOptionsTab("bar")
         }
-        root.closeWallpaperUi()
+        wallpaperTab.closeWallpaperUi()
         if (root.activeMenu === name)
             root.activeMenu = ""
         else
@@ -2519,75 +2514,6 @@ Item {
         return list.length > shown
     }
 
-    function wallpaperDir() {
-        void root.menuTick
-        if (bar.wallpaperDir && String(bar.wallpaperDir).length)
-            return String(bar.wallpaperDir)
-        return (Quickshell.env("HOME") + "/Pictures/wallpapers")
-    }
-
-    function wallpaperCurrent() {
-        void root.menuTick
-        return (bar.wallpaperCurrent && String(bar.wallpaperCurrent).length)
-            ? String(bar.wallpaperCurrent)
-            : ""
-    }
-
-    function refreshWallpapers() {
-        if (wallpaperListProcess.running)
-            return
-        root.wallpaperLoading = true
-        root.wallpaperStatus = "Loading…"
-        const script = bar.wallpaperListScript || ""
-        if (!script.length) {
-            root.wallpaperLoading = false
-            root.wallpaperStatus = "list script missing"
-            return
-        }
-        wallpaperListProcess.exec([script, root.wallpaperDir()])
-    }
-
-    function applyWallpaper(path) {
-        if (!path || !String(path).length)
-            return
-        root.wallpaperBusyPath = String(path)
-        root.wallpaperStatus = "Applying…"
-        if (typeof bar.applyWallpaper === "function")
-            bar.applyWallpaper(path)
-        else {
-            const script = bar.wallpaperApplyScript || ""
-            const mon = bar.wallpaperMonitor || ""
-            if (script.length)
-                Quickshell.execDetached([script, path, mon])
-        }
-        wallpaperApplySettle.restart()
-        root.menuTick++
-    }
-
-    function pickWallpaperDir() {
-        const script = bar.wallpaperPickDirScript || ""
-        if (!script.length || wallpaperPickDirProcess.running)
-            return
-        root.wallpaperStatus = "Pick a folder…"
-        wallpaperPickDirProcess.exec([script, root.wallpaperDir()])
-    }
-
-    function addWallpapers() {
-        const script = bar.wallpaperAddScript || ""
-        if (!script.length || wallpaperAddProcess.running)
-            return
-        root.wallpaperStatus = "Choose images to add…"
-        wallpaperAddProcess.exec([script, root.wallpaperDir()])
-    }
-
-    function closeWallpaperUi() {
-        root.wallpaperMenuPath = ""
-        root.wallpaperMenuName = ""
-        root.wallpaperDialog = ""
-        root.wallpaperDialogPath = ""
-        root.wallpaperDialogName = ""
-        root.wallpaperRenameDraft = ""
-    }
 
     // HyprlandFocusGrab is dismissed by any outside press — including the start
     // of a file-manager drag. Close is the panel ✕ / Esc / tab; keep the grab
@@ -2601,120 +2527,6 @@ Item {
     function armControlFocusGrab() {}
     function onControlGrabCleared() {}
 
-    function fileUrlToPath(url) {
-        let s = String(url || "")
-        if (!s.length)
-            return ""
-        if (s.startsWith("file://")) {
-            s = s.slice(7)
-            if (s.startsWith("localhost/"))
-                s = s.slice(9)
-            else if (s.startsWith("//")) {
-                const slash = s.indexOf("/", 2)
-                s = slash >= 0 ? s.slice(slash) : s
-            }
-            try {
-                s = decodeURIComponent(s)
-            } catch (e) {}
-        }
-        return s
-    }
-
-    function addDroppedWallpapers(urls) {
-        const files = []
-        const list = urls || []
-        for (let i = 0; i < list.length; i++) {
-            const p = root.fileUrlToPath(list[i])
-            if (p.length)
-                files.push(p)
-        }
-        if (!files.length) {
-            root.wallpaperStatus = "No files in drop"
-            return
-        }
-        const script = bar.wallpaperAddScript || ""
-        if (!script.length || wallpaperAddProcess.running)
-            return
-        root.wallpaperStatus = "Adding " + files.length + " item(s)…"
-        wallpaperAddProcess.exec([script, root.wallpaperDir()].concat(files))
-    }
-
-    function openWallpaperItemMenu(path, name, x, y) {
-        root.wallpaperDialog = ""
-        root.wallpaperMenuPath = String(path || "")
-        root.wallpaperMenuName = String(name || "")
-        const mw = 156
-        const mh = 118
-        let px = Number(x) || 0
-        let py = Number(y) || 0
-        try {
-            if (typeof panelBox !== "undefined" && panelBox) {
-                px = Math.max(6, Math.min(px, panelBox.width - mw - 6))
-                py = Math.max(6, Math.min(py, panelBox.height - mh - 6))
-            }
-        } catch (e) {}
-        root.wallpaperMenuX = px
-        root.wallpaperMenuY = py
-    }
-
-    function beginRenameWallpaper(path, name) {
-        root.wallpaperMenuPath = ""
-        root.wallpaperMenuName = ""
-        root.wallpaperDialog = "rename"
-        root.wallpaperDialogPath = String(path || "")
-        root.wallpaperDialogName = String(name || "")
-        root.wallpaperRenameDraft = String(name || "")
-        root.armControlFocusGrab()
-    }
-
-    function beginDeleteWallpaper(path, name) {
-        root.wallpaperMenuPath = ""
-        root.wallpaperMenuName = ""
-        root.wallpaperDialog = "delete"
-        root.wallpaperDialogPath = String(path || "")
-        root.wallpaperDialogName = String(name || "")
-    }
-
-    function confirmRenameWallpaper() {
-        const draft = String(root.wallpaperRenameDraft || "").trim()
-        if (!draft.length || !root.wallpaperDialogPath.length)
-            return
-        if (draft === root.wallpaperDialogName) {
-            root.closeWallpaperUi()
-            root.wallpaperStatus = "Name unchanged"
-            return
-        }
-        const script = bar.wallpaperRenameScript || ""
-        if (!script.length || wallpaperRenameProcess.running) {
-            root.wallpaperStatus = script.length ? "Busy…" : "rename script missing"
-            return
-        }
-        root.wallpaperStatus = "Renaming…"
-        wallpaperRenameProcess.exec([script, root.wallpaperDir(), root.wallpaperDialogName, draft])
-    }
-
-    function confirmDeleteWallpaper() {
-        if (!root.wallpaperDialogName.length)
-            return
-        const script = bar.wallpaperDeleteScript || ""
-        if (!script.length || wallpaperDeleteProcess.running) {
-            root.wallpaperStatus = script.length ? "Busy…" : "delete script missing"
-            return
-        }
-        root.wallpaperStatus = "Deleting…"
-        wallpaperDeleteProcess.exec([script, root.wallpaperDir(), root.wallpaperDialogName])
-    }
-
-    function setWallpaperTilePref(n) {
-        if (bar && typeof bar.setWallpaperTileSize === "function")
-            bar.setWallpaperTileSize(n)
-    }
-
-    function openWallpaperDir() {
-        const d = root.wallpaperDir()
-        if (d.length)
-            Quickshell.execDetached(["xdg-open", d])
-    }
 
     function refreshAutostart() {
         if (autostartListProcess.running)
@@ -2881,16 +2693,6 @@ Item {
         onTriggered: root.reposition()
     }
 
-    Timer {
-        id: wallpaperApplySettle
-        interval: 400
-        repeat: false
-        onTriggered: {
-            root.wallpaperBusyPath = ""
-            root.wallpaperStatus = "Applied"
-            root.menuTick++
-        }
-    }
 
     // ── Installed terminals (Options → Stats → Terminal picker) ──────────
     Io.Process {
@@ -2944,149 +2746,6 @@ Item {
         }
     }
 
-    Io.Process {
-        id: wallpaperListProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: wallpaperListStdout
-            onStreamFinished: {
-                root.wallpaperLoading = false
-                const text = (wallpaperListStdout.text || "").trim()
-                if (!text.startsWith("{")) {
-                    root.wallpaperImages = []
-                    root.wallpaperStatus = "No images found"
-                    return
-                }
-                try {
-                    const j = JSON.parse(text)
-                    root.wallpaperDirDisplay = j.dir || root.wallpaperDir()
-                    root.wallpaperImages = j.images || []
-                    root.wallpaperStatus = (j.count || 0) + " image(s)"
-                } catch (e) {
-                    root.wallpaperImages = []
-                    root.wallpaperStatus = "Parse error"
-                }
-                root.menuTick++
-                if (controlPopup.visible)
-                    root.scheduleReposition()
-            }
-        }
-        onExited: (code) => {
-            root.wallpaperLoading = false
-            if (code !== 0 && !(wallpaperListStdout.text || "").trim()) {
-                root.wallpaperImages = []
-                root.wallpaperStatus = "Failed to list wallpapers"
-            }
-        }
-    }
-
-    Io.Process {
-        id: wallpaperPickDirProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: wallpaperPickDirStdout
-            onStreamFinished: {
-                const dir = (wallpaperPickDirStdout.text || "").trim()
-                if (!dir.length) {
-                    root.wallpaperStatus = "Directory unchanged"
-                    return
-                }
-                if (typeof bar.setWallpaperDir === "function")
-                    bar.setWallpaperDir(dir)
-                root.wallpaperStatus = "Folder: " + dir
-                root.menuTick++
-                root.refreshWallpapers()
-            }
-        }
-    }
-
-    Io.Process {
-        id: wallpaperAddProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: wallpaperAddStdout
-            onStreamFinished: {
-                const text = (wallpaperAddStdout.text || "").trim()
-                let n = 0
-                let skipped = 0
-                try {
-                    if (text.startsWith("{")) {
-                        const j = JSON.parse(text)
-                        n = j.count || 0
-                        skipped = j.skipped || 0
-                    }
-                } catch (e) {}
-                if (n > 0)
-                    root.wallpaperStatus = "Added " + n + " file(s)" + (skipped ? (" · skipped " + skipped) : "")
-                else
-                    root.wallpaperStatus = skipped ? "No images in drop" : "No files added"
-                root.refreshWallpapers()
-            }
-        }
-    }
-
-    Io.Process {
-        id: wallpaperRenameProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: wallpaperRenameStdout
-            onStreamFinished: {
-                const fromPath = root.wallpaperDialogPath
-                const current = root.wallpaperCurrent()
-                const text = (wallpaperRenameStdout.text || "").trim()
-                root.closeWallpaperUi()
-                try {
-                    const j = JSON.parse(text)
-                    if (j.ok) {
-                        if (!j.unchanged && current && (current === j.from || current === fromPath))
-                            root.applyWallpaper(j.path)
-                        root.wallpaperStatus = j.unchanged ? "Name unchanged" : ("Renamed to " + j.name)
-                        root.refreshWallpapers()
-                    } else {
-                        root.wallpaperStatus = j.error || "Rename failed"
-                    }
-                } catch (e) {
-                    root.wallpaperStatus = "Rename failed"
-                }
-            }
-        }
-        onExited: (code) => {
-            if (code !== 0 && !(wallpaperRenameStdout.text || "").trim())
-                root.wallpaperStatus = "Rename failed"
-        }
-    }
-
-    Io.Process {
-        id: wallpaperDeleteProcess
-        running: false
-        stdout: Io.StdioCollector {
-            id: wallpaperDeleteStdout
-            onStreamFinished: {
-                const deletedPath = root.wallpaperDialogPath
-                const current = root.wallpaperCurrent()
-                const text = (wallpaperDeleteStdout.text || "").trim()
-                root.closeWallpaperUi()
-                try {
-                    const j = JSON.parse(text)
-                    if (j.ok) {
-                        if (current && (current === j.path || current === deletedPath)
-                                && typeof bar.setWallpaperCurrent === "function")
-                            bar.setWallpaperCurrent("")
-                        root.wallpaperStatus = "Deleted " + j.name
-                        root.refreshWallpapers()
-                    } else {
-                        root.wallpaperStatus = j.error || "Delete failed"
-                    }
-                } catch (e) {
-                    root.wallpaperStatus = "Delete failed"
-                }
-            }
-        }
-        onExited: (code) => {
-            if (code !== 0 && !(wallpaperDeleteStdout.text || "").trim())
-                root.wallpaperStatus = "Delete failed"
-        }
-    }
 
     Io.Process {
         id: autostartListProcess
@@ -3541,7 +3200,7 @@ Item {
                             if (root.activeMenu !== "wallpaper")
                                 return
                             if (drop.hasUrls)
-                                root.addDroppedWallpapers(drop.urls)
+                                wallpaperTab.addDroppedWallpapers(drop.urls)
                             drop.accept(Qt.CopyAction)
                             root.armControlFocusGrab()
                         }
@@ -3617,399 +3276,24 @@ Item {
                             }
 
                             // ===== WALLPAPER =====
-                            ColumnLayout {
-                                id: wallpaperPanel
+                            WallpaperTab {
+                                id: wallpaperTab
                                 visible: root.activeMenu === "wallpaper"
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                spacing: 8
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Text {
-                                            Layout.fillWidth: true
-                                            text: "Wallpaper"
-                                            color: bar.text
-                                            font.pixelSize: bar.popupTitleSize
-                                            font.bold: true
-                                            font.family: bar.fontFamily
-                                        }
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        wrapMode: Text.WrapAnywhere
-                                        text: root.wallpaperDirDisplay || root.wallpaperDir()
-                                        color: bar.subtext
-                                        font.pixelSize: bar.popupHintSize
-                                        font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                    }
-                                    Text {
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                        text: root.wallpaperStatus.length
-                                              ? root.wallpaperStatus
-                                              : "Click to apply · Right-click to rename or delete · Drop images to add"
-                                        color: bar.subtext
-                                        font.pixelSize: 11
-                                        font.family: bar.fontFamily
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-
-                                        Rectangle {
-                                            Layout.preferredHeight: 30
-                                            Layout.preferredWidth: changeDirLbl.implicitWidth + 14
-                                            radius: root.chipR
-                                            color: changeDirMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                            border.width: 1
-                                            border.color: changeDirMa.containsMouse ? bar.accent : bar.pillBorder
-                                            Text {
-                                                id: changeDirLbl
-                                                anchors.centerIn: parent
-                                                text: "Change folder…"
-                                                color: changeDirMa.containsMouse ? root.activeLabelColor() : bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: changeDirMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.pickWallpaperDir()
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.preferredHeight: 30
-                                            Layout.preferredWidth: addWpLbl.implicitWidth + 14
-                                            radius: root.chipR
-                                            color: addWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                            border.width: 1
-                                            border.color: addWpMa.containsMouse ? bar.accent : bar.pillBorder
-                                            Text {
-                                                id: addWpLbl
-                                                anchors.centerIn: parent
-                                                text: "Add wallpapers…"
-                                                color: addWpMa.containsMouse ? root.activeLabelColor() : bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: addWpMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.addWallpapers()
-                                            }
-                                        }
-                                        Rectangle {
-                                            Layout.preferredHeight: 30
-                                            Layout.preferredWidth: openWpLbl.implicitWidth + 14
-                                            radius: root.chipR
-                                            color: openWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                            border.width: 1
-                                            border.color: bar.pillBorder
-                                            Text {
-                                                id: openWpLbl
-                                                anchors.centerIn: parent
-                                                text: "Open folder"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: openWpMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.openWallpaperDir()
-                                            }
-                                        }
-                                    }
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 8
-                                        Text {
-                                            text: "Tile size"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontFamily
-                                        }
-                                        OptValueSlider {
-                                            bar: bar
-                                            fieldBg: root.optFieldBg
-                                            fieldBgFocus: root.optFieldBgFocus
-                                            from: 100
-                                            to: 260
-                                            stepSize: 10
-                                            suffix: "px"
-                                            value: root.wallpaperTilePref
-                                            onValueEdited: (v) => root.setWallpaperTilePref(Math.round(v))
-                                            onValueCommitted: (v) => root.setWallpaperTilePref(Math.round(v))
-                                        }
-                                        Text {
-                                            Layout.preferredWidth: 44
-                                            horizontalAlignment: Text.AlignRight
-                                            text: root.wallpaperTilePref + "px"
-                                            color: bar.subtext
-                                            font.pixelSize: 11
-                                            font.family: bar.fontMono !== undefined ? bar.fontMono : bar.fontFamily
-                                        }
-                                    }
-
-                                    Flickable {
-                                        id: wpBodyFlick
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        clip: true
-                                        boundsBehavior: Flickable.StopAtBounds
-                                        flickableDirection: Flickable.VerticalFlick
-                                        contentWidth: width
-                                        contentHeight: wpGridCol.implicitHeight
-                                        interactive: contentHeight > height + 4
-                                        ScrollBar.vertical: ScrollBar {
-                                            policy: wpBodyFlick.contentHeight > wpBodyFlick.height + 4
-                                                    ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
-                                            width: root.bodyScrollBarW
-                                            padding: 2
-                                            contentItem: Rectangle {
-                                                implicitWidth: 6
-                                                radius: 3
-                                                color: bar.accent
-                                                opacity: 0.5
-                                            }
-                                            background: Rectangle {
-                                                implicitWidth: root.bodyScrollBarW
-                                                radius: 4
-                                                color: Qt.rgba(1, 1, 1, 0.06)
-                                            }
-                                        }
-
-                                    ColumnLayout {
-                                        id: wpGridCol
-                                        width: Math.max(1, wpBodyFlick.width - root.bodyScrollGutter)
-                                        spacing: 8
-
-                                    Item {
-                                        id: wpGridHost
-                                        Layout.fillWidth: true
-                                        implicitHeight: wpFlow.implicitHeight
-                                        height: implicitHeight
-
-                                        Flow {
-                                            id: wpFlow
-                                            width: parent.width
-                                            spacing: 8
-                                            readonly property int tileW: {
-                                                const spacing = 8
-                                                const pref = Math.max(80, root.wallpaperTilePref)
-                                                const w = Math.max(pref, width)
-                                                const cols = Math.max(1, Math.floor((w + spacing) / (pref + spacing)))
-                                                return Math.max(80, Math.floor((w - (cols - 1) * spacing) / cols))
-                                            }
-                                            readonly property int tileH: Math.round(tileW * 9 / 16) + 22
-
-                                            Repeater {
-                                                model: root.wallpaperImages
-                                                delegate: Rectangle {
-                                                    required property var modelData
-                                                    readonly property bool isCurrent: root.wallpaperCurrent() === modelData.path
-                                                    readonly property bool isBusy: root.wallpaperBusyPath === modelData.path
-                                                    readonly property bool showActions: thumbMa.containsMouse || wpRenameBtnMa.containsMouse || wpDeleteBtnMa.containsMouse
-                                                    width: wpFlow.tileW
-                                                    height: wpFlow.tileH
-                                                    radius: root.chipR
-                                                    color: Qt.rgba(0.05, 0.07, 0.12, 0.88)
-                                                    border.width: isCurrent || thumbMa.containsMouse ? 2 : 1
-                                                    border.color: isCurrent ? root.onGreen
-                                                                  : (thumbMa.containsMouse ? bar.accent : bar.dividerStrong)
-                                                    clip: true
-
-                                                    Image {
-                                                        id: thumb
-                                                        anchors.fill: parent
-                                                        anchors.margins: 2
-                                                        anchors.bottomMargin: 22
-                                                        source: modelData.url || ("file://" + modelData.path)
-                                                        fillMode: Image.PreserveAspectCrop
-                                                        asynchronous: true
-                                                        cache: true
-                                                        sourceSize.width: Math.max(296, root.wallpaperTilePref * 2)
-                                                        sourceSize.height: Math.max(168, Math.round(root.wallpaperTilePref * 2 * 9 / 16))
-                                                        smooth: true
-                                                        mipmap: true
-                                                    }
-
-                                                    Rectangle {
-                                                        anchors.fill: thumb
-                                                        visible: isBusy
-                                                        color: Qt.rgba(0, 0, 0, 0.45)
-                                                        Text {
-                                                            anchors.centerIn: parent
-                                                            text: "…"
-                                                            color: bar.accent
-                                                            font.pixelSize: 18
-                                                        }
-                                                    }
-
-                                                    Rectangle {
-                                                        anchors.left: parent.left
-                                                        anchors.right: parent.right
-                                                        anchors.bottom: parent.bottom
-                                                        height: 22
-                                                        color: Qt.rgba(0, 0, 0, 0.72)
-                                                        Text {
-                                                            anchors.fill: parent
-                                                            anchors.leftMargin: 6
-                                                            anchors.rightMargin: 6
-                                                            verticalAlignment: Text.AlignVCenter
-                                                            elide: Text.ElideRight
-                                                            text: {
-                                                                const dims = (modelData.width > 0 && modelData.height > 0)
-                                                                    ? (modelData.width + "×" + modelData.height)
-                                                                    : "?"
-                                                                return modelData.name + "  ·  " + dims
-                                                            }
-                                                            color: isCurrent ? root.onGreen : bar.subtext
-                                                            font.pixelSize: 10
-                                                            font.family: bar.fontFamily
-                                                        }
-                                                    }
-
-                                                    MouseArea {
-                                                        id: thumbMa
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                                        cursorShape: Qt.PointingHandCursor
-                                                        onClicked: (mouse) => {
-                                                            if (mouse.button === Qt.RightButton) {
-                                                                const p = mapToItem(panelBox, mouse.x, mouse.y)
-                                                                root.openWallpaperItemMenu(modelData.path, modelData.name, p.x, p.y)
-                                                            } else {
-                                                                root.closeWallpaperUi()
-                                                                root.applyWallpaper(modelData.path)
-                                                            }
-                                                        }
-                                                        ToolTip.visible: containsMouse && !wpRenameBtnMa.containsMouse && !wpDeleteBtnMa.containsMouse
-                                                        ToolTip.delay: bar.tooltipDelay
-                                                        ToolTip.text: {
-                                                            const dims = (modelData.width > 0 && modelData.height > 0)
-                                                                ? (modelData.width + " × " + modelData.height)
-                                                                : "dimensions unknown"
-                                                            return modelData.name + "\n" + dims + "\nClick to apply · Right-click for more"
-                                                        }
-                                                    }
-
-                                                    Row {
-                                                        z: 2
-                                                        visible: showActions
-                                                        anchors.top: parent.top
-                                                        anchors.right: parent.right
-                                                        anchors.margins: 4
-                                                        spacing: 4
-
-                                                        Rectangle {
-                                                            width: 22
-                                                            height: 22
-                                                            radius: 4
-                                                            color: wpRenameBtnMa.containsMouse ? bar.glassHover : Qt.rgba(0, 0, 0, 0.62)
-                                                            border.width: 1
-                                                            border.color: wpRenameBtnMa.containsMouse ? bar.accent : bar.pillBorder
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "✎"
-                                                                color: bar.text
-                                                                font.pixelSize: 11
-                                                            }
-                                                            MouseArea {
-                                                                id: wpRenameBtnMa
-                                                                anchors.fill: parent
-                                                                hoverEnabled: true
-                                                                cursorShape: Qt.PointingHandCursor
-                                                                onClicked: root.beginRenameWallpaper(modelData.path, modelData.name)
-                                                            }
-                                                        }
-                                                        Rectangle {
-                                                            width: 22
-                                                            height: 22
-                                                            radius: 4
-                                                            color: wpDeleteBtnMa.containsMouse ? Qt.rgba(1, 0.24, 0.54, 0.28) : Qt.rgba(0, 0, 0, 0.62)
-                                                            border.width: 1
-                                                            border.color: wpDeleteBtnMa.containsMouse ? root.offRed : bar.pillBorder
-                                                            Text {
-                                                                anchors.centerIn: parent
-                                                                text: "✕"
-                                                                color: wpDeleteBtnMa.containsMouse ? root.offRed : bar.text
-                                                                font.pixelSize: 11
-                                                            }
-                                                            MouseArea {
-                                                                id: wpDeleteBtnMa
-                                                                anchors.fill: parent
-                                                                hoverEnabled: true
-                                                                cursorShape: Qt.PointingHandCursor
-                                                                onClicked: root.beginDeleteWallpaper(modelData.path, modelData.name)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        WheelHandler {
-                                            acceptedModifiers: Qt.ControlModifier
-                                            onWheel: (event) => {
-                                                const d = event.angleDelta.y > 0 ? 10 : -10
-                                                root.setWallpaperTilePref(root.wallpaperTilePref + d)
-                                                event.accepted = true
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        visible: !root.wallpaperLoading && root.wallpaperImages.length === 0
-                                        Layout.fillWidth: true
-                                        wrapMode: Text.WordWrap
-                                        text: "No images in this folder. Use “Add wallpapers…”, change folder, or drop image files here."
-                                        color: bar.subtext
-                                        font.pixelSize: 11
-                                        font.family: bar.fontFamily
-                                    }
-                                    } // wpGridCol
-                                    } // wpBodyFlick
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 6
-                                        Item { Layout.fillWidth: true }
-                                        Rectangle {
-                                            Layout.preferredHeight: 26
-                                            Layout.preferredWidth: refreshWpLbl.implicitWidth + 12
-                                            radius: root.chipR
-                                            color: refreshWpMa.containsMouse ? bar.glassHover : (bar.buttonBg !== undefined ? bar.buttonBg : bar.pillBg)
-                                            border.width: 1
-                                            border.color: bar.pillBorder
-                                            Text {
-                                                id: refreshWpLbl
-                                                anchors.centerIn: parent
-                                                text: root.wallpaperLoading ? "…" : "Refresh"
-                                                color: bar.subtext
-                                                font.pixelSize: 11
-                                                font.family: bar.fontFamily
-                                            }
-                                            MouseArea {
-                                                id: refreshWpMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: root.refreshWallpapers()
-                                            }
-                                        }
-                                    }
+                                bar: root.bar
+                                panel: panelBox
+                                controlPopup: controlPopup
+                                menuTick: root.menuTick
+                                chipR: root.chipR
+                                onGreen: root.onGreen
+                                offRed: root.offRed
+                                optFieldBg: root.optFieldBg
+                                optFieldBgFocus: root.optFieldBgFocus
+                                bodyScrollBarW: root.bodyScrollBarW
+                                bodyScrollGutter: root.bodyScrollGutter
+                                wallpaperTilePref: root.wallpaperTilePref
+                                activeLabel: root.activeLabelColor()
+                                onMenuBumped: root.menuTick++
+                                onRepositionRequested: root.scheduleReposition()
                             }
 
                             // ===== WIDGETS (visibility + zone + order + width scale) =====
@@ -14726,19 +14010,19 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         visible: root.activeMenu === "wallpaper"
-                                 && root.wallpaperMenuPath.length > 0
-                                 && root.wallpaperDialog === ""
+                                 && wallpaperTab.wallpaperMenuPath.length > 0
+                                 && wallpaperTab.wallpaperDialog === ""
                         z: 30
                         hoverEnabled: true
                         acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        onClicked: root.closeWallpaperUi()
+                        onClicked: wallpaperTab.closeWallpaperUi()
                     }
 
                     Rectangle {
-                        visible: root.activeMenu === "wallpaper" && root.wallpaperMenuPath.length > 0
-                                 && root.wallpaperDialog === ""
-                        x: root.wallpaperMenuX
-                        y: root.wallpaperMenuY
+                        visible: root.activeMenu === "wallpaper" && wallpaperTab.wallpaperMenuPath.length > 0
+                                 && wallpaperTab.wallpaperDialog === ""
+                        x: wallpaperTab.wallpaperMenuX
+                        y: wallpaperTab.wallpaperMenuY
                         z: 40
                         width: 156
                         height: wpMenuCol.implicitHeight + 12
@@ -14788,15 +14072,15 @@ Item {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            const p = root.wallpaperMenuPath
-                                            const n = root.wallpaperMenuName
+                                            const p = wallpaperTab.wallpaperMenuPath
+                                            const n = wallpaperTab.wallpaperMenuName
                                             if (modelData.id === "apply") {
-                                                root.closeWallpaperUi()
-                                                root.applyWallpaper(p)
+                                                wallpaperTab.closeWallpaperUi()
+                                                wallpaperTab.applyWallpaper(p)
                                             } else if (modelData.id === "rename") {
-                                                root.beginRenameWallpaper(p, n)
+                                                wallpaperTab.beginRenameWallpaper(p, n)
                                             } else if (modelData.id === "delete") {
-                                                root.beginDeleteWallpaper(p, n)
+                                                wallpaperTab.beginDeleteWallpaper(p, n)
                                             }
                                         }
                                     }
@@ -14807,23 +14091,23 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        visible: root.activeMenu === "wallpaper" && root.wallpaperDialog === "rename"
+                        visible: root.activeMenu === "wallpaper" && wallpaperTab.wallpaperDialog === "rename"
                         z: 50
                         color: Qt.rgba(0, 0, 0, 0.55)
                         radius: panelBox.radius
                         focus: visible
                         onVisibleChanged: {
                             if (visible) {
-                                wpRenameField.text = root.wallpaperRenameDraft
+                                wpRenameField.text = wallpaperTab.wallpaperRenameDraft
                                 wpRenameField.forceActiveFocus()
                                 wpRenameField.selectAll()
                             }
                         }
-                        Keys.onEscapePressed: root.closeWallpaperUi()
+                        Keys.onEscapePressed: wallpaperTab.closeWallpaperUi()
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: root.closeWallpaperUi()
+                            onClicked: wallpaperTab.closeWallpaperUi()
                         }
 
                         Rectangle {
@@ -14871,9 +14155,9 @@ Item {
                                         border.width: 1
                                         border.color: wpRenameField.activeFocus ? bar.accent : bar.pillBorder
                                     }
-                                    onTextEdited: root.wallpaperRenameDraft = text
-                                    onAccepted: root.confirmRenameWallpaper()
-                                    Keys.onEscapePressed: root.closeWallpaperUi()
+                                    onTextEdited: wallpaperTab.wallpaperRenameDraft = text
+                                    onAccepted: wallpaperTab.confirmRenameWallpaper()
+                                    Keys.onEscapePressed: wallpaperTab.closeWallpaperUi()
                                 }
                                 RowLayout {
                                     Layout.fillWidth: true
@@ -14899,7 +14183,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.closeWallpaperUi()
+                                            onClicked: wallpaperTab.closeWallpaperUi()
                                         }
                                     }
                                     Rectangle {
@@ -14922,7 +14206,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.confirmRenameWallpaper()
+                                            onClicked: wallpaperTab.confirmRenameWallpaper()
                                         }
                                     }
                                 }
@@ -14933,16 +14217,16 @@ Item {
 
                     Rectangle {
                         anchors.fill: parent
-                        visible: root.activeMenu === "wallpaper" && root.wallpaperDialog === "delete"
+                        visible: root.activeMenu === "wallpaper" && wallpaperTab.wallpaperDialog === "delete"
                         z: 50
                         color: Qt.rgba(0, 0, 0, 0.55)
                         radius: panelBox.radius
                         focus: visible
-                        Keys.onEscapePressed: root.closeWallpaperUi()
+                        Keys.onEscapePressed: wallpaperTab.closeWallpaperUi()
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: root.closeWallpaperUi()
+                            onClicked: wallpaperTab.closeWallpaperUi()
                         }
 
                         Rectangle {
@@ -14976,7 +14260,7 @@ Item {
                                 Text {
                                     Layout.fillWidth: true
                                     wrapMode: Text.WordWrap
-                                    text: "Remove “" + root.wallpaperDialogName + "” from this folder? This cannot be undone."
+                                    text: "Remove “" + wallpaperTab.wallpaperDialogName + "” from this folder? This cannot be undone."
                                     color: bar.subtext
                                     font.pixelSize: 12
                                     font.family: bar.fontFamily
@@ -15005,7 +14289,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.closeWallpaperUi()
+                                            onClicked: wallpaperTab.closeWallpaperUi()
                                         }
                                     }
                                     Rectangle {
@@ -15028,7 +14312,7 @@ Item {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: root.confirmDeleteWallpaper()
+                                            onClicked: wallpaperTab.confirmDeleteWallpaper()
                                         }
                                     }
                                 }
@@ -15134,7 +14418,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (modelData.id === "wallpaper")
-                                    root.refreshWallpapers()
+                                    wallpaperTab.refresh()
                                 if (modelData.id === "display")
                                     displayTab.refresh()
                                 if (modelData.id === "launch")

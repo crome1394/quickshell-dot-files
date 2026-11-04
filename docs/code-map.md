@@ -40,7 +40,7 @@ The header names the toolbar as Position, Display, Wallpaper, Widgets, Options, 
 | id | Label | Notes |
 |----|-------|-------|
 | `display` | Display | `DisplayTab.qml`. Menus are `DisplayMenuRow.qml`, `DisplayModeGroup.qml`, and `DisplayModeChip.qml`. |
-| `wallpaper` | Wallpaper | Rename, delete, and drag-drop live in this panel. |
+| `wallpaper` | Wallpaper | `WallpaperTab.qml`. Thumbs are `WallpaperThumb.qml`. Rename, delete, and the drop scrim stay in this panel. |
 | `widgets` | Widgets | `WidgetsTab.qml`. `toggleMenu("sizes")` lands here. Sizes was merged into Widgets. |
 | `options` | Options | Sub-tabs from `optionsTabModel`. |
 | `colors` | Themes | The menu id stays `colors`. Sub-tabs use `colorsTab`. |
